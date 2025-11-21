@@ -65,6 +65,8 @@ config/local.yaml
 .repomixignore
 .coveragerc
 plans/*
+CLAUDE.md
+REQUIREMENTS.md
 
 # Docs
 /uploads
