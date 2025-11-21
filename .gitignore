@@ -1,0 +1,70 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+
+# testing
+/coverage
+/test_docs
+
+# next.js
+.next/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# semantic-release
+.nyc_output
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+/.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+plans/**/*
+
+# Gemini CLI settings (symlink to .claude/.mcp.json)
+.gemini/*
+
+.venv
+__pycache__/
+*.pyc
+*.pyo
+
+# IDEs
+.vscode/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Session storage
+sessions/
+*.session
+
+# Logs
+*.log
+logs/
+
+# Project specific
+config/local.yaml
+
+# Claude
+.claude/*
+.repomixignore
+.coveragerc
+plans/*
+
+# Docs
+/uploads

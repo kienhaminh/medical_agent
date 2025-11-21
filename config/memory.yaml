@@ -1,0 +1,94 @@
+# Memory Configuration for AI Agent
+
+memory:
+  # Enable/disable memory system
+  enabled: false
+
+  # Provider: mem0, neo4j, or hybrid
+  provider: "mem0"
+
+  # Short-term memory (existing context manager)
+  short_term:
+    max_messages: 50
+    keep_recent: 20
+    max_tokens: 100000
+
+  # Long-term memory settings
+  long_term:
+    # Mem0 configuration
+    mem0:
+      # Graph store backend
+      graph_store:
+        provider: "neo4j"
+        config:
+          url: "neo4j://localhost:7687"
+          username: "neo4j"
+          password: "password123"
+
+      # Vector embeddings (using Gemini)
+      embeddings:
+        provider: "gemini"
+        model: "models/text-embedding-004"
+        # API key from GOOGLE_API_KEY env var
+
+      # LLM for fact extraction (using Gemini)
+      llm:
+        provider: "gemini"
+        model: "gemini-2.0-flash-exp"
+        # API key from GOOGLE_API_KEY env var
+
+    # Retrieval settings
+    retrieval:
+      default_limit: 5
+      # Scoring weights (must sum to 1.0)
+      weights:
+        semantic: 0.4    # Vector similarity
+        recency: 0.2     # Time-based score
+        importance: 0.3  # LLM-scored importance
+        graph: 0.1       # Graph relationships
+
+    # Memory consolidation
+    consolidation:
+      enabled: true
+      # Cron schedule (2 AM daily)
+      schedule: "0 2 * * *"
+      # Similarity threshold for duplicate detection
+      similarity_threshold: 0.95
+      # Batch size for processing
+      batch_size: 100
+
+    # Memory pruning
+    pruning:
+      enabled: true
+      # Maximum memories per user
+      max_memories_per_user: 10000
+      # Retention period in days
+      retention_days: 90
+      # Minimum importance score to keep
+      min_importance: 0.3
+      # Minimum access count to keep
+      min_access_count: 1
+
+    # Privacy & GDPR
+    privacy:
+      # Enable GDPR compliance features
+      gdpr_compliance: true
+      # Encrypt sensitive data
+      encryption_at_rest: false
+      # Auto-anonymize PII
+      anonymize_pii: true
+      # Default retention policy
+      retention_policy: "90_days"
+      # Audit trail
+      enable_audit_log: true
+
+  # Performance optimization
+  performance:
+    # Enable caching
+    enable_cache: true
+    # Cache TTL in seconds
+    cache_ttl: 300
+    # Batch operations
+    batch_operations: true
+    # Use Rust extensions for Neo4j
+    use_rust_extensions: true

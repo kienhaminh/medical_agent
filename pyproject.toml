@@ -1,0 +1,84 @@
+[tool.poetry]
+name = "ai-agent"
+version = "0.1.0"
+description = "A basic personal AI agent with CLI interface"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typer = "^0.9.0"
+
+python-dotenv = "^1.0.0"
+rich = "^13.0.0"
+pyyaml = "^6.0"
+requests = "^2.31.0"
+geoip2 = "^4.8.0"
+fastapi = "^0.104.0"
+uvicorn = "^0.24.0"
+mem0ai = "^1.0.1"
+sqlalchemy = "^2.0.0"
+asyncpg = "^0.29.0"
+pgvector = "^0.2.0"
+# LangChain dependencies for migration
+langchain-core = "^0.3.0"
+langchain-openai = "^0.2.0"
+langgraph = "^0.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-mock = "^3.12.0"
+pytest-cov = "^4.1.0"
+black = "^23.0.0"
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
+ai-agent = "src.main:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=src --cov-report=term-missing --disable-warnings"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__main__.py",
+    "*/main.py",
+    "*/api/server.py",
+    "*/cli/commands.py",
+    "*/cli/ui.py",
+
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "pass",
+    "\\.\\.\\.",
+]
