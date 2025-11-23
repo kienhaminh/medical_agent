@@ -5,7 +5,6 @@ node_modules/
 
 # testing
 /coverage
-/test_docs
 
 # next.js
 .next/
@@ -67,6 +66,8 @@ config/local.yaml
 plans/*
 CLAUDE.md
 REQUIREMENTS.md
+docs/
+Database-Description.md
 
 # Docs
 /uploads

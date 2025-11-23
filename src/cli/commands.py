@@ -1,14 +1,14 @@
 """CLI commands for AI Agent."""
 
 import sys
+import asyncio
 from pathlib import Path
 
 import typer
 from rich.prompt import Prompt
 
-from ..agent.core import Agent
+from ..agent.langgraph_agent import LangGraphAgent
 from ..config.settings import load_config
-from ..context.manager import ContextManager
 from ..llm.gemini import GeminiProvider
 from ..llm.openai import OpenAIProvider
 from ..llm.kimi import KimiProvider
@@ -53,21 +53,14 @@ def create_agent(verbose: bool = False) -> Agent:
             temperature=0.3,
         )
 
-        # Create context manager
-        context_manager = ContextManager(
-            max_messages=config.context.max_messages,
-            keep_recent=config.context.keep_recent,
-            max_tokens=config.context.max_tokens,
-        )
-
         # Create agent
         system_prompt = (
             "You are a helpful AI assistant. Provide clear, concise, and accurate responses."
         )
-        agent = Agent(
-            llm_provider=llm_provider,
-            context_manager=context_manager,
+        agent = LangGraphAgent(
+            llm_with_tools=llm_provider.llm,
             system_prompt=system_prompt,
+            # memory_manager=None, # CLI doesn't use persistent memory for now
         )
 
         if verbose:
@@ -98,13 +91,16 @@ def chat(
         if verbose:
             print_user_message(message)
 
-        # Process message
-        if stream:
-            response_chunks = agent.process_message(message, stream=True)
-            stream_response(response_chunks)
-        else:
-            response = agent.process_message(message)
-            print_assistant_message(response)
+        async def run():
+            # Process message
+            if stream:
+                response_chunks = await agent.process_message(message, stream=True)
+                stream_response(response_chunks)
+            else:
+                response = await agent.process_message(message)
+                print_assistant_message(response)
+
+        asyncio.run(run())
 
     except AIAgentError as e:
         print_error(f"Agent error: {str(e)}")
@@ -130,41 +126,44 @@ def interactive(
         agent = create_agent(verbose=verbose)
 
         print_success("Interactive mode started. Type 'exit', 'quit', or 'q' to exit.")
-        print_info("Type 'clear' to clear conversation context.\n")
+        # print_info("Type 'clear' to clear conversation context.\n") # Not supported in LangGraphAgent yet
 
-        while True:
-            # Get user input
-            try:
-                user_input = Prompt.ask("[bold cyan]You[/bold cyan]")
-            except (EOFError, KeyboardInterrupt):
-                print_info("\nExiting interactive mode...")
-                break
+        async def run_loop():
+            while True:
+                # Get user input
+                try:
+                    user_input = Prompt.ask("[bold cyan]You[/bold cyan]")
+                except (EOFError, KeyboardInterrupt):
+                    print_info("\nExiting interactive mode...")
+                    break
 
-            # Handle special commands
-            if user_input.lower() in ["exit", "quit", "q"]:
-                print_info("Exiting interactive mode...")
-                break
+                # Handle special commands
+                if user_input.lower() in ["exit", "quit", "q"]:
+                    print_info("Exiting interactive mode...")
+                    break
 
-            if user_input.lower() == "clear":
-                agent.clear_context()
-                print_success("Context cleared.")
-                continue
+                # if user_input.lower() == "clear":
+                #     agent.clear_context()
+                #     print_success("Context cleared.")
+                #     continue
 
-            if not user_input.strip():
-                continue
+                if not user_input.strip():
+                    continue
 
-            # Process message
-            try:
-                if stream:
-                    response_chunks = agent.process_message(user_input, stream=True)
-                    stream_response(response_chunks)
-                else:
-                    response = agent.process_message(user_input)
-                    print_assistant_message(response)
+                # Process message
+                try:
+                    if stream:
+                        response_chunks = await agent.process_message(user_input, stream=True)
+                        stream_response(response_chunks)
+                    else:
+                        response = await agent.process_message(user_input)
+                        print_assistant_message(response)
 
-            except AIAgentError as e:
-                print_error(f"Agent error: {str(e)}")
-                continue
+                except AIAgentError as e:
+                    print_error(f"Agent error: {str(e)}")
+                    continue
+
+        asyncio.run(run_loop())
 
         print_success("Goodbye!")
 

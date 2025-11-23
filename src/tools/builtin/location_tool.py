@@ -191,4 +191,4 @@ def get_location(
 from ..registry import ToolRegistry
 
 _registry = ToolRegistry()
-_registry.register(get_location)
+_registry.register(get_location, scope="global")

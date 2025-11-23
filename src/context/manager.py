@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Literal
 
 from ..llm.provider import Message
+from ..utils.enums import MessageRole
 
 
 class ContextManager:
@@ -38,7 +39,7 @@ class ContextManager:
 
     def add_message(
         self,
-        role: Literal["user", "assistant", "system", "tool"],
+        role: MessageRole,
         content: str,
         tool_call_id: str | None = None,
         tool_calls: list | None = None,
@@ -97,10 +98,10 @@ class ContextManager:
             return
 
         # Always keep system messages
-        system_messages = [msg for msg in self.messages if msg.role == "system"]
+        system_messages = [msg for msg in self.messages if msg.role == MessageRole.SYSTEM]
 
         # Get non-system messages
-        other_messages = [msg for msg in self.messages if msg.role != "system"]
+        other_messages = [msg for msg in self.messages if msg.role != MessageRole.SYSTEM]
 
         # Keep most recent messages
         if len(other_messages) > self.keep_recent:
@@ -120,7 +121,7 @@ class ContextManager:
         return self.messages[-1]
 
     def get_messages_by_role(
-        self, role: Literal["user", "assistant", "system", "tool"]
+        self, role: MessageRole
     ) -> list[Message]:
         """Get all messages with a specific role.
 

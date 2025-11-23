@@ -20,7 +20,7 @@ export function AgentProcessContainer({ reasoning, toolCalls }: AgentProcessCont
   const hasReasoning = !!reasoning;
 
   return (
-    <div className="border border-border/50 rounded-lg bg-card/30 overflow-hidden text-sm mb-2">
+    <div className="border border-border/50 rounded-lg bg-card/30 overflow-hidden text-sm mb-1">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"

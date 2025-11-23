@@ -102,7 +102,7 @@ export default function PatientsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full overflow-y-auto bg-background">
       {/* Header */}
       <div className="border-b border-border/50 bg-card/30 backdrop-blur-xl sticky top-0 z-10">
         <div className="container mx-auto px-6 py-6">

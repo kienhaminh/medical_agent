@@ -12,6 +12,7 @@ export interface Tool {
   name: string;
   description?: string;
   enabled: boolean;
+  scope?: 'global' | 'assignable' | 'both';
   category?: string;
 }
 
@@ -184,4 +185,187 @@ export async function deleteRecord(recordId: number): Promise<void> {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete record');
+}
+
+// --- Agent API ---
+import type {
+  SubAgent,
+  SubAgentCreate,
+  SubAgentUpdate,
+  AgentToolAssignment,
+  AssignmentMatrixItem,
+} from '@/types/agent';
+
+export async function getAgents(): Promise<SubAgent[]> {
+  const res = await fetch(`${API_BASE_URL}/agents`);
+  if (!res.ok) throw new Error('Failed to fetch agents');
+  return res.json();
+}
+
+export async function getAgent(id: number): Promise<SubAgent> {
+  const res = await fetch(`${API_BASE_URL}/agents/${id}`);
+  if (!res.ok) throw new Error('Failed to fetch agent');
+  return res.json();
+}
+
+export async function createAgent(data: SubAgentCreate): Promise<SubAgent> {
+  const res = await fetch(`${API_BASE_URL}/agents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to create agent');
+  }
+  return res.json();
+}
+
+export async function updateAgent(id: number, data: SubAgentUpdate): Promise<SubAgent> {
+  const res = await fetch(`${API_BASE_URL}/agents/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to update agent');
+  }
+  return res.json();
+}
+
+export async function deleteAgent(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/agents/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete agent');
+}
+
+export async function toggleAgent(id: number, enabled: boolean): Promise<SubAgent> {
+  const res = await fetch(`${API_BASE_URL}/agents/${id}/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error('Failed to toggle agent');
+  return res.json();
+}
+
+export async function cloneAgent(id: number): Promise<SubAgent> {
+  const res = await fetch(`${API_BASE_URL}/agents/${id}/clone`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Failed to clone agent');
+  return res.json();
+}
+
+// --- Tool Assignment API ---
+
+export async function getAgentTools(agentId: number): Promise<Tool[]> {
+  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools`);
+  if (!res.ok) throw new Error('Failed to fetch agent tools');
+  return res.json();
+}
+
+export async function assignTool(agentId: number, toolName: string): Promise<AgentToolAssignment> {
+  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool_name: toolName }),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || 'Failed to assign tool');
+  }
+  return res.json();
+}
+
+export async function unassignTool(agentId: number, toolName: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools/${toolName}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to unassign tool');
+}
+
+export async function bulkUpdateAgentTools(
+  agentId: number,
+  toolNames: string[]
+): Promise<AgentToolAssignment[]> {
+  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool_names: toolNames }),
+  });
+  if (!res.ok) throw new Error('Failed to update agent tools');
+  return res.json();
+}
+
+export async function getAssignments(): Promise<AssignmentMatrixItem[]> {
+  const res = await fetch(`${API_BASE_URL}/agent-tool-assignments`);
+  if (!res.ok) throw new Error('Failed to fetch assignments');
+  return res.json();
+}
+
+// --- Chat Session API ---
+
+export interface ChatSession {
+  id: number;
+  title: string;
+  agent_id: number | null;
+  agent_name: string | null;
+  message_count: number;
+  preview: string | null;
+  tags: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  session_id: number;
+  role: string;
+  content: string;
+  tool_calls: string | null;
+  reasoning: string | null;
+  created_at: string;
+}
+
+export interface ChatSessionCreate {
+  title: string;
+  agent_id: number | null;
+}
+
+export async function getChatSessions(): Promise<ChatSession[]> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions`);
+  if (!res.ok) throw new Error('Failed to fetch chat sessions');
+  return res.json();
+}
+
+export async function getChatSession(sessionId: number): Promise<ChatSession> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}`);
+  if (!res.ok) throw new Error('Failed to fetch chat session');
+  return res.json();
+}
+
+export async function getSessionMessages(sessionId: number): Promise<ChatMessage[]> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/messages`);
+  if (!res.ok) throw new Error('Failed to fetch session messages');
+  return res.json();
+}
+
+export async function createChatSession(data: ChatSessionCreate): Promise<ChatSession> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create chat session');
+  return res.json();
+}
+
+export async function deleteChatSession(sessionId: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete chat session');
 }

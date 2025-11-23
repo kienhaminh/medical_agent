@@ -3,13 +3,14 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import AsyncIterator, Iterator, Literal, Union
+from ..utils.enums import MessageRole
 
 
 @dataclass
 class Message:
     """Chat message."""
 
-    role: Literal["user", "assistant", "system", "tool"]
+    role: MessageRole
     content: str
     tool_call_id: str | None = None  # For ToolMessage
     tool_calls: list | None = None  # For AssistantMessage

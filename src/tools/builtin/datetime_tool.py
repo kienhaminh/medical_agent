@@ -111,4 +111,4 @@ def get_current_datetime(
 from ..registry import ToolRegistry
 
 _registry = ToolRegistry()
-_registry.register(get_current_datetime)
+_registry.register(get_current_datetime, scope="global")

@@ -1,23 +1,30 @@
-"""LangGraph-based agent with ReAct pattern."""
+"""Unified LangGraph Agent with Multi-Agent Orchestration and Tool Execution.
 
-from typing import Annotated, Sequence
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
-from langgraph.graph import StateGraph, END, MessagesState
-from langgraph.prebuilt import ToolNode
+This agent combines:
+1. Supervisor pattern: Delegates to specialized sub-agents from database
+2. ReAct pattern: Directly executes common tools
+3. Hybrid decision-making: Routes to specialists OR uses tools based on query
+"""
+
+from typing import Union, AsyncGenerator
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
+from .state import AgentState
+from .agent_config import AgentConfig, get_default_system_prompt
+from .agent_loader import AgentLoader
+from .specialist_handler import SpecialistHandler
+from .graph_builder import GraphBuilder
+from .response_generator import ResponseGenerator
+from ..tools.registry import ToolRegistry
 
 
 class LangGraphAgent:
-    """Agent using LangGraph for orchestration with ReAct pattern.
-
-    Uses LangGraph's StateGraph to implement a ReAct (Reasoning and Acting)
-    pattern with automatic tool execution and state management.
-
-    Architecture:
-        User → Agent Node (LLM) → Conditional Edge
-                                    ↓
-                        Tools? → ToolNode → Back to Agent
-                                    ↓
-                        No tools? → END
+    """Unified agent with multi-agent orchestration and tool execution.
+    
+    This agent can:
+    - Delegate complex queries to specialized sub-agents (from database)
+    - Execute common tools directly (ReAct pattern)
+    - Combine multiple approaches for comprehensive answers
     """
 
     def __init__(
@@ -26,102 +33,109 @@ class LangGraphAgent:
         system_prompt: str = None,
         memory_manager=None,
         user_id: str = "default",
-        max_iterations: int = 5,
+        max_iterations: int = 10,
+        use_persistence: bool = False,
+        max_concurrent_subagents: int = 5,
+        subagent_timeout: float = 30.0,
     ):
-        """Initialize LangGraph agent.
+        """Initialize unified LangGraph agent.
 
         Args:
-            llm_with_tools: LangChain LLM with tools already bound
+            llm_with_tools: LangChain LLM with tools bound
             system_prompt: Optional system prompt
             memory_manager: Optional Mem0 memory manager
             user_id: User identifier for memory
-            max_iterations: Maximum tool execution iterations
+            max_iterations: Maximum iterations for ReAct loop
+            use_persistence: Whether to use Postgres persistence
+            max_concurrent_subagents: Maximum concurrent sub-agent consultations
+            subagent_timeout: Timeout in seconds for sub-agent consultations
         """
         self.llm = llm_with_tools
-        self.system_prompt = system_prompt
+        self.system_prompt = system_prompt or get_default_system_prompt()
         self.memory_manager = memory_manager
-        self.user_id = user_id
-        self.max_iterations = max_iterations
-
-        # Build the LangGraph workflow
-        self.graph = self._build_graph()
-
-    def _build_graph(self):
-        """Build LangGraph StateGraph with ReAct pattern."""
-
-        # Define the agent node
-        def call_model(state: MessagesState):
-            """Agent node: invoke LLM with current state."""
-            messages = state["messages"]
-            response = self.llm.invoke(messages)
-            return {"messages": [response]}
-
-        # Create tool node (handles all tool execution automatically)
-        tools = self.llm.tools if hasattr(self.llm, "tools") else []
-        tool_node = ToolNode(tools) if tools else None
-
-        # Define conditional edge logic
-        def should_continue(state: MessagesState):
-            """Decide whether to continue to tools or end.
-
-            Checks if the last message has tool calls.
-            """
-            messages = state["messages"]
-            last_message = messages[-1]
-
-            # If there are tool calls, go to tools node
-            if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-                return "tools"
-
-            # Otherwise, end
-            return END
-
-        # Build the graph
-        workflow = StateGraph(MessagesState)
-
-        # Add nodes
-        workflow.add_node("agent", call_model)
-        if tool_node:
-            workflow.add_node("tools", tool_node)
-
-        # Set entry point
-        workflow.set_entry_point("agent")
-
-        # Add conditional edges
-        if tool_node:
-            workflow.add_conditional_edges(
-                "agent",
-                should_continue,
-                {
-                    "tools": "tools",
-                    END: END,
-                },
-            )
-            # After tools, always go back to agent
-            workflow.add_edge("tools", "agent")
-        else:
-            # No tools, just end after agent
-            workflow.add_edge("agent", END)
-
-        # Compile the graph
-        return workflow.compile()
-
-    def process_message(self, user_message: str, stream: bool = False):
-        """Process user message through LangGraph.
+        
+        # Initialize configuration
+        self.config = AgentConfig(
+            user_id=user_id,
+            max_iterations=max_iterations,
+            max_concurrent_subagents=max_concurrent_subagents,
+            subagent_timeout=subagent_timeout,
+            use_persistence=use_persistence,
+        )
+        
+        # Initialize tool registry
+        self.tool_registry = ToolRegistry()
+        
+        # Initialize agent loader
+        self.agent_loader = AgentLoader()
+        
+        # Initialize specialist handler
+        self.specialist_handler = SpecialistHandler(
+            llm=self.llm,
+            tool_registry=self.tool_registry,
+            max_concurrent_subagents=max_concurrent_subagents,
+            subagent_timeout=subagent_timeout,
+        )
+        
+        # Initialize graph builder
+        self.graph_builder = GraphBuilder(
+            llm=self.llm,
+            tool_registry=self.tool_registry,
+            agent_loader=self.agent_loader,
+            specialist_handler=self.specialist_handler,
+            system_prompt=self.system_prompt,
+            max_iterations=max_iterations,
+            checkpointer=self.config.checkpointer,
+        )
+        
+        # Build the initial graph
+        self.graph = self.graph_builder.build()
+        
+        # Initialize response generator
+        self.response_generator = ResponseGenerator(
+            graph=self.graph,
+            memory_manager=memory_manager,
+            user_id=user_id,
+        )
+    
+    async def _reload_graph(self):
+        """Reload the graph after loading sub-agents."""
+        # Rebuild graph with updated sub-agents
+        self.graph = self.graph_builder.build()
+        # Update response generator with new graph
+        self.response_generator.update_graph(self.graph)
+    
+    async def process_message(
+        self,
+        user_message: str,
+        stream: bool = False,
+        chat_history: list = None
+    ) -> Union[str, AsyncGenerator[str, None]]:
+        """Process user message through unified agent.
 
         Args:
             user_message: User's input message
             stream: Whether to stream the response
+            chat_history: Optional list of previous messages with 'role' and 'content' keys
 
         Returns:
             Response string (non-streaming) or generator (streaming)
         """
+        # Load sub-agents from database
+        sub_agents = await self.agent_loader.load_enabled_agents()
+        
+        # Update specialist handler with loaded agents
+        self.specialist_handler.set_sub_agents(sub_agents)
+        
+        # Rebuild graph with updated sub-agents
+        await self._reload_graph()
+        
         # Retrieve memories if available
         memories = []
         if self.memory_manager:
             try:
                 memories = self.memory_manager.search_memories(
-                    query=user_message, user_id=self.user_id, limit=5
+                    query=user_message, user_id=self.config.user_id, limit=5
                 )
             except Exception as e:
                 print(f"Memory retrieval failed: {e}")
@@ -141,86 +155,33 @@ class LangGraphAgent:
                     content=f"Relevant information from past:\n{memory_context}"
                 )
             )
+        
+        # Add chat history if provided
+        if chat_history:
+            for msg in chat_history:
+                if msg["role"] == "user":
+                    messages.append(HumanMessage(content=msg["content"]))
+                elif msg["role"] == "assistant":
+                    messages.append(AIMessage(content=msg["content"]))
 
         # Add user message
         messages.append(HumanMessage(content=user_message))
 
-        initial_state = {"messages": messages}
+        initial_state = {
+            "messages": messages,
+            "patient_profile": {},
+            "steps_taken": 0,
+            "final_report": None,
+            "next_agents": []
+        }
+        
+        config = self.config.get_config()
 
         if stream:
-            return self._stream_response(initial_state, user_message)
+            return self.response_generator.stream_response(initial_state, config, user_message)
         else:
-            return self._generate_response(initial_state, user_message)
-
-    def _generate_response(self, initial_state, user_message):
-        """Generate non-streaming response.
-
-        Args:
-            initial_state: Initial LangGraph state
-            user_message: Original user message
-
-        Returns:
-            Response content string
-        """
-        # Invoke the graph
-        final_state = self.graph.invoke(initial_state)
-
-        # Extract response from final state
-        response_content = final_state["messages"][-1].content
-
-        # Store in memory if available
-        if self.memory_manager:
-            try:
-                self.memory_manager.add_conversation(
-                    user_id=self.user_id,
-                    messages=[
-                        {"role": "user", "content": user_message},
-                        {"role": "assistant", "content": response_content},
-                    ],
-                )
-            except Exception as e:
-                print(f"Memory storage failed: {e}")
-
-        return response_content
-
-    def _stream_response(self, initial_state, user_message):
-        """Generate streaming response.
-
-        Args:
-            initial_state: Initial LangGraph state
-            user_message: Original user message
-
-        Yields:
-            Content chunks as they arrive
-        """
-        final_content = []
-
-        # Stream through the graph
-        for chunk in self.graph.stream(initial_state, stream_mode="values"):
-            if "messages" in chunk and chunk["messages"]:
-                last_message = chunk["messages"][-1]
-
-                # Only yield AI message content
-                if isinstance(last_message, AIMessage) and last_message.content:
-                    # Check if we've already yielded this content
-                    if last_message.content not in final_content:
-                        final_content.append(last_message.content)
-                        yield last_message.content
-
-        # Store in memory after streaming completes
-        if self.memory_manager and final_content:
-            try:
-                response_text = final_content[-1] if final_content else ""
-                self.memory_manager.add_conversation(
-                    user_id=self.user_id,
-                    messages=[
-                        {"role": "user", "content": user_message},
-                        {"role": "assistant", "content": response_text},
-                    ],
-                )
-            except Exception as e:
-                print(f"Memory storage failed: {e}")
-
+            return await self.response_generator.generate_response(initial_state, config, user_message)
+    
     def __repr__(self) -> str:
         """String representation."""
-        return f"LangGraphAgent(user_id={self.user_id})"
+        return f"LangGraphAgent(user_id={self.config.user_id}, sub_agents={len(self.agent_loader.sub_agents)}, tools={len(self.tool_registry.get_langchain_tools())})"

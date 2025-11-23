@@ -1,21 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AgentMessage } from "@/components/agent/agent-message";
-import { AgentProgress, type AgentActivity } from "@/components/agent/agent-progress";
+import { UserMessage } from "@/components/agent/user-message";
+import { type AgentActivity } from "@/components/agent/agent-progress";
 import type { ToolCall } from "@/components/agent/tool-call-item";
+import { MessageRole } from "@/types/enums";
+import { getSessionMessages } from "@/lib/api";
+import { toast } from "sonner";
 
 import "highlight.js/styles/github-dark.css";
-import { Send, Sparkles, RefreshCw, Activity, Brain, Zap } from "lucide-react";
+import { Send, Sparkles, RefreshCw, Activity, Brain, Zap, History } from "lucide-react";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: MessageRole;
   content: string;
   timestamp: Date;
   toolCalls?: ToolCall[];
@@ -23,11 +28,19 @@ interface Message {
 }
 
 export default function AgentChatPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlSessionId = searchParams.get("session");
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(urlSessionId);
+  const currentSessionIdRef = useRef<string | null>(urlSessionId);
+  const isCreatingSessionRef = useRef(false);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentActivity, setCurrentActivity] = useState<AgentActivity | null>(null);
   const [activityDetails, setActivityDetails] = useState<string>("");
+  const [loadingSession, setLoadingSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,13 +52,59 @@ export default function AgentChatPage() {
     scrollToBottom();
   }, [messages]);
 
+  // Sync local state with URL
+  useEffect(() => {
+    setCurrentSessionId(urlSessionId);
+    if (urlSessionId) {
+      currentSessionIdRef.current = urlSessionId;
+    }
+  }, [urlSessionId]);
+
+  // Load session messages when currentSessionId is present
+  useEffect(() => {
+    const loadSession = async () => {
+      if (!currentSessionId) return;
+
+      // Skip loading if we just created the session locally
+      if (isCreatingSessionRef.current) {
+        isCreatingSessionRef.current = false;
+        return;
+      }
+
+      try {
+        setLoadingSession(true);
+        const sessionMessages = await getSessionMessages(parseInt(currentSessionId));
+
+        // Convert ChatMessage to Message format
+        const convertedMessages: Message[] = sessionMessages.map((msg) => ({
+          id: msg.id.toString(),
+          role: msg.role as MessageRole,
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+          toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : undefined,
+          reasoning: msg.reasoning || undefined,
+        }));
+
+        setMessages(convertedMessages);
+        toast.success("Chat session loaded successfully");
+      } catch (error) {
+        console.error("Failed to load session:", error);
+        toast.error("Failed to load chat session");
+      } finally {
+        setLoadingSession(false);
+      }
+    };
+
+    loadSession();
+  }, [currentSessionId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      role: "user",
+      role: MessageRole.USER,
       content: input.trim(),
       timestamp: new Date(),
     };
@@ -60,7 +119,7 @@ export default function AgentChatPage() {
     const assistantMessageId = (Date.now() + 1).toString();
     const assistantMessage: Message = {
       id: assistantMessageId,
-      role: "assistant",
+      role: MessageRole.ASSISTANT,
       content: "",
       timestamp: new Date(),
       toolCalls: [],
@@ -70,10 +129,16 @@ export default function AgentChatPage() {
     setMessages(prev => [...prev, assistantMessage]);
 
     try {
+      const activeSessionId = currentSessionIdRef.current || currentSessionId;
+      
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userInput, stream: true }),
+        body: JSON.stringify({ 
+          message: userInput, 
+          stream: true,
+          session_id: activeSessionId ? parseInt(activeSessionId) : undefined 
+        }),
       });
 
       if (!response.ok) throw new Error("API request failed");
@@ -121,6 +186,27 @@ export default function AgentChatPage() {
             try {
               const parsed = JSON.parse(data);
               if (parsed.error) throw new Error(parsed.error);
+              
+              // Handle iteration events (autonomous ReAct loop)
+              if (parsed.iteration) {
+                const phase = parsed.phase;
+                const iteration = parsed.iteration;
+                
+                if (phase === "thinking") {
+                  setCurrentActivity("thinking");
+                  setActivityDetails(`Iteration ${iteration}: Analyzing and reasoning...`);
+                } else if (phase === "acting") {
+                  setCurrentActivity("tool_calling");
+                  const toolCount = parsed.tool_count || 0;
+                  setActivityDetails(`Iteration ${iteration}: Executing ${toolCount} tool${toolCount > 1 ? 's' : ''}...`);
+                } else if (phase === "observing") {
+                  setCurrentActivity("analyzing");
+                  setActivityDetails(`Iteration ${iteration}: Processing results...`);
+                } else if (phase === "answering") {
+                  setCurrentActivity("thinking");
+                  setActivityDetails(`Iteration ${iteration}: Formulating final answer...`);
+                }
+              }
               
               if (parsed.chunk) {
                 // Match non-whitespace sequences OR whitespace sequences to preserve all characters
@@ -186,6 +272,24 @@ export default function AgentChatPage() {
                       : msg
                   )
                 );
+              }
+
+              if (parsed.session_id) {
+                const newSessionId = parsed.session_id.toString();
+                console.log("Received session_id from backend:", newSessionId);
+                // Update local state and URL if it's a new session
+                if (!currentSessionIdRef.current) {
+                  console.log("Setting currentSessionId to:", newSessionId);
+                  currentSessionIdRef.current = newSessionId; // Immediate update
+                  isCreatingSessionRef.current = true;
+                  setCurrentSessionId(newSessionId);
+                  
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("session", newSessionId);
+                  router.replace(url.toString(), { scroll: false });
+                } else {
+                    console.log("currentSessionId already set:", currentSessionIdRef.current);
+                }
               }
 
               if (parsed.done) break;
@@ -263,10 +367,26 @@ export default function AgentChatPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {currentSessionId && (
+                <Badge variant="outline" className="medical-badge-text">
+                  Session #{currentSessionId}
+                </Badge>
+              )}
               <Badge variant="secondary" className="medical-badge-text">
                 {messages.length} messages
               </Badge>
-              {messages.length > 0 && (
+              {currentSessionId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/agent/history")}
+                  className="secondary-button gap-2"
+                >
+                  <History className="w-3 h-3" />
+                  History
+                </Button>
+              )}
+              {messages.length > 0 && !currentSessionId && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -283,9 +403,16 @@ export default function AgentChatPage() {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 relative z-10 overflow-y-auto custom-scrollbar">
+      <ScrollArea className="flex-1 relative z-10 min-h-0">
         <div className="container mx-auto px-6 py-8 max-w-5xl">
-          {messages.length === 0 ? (
+          {loadingSession ? (
+            <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
+              <div className="space-y-4 text-center">
+                <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
+                <p className="text-sm text-muted-foreground">Loading chat session...</p>
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)] space-y-8 animate-in fade-in duration-700">
               {/* Logo/Icon */}
               <div className="relative">
@@ -344,24 +471,12 @@ export default function AgentChatPage() {
                   className="animate-in fade-in slide-in-from-bottom-4 duration-500"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  {message.role === "user" ? (
-                    // User Message
-                    <div className="flex justify-end">
-                      <div className="max-w-[80%] space-y-2">
-                        <Card className="p-4 bg-gradient-to-r from-cyan-500/10 to-teal-500/10 border-cyan-500/30 medical-border-glow">
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
-                            {message.content}
-                          </p>
-                        </Card>
-                        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                          <span>You</span>
-                          <div className="w-1 h-1 bg-muted-foreground/50 rounded-full" />
-                          <span>{message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        </div>
-                      </div>
-                    </div>
+                  {message.role === MessageRole.USER ? (
+                    <UserMessage
+                      content={message.content}
+                      timestamp={message.timestamp}
+                    />
                   ) : (
-                    // Assistant Message
                     <AgentMessage
                       content={message.content}
                       reasoning={message.reasoning}
@@ -369,24 +484,20 @@ export default function AgentChatPage() {
                       timestamp={message.timestamp}
                       isLoading={isLoading}
                       isLatest={message.id === messages[messages.length - 1]?.id}
+                      currentActivity={message.id === messages[messages.length - 1]?.id ? currentActivity : null}
+                      activityDetails={message.id === messages[messages.length - 1]?.id ? activityDetails : undefined}
                     />
                   )}
                 </div>
               ))}
 
-              {/* Agent Progress Indicator */}
-              {currentActivity && (
-                <AgentProgress
-                  activity={currentActivity}
-                  details={activityDetails}
-                />
-              )}
+
 
               <div ref={messagesEndRef} />
             </div>
           )}
         </div>
-      </div>
+      </ScrollArea>
 
       {/* Input Area */}
       <div className="relative z-10 border-t border-border/50 bg-card/30 backdrop-blur-xl">
@@ -442,3 +553,5 @@ export default function AgentChatPage() {
   );
 }
 
+// Force dynamic rendering for this page
+export const dynamic = 'force-dynamic';

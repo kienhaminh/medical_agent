@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, stream } = await request.json();
+    const { message, stream, session_id } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -20,7 +20,11 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message, stream: stream || false }),
+        body: JSON.stringify({ 
+          message, 
+          stream: stream || false,
+          session_id 
+        }),
       });
 
       if (!response.ok) {

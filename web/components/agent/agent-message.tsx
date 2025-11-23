@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react";
 import { AgentProcessContainer } from "./agent-process-container";
 import { AnswerContent } from "./answer-content";
+import { AgentProgress, type AgentActivity } from "./agent-progress";
 import type { ToolCall } from "./tool-call-item";
 
 interface AgentMessageProps {
@@ -12,6 +13,8 @@ interface AgentMessageProps {
   timestamp: Date;
   isLoading?: boolean;
   isLatest?: boolean;
+  currentActivity?: AgentActivity | null;
+  activityDetails?: string;
 }
 
 export function AgentMessage({
@@ -20,7 +23,9 @@ export function AgentMessage({
   toolCalls,
   timestamp,
   isLoading,
-  isLatest
+  isLatest,
+  currentActivity,
+  activityDetails
 }: AgentMessageProps) {
   return (
     <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -32,7 +37,7 @@ export function AgentMessage({
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 space-y-1">
         {/* Agent Process (Collapsible) */}
         <AgentProcessContainer reasoning={reasoning} toolCalls={toolCalls} />
 
@@ -43,6 +48,13 @@ export function AgentMessage({
             isLoading={isLoading}
             isLatest={isLatest}
           />
+        )}
+
+        {/* Agent Progress (Only for latest message) */}
+        {isLatest && currentActivity && (
+          <div className="mb-2">
+            <AgentProgress activity={currentActivity} details={activityDetails} />
+          </div>
         )}
 
         {/* Timestamp */}

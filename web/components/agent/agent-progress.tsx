@@ -58,45 +58,42 @@ export function AgentProgress({ activity, details }: AgentProgressProps) {
   const Icon = config.icon;
 
   return (
-    <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="flex-shrink-0 w-10" />
-      <div className="flex-1 space-y-2">
-        <Card className="p-4 bg-card/50 border-border/50 record-card">
-          <div className="flex items-center gap-3">
-            {/* Animated Icon */}
-            <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} animate-pulse`}>
-              <Icon className="w-4 h-4" />
-            </div>
-
-            {/* Activity Label */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className={`text-sm font-medium ${config.color}`}>
-                  {config.label}
-                </span>
-                {/* Animated Dots */}
-                <div className="flex gap-1">
-                  <div className={`w-1.5 h-1.5 ${config.bgColor} rounded-full animate-bounce`} style={{ animationDelay: "0ms" }} />
-                  <div className={`w-1.5 h-1.5 ${config.bgColor} rounded-full animate-bounce`} style={{ animationDelay: "150ms" }} />
-                  <div className={`w-1.5 h-1.5 ${config.bgColor} rounded-full animate-bounce`} style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-
-              {/* Details */}
-              {details && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {details}
-                </p>
-              )}
-            </div>
-
-            {/* Spinner */}
-            <div className={`w-5 h-5 border-2 border-transparent ${config.bgColor} rounded-full animate-spin`}>
-              <div className={`w-full h-full border-2 ${config.color} border-t-transparent rounded-full`} />
-            </div>
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Card className="p-4 bg-card/50 border-border/50 record-card">
+        <div className="flex items-center gap-3">
+          {/* Animated Icon */}
+          <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} animate-pulse`}>
+            <Icon className="w-4 h-4" />
           </div>
-        </Card>
-      </div>
+
+          {/* Activity Label */}
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-medium ${config.color}`}>
+                {config.label}
+              </span>
+              {/* Animated Dots */}
+              <div className="flex gap-1">
+                <div className={`w-1.5 h-1.5 ${config.bgColor} rounded-full animate-bounce`} style={{ animationDelay: "0ms" }} />
+                <div className={`w-1.5 h-1.5 ${config.bgColor} rounded-full animate-bounce`} style={{ animationDelay: "150ms" }} />
+                <div className={`w-1.5 h-1.5 ${config.bgColor} rounded-full animate-bounce`} style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+
+            {/* Details */}
+            {details && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {details}
+              </p>
+            )}
+          </div>
+
+          {/* Spinner */}
+          <div className={`w-5 h-5 border-2 border-transparent ${config.bgColor} rounded-full animate-spin`}>
+            <div className={`w-full h-full border-2 ${config.color} border-t-transparent rounded-full`} />
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

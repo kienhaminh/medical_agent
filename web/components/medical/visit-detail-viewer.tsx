@@ -200,8 +200,8 @@ export function VisitDetailViewer({
                 Clinical Notes
               </h3>
               <Card className="p-4 bg-card/50 border-border/50">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown className="text-sm leading-relaxed whitespace-pre-wrap">
+                <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap">
+                  <ReactMarkdown>
                     {visit.notes}
                   </ReactMarkdown>
                 </div>

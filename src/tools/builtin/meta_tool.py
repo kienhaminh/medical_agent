@@ -2,7 +2,8 @@
 
 import os
 from ..registry import ToolRegistry
-from ...config.database import SessionLocal, CustomTool
+from ...config.database import SessionLocal, Tool
+from ...utils.enums import MessageRole
 
 def create_new_tool(
     name: str,
@@ -52,8 +53,8 @@ Requirements:
         response = client.chat.completions.create(
             model="kimi-k2-thinking",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
+                {"role": MessageRole.SYSTEM.value, "content": "You are a helpful assistant."},
+                {"role": MessageRole.USER.value, "content": prompt}
             ],
             temperature=0.3
         )
@@ -78,13 +79,13 @@ Requirements:
         session = SessionLocal()
         try:
             # Check if exists
-            existing = session.query(CustomTool).filter(CustomTool.name == name).first()
+            existing = session.query(Tool).filter(Tool.name == name).first()
             if existing:
                 existing.code = code
                 existing.description = description
                 existing.enabled = True
             else:
-                new_tool = CustomTool(
+                new_tool = Tool(
                     name=name,
                     description=description,
                     code=code,
@@ -122,4 +123,4 @@ Requirements:
 
 # Auto-register
 _registry = ToolRegistry()
-_registry.register(create_new_tool)
+_registry.register(create_new_tool, scope="global")

@@ -3,6 +3,7 @@
 import os
 from typing import Optional, Iterator, Union
 from .provider import Message
+from ..utils.enums import MessageRole
 
 from .langchain_adapter import LangChainAdapter
 from langchain_openai import ChatOpenAI
@@ -78,18 +79,18 @@ class KimiProvider(LangChainAdapter):
         lc_messages = self._convert_messages(messages)
         formatted_messages = []
         for msg in lc_messages:
-            role = "user"
+            role = MessageRole.USER
             if msg.type == "system":
-                role = "system"
+                role = MessageRole.SYSTEM
             elif msg.type == "ai":
-                role = "assistant"
+                role = MessageRole.ASSISTANT
             elif msg.type == "tool":
-                role = "tool"
+                role = MessageRole.TOOL
                 
-            formatted_msg = {"role": role, "content": msg.content}
-            if role == "tool":
+            formatted_msg = {"role": role.value, "content": msg.content}
+            if role == MessageRole.TOOL:
                 formatted_msg["tool_call_id"] = msg.tool_call_id
-            elif role == "assistant" and hasattr(msg, "tool_calls") and msg.tool_calls:
+            elif role == MessageRole.ASSISTANT and hasattr(msg, "tool_calls") and msg.tool_calls:
                 formatted_msg["tool_calls"] = [
                     {
                         "id": tc["id"],
@@ -103,14 +104,25 @@ class KimiProvider(LangChainAdapter):
                 ]
             formatted_messages.append(formatted_msg)
 
-        # Create completion
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=formatted_messages,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            **kwargs
-        )
+        # Extract tools from bound LLM if available
+        tools_param = None
+        if hasattr(self.llm, 'kwargs') and 'tools' in self.llm.kwargs:
+            tools_param = self.llm.kwargs['tools']
+
+        # Create completion with tools if available
+        completion_params = {
+            "model": self.model,
+            "messages": formatted_messages,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+        
+        if tools_param:
+            completion_params["tools"] = tools_param
+        
+        completion_params.update(kwargs)
+        
+        response = client.chat.completions.create(**completion_params)
         
         choice = response.choices[0]
         message = choice.message
@@ -183,18 +195,18 @@ class KimiProvider(LangChainAdapter):
         lc_messages = self._convert_messages(messages)
         formatted_messages = []
         for msg in lc_messages:
-            role = "user"
+            role = MessageRole.USER
             if msg.type == "system":
-                role = "system"
+                role = MessageRole.SYSTEM
             elif msg.type == "ai":
-                role = "assistant"
+                role = MessageRole.ASSISTANT
             elif msg.type == "tool":
-                role = "tool"
+                role = MessageRole.TOOL
                 
-            formatted_msg = {"role": role, "content": msg.content}
-            if role == "tool":
+            formatted_msg = {"role": role.value, "content": msg.content}
+            if role == MessageRole.TOOL:
                 formatted_msg["tool_call_id"] = msg.tool_call_id
-            elif role == "assistant" and hasattr(msg, "tool_calls") and msg.tool_calls:
+            elif role == MessageRole.ASSISTANT and hasattr(msg, "tool_calls") and msg.tool_calls:
                 import json
                 formatted_msg["tool_calls"] = [
                     {
@@ -209,15 +221,26 @@ class KimiProvider(LangChainAdapter):
                 ]
             formatted_messages.append(formatted_msg)
 
-        # Create stream
-        stream = client.chat.completions.create(
-            model=self.model,
-            messages=formatted_messages,
-            stream=True,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            **kwargs
-        )
+        # Extract tools from bound LLM if available
+        tools_param = None
+        if hasattr(self.llm, 'kwargs') and 'tools' in self.llm.kwargs:
+            tools_param = self.llm.kwargs['tools']
+
+        # Create stream with tools if available
+        stream_params = {
+            "model": self.model,
+            "messages": formatted_messages,
+            "stream": True,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+        
+        if tools_param:
+            stream_params["tools"] = tools_param
+        
+        stream_params.update(kwargs)
+        
+        stream = client.chat.completions.create(**stream_params)
         
         for chunk in stream:
             delta = chunk.choices[0].delta

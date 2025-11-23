@@ -269,4 +269,4 @@ def get_current_weather(
 from ..registry import ToolRegistry
 
 _registry = ToolRegistry()
-_registry.register(get_current_weather)
+_registry.register(get_current_weather, scope="global")

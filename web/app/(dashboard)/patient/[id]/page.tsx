@@ -33,6 +33,7 @@ import { TextRecordEditor } from "@/components/medical/text-record-editor";
 import { HealthOverview } from "@/components/medical/health-overview";
 import { VisitDetailViewer } from "@/components/medical/visit-detail-viewer";
 import { FilterableList } from "@/components/medical/filterable-list";
+import { MedicalRecordsList } from "@/components/medical/medical-records-list";
 
 export default function PatientDetailPage() {
   const params = useParams();
@@ -173,7 +174,7 @@ export default function PatientDetailPage() {
 
   if (!patient) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading patient...</div>
       </div>
     );
@@ -184,7 +185,7 @@ export default function PatientDetailPage() {
   const pdfRecords = patient.records?.filter((r) => r.record_type === "pdf") || [];
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-full bg-background flex">
       {/* Main Content */}
       <div className="flex-1 flex flex-col" style={{ width: aiOpen ? `calc(100% - ${aiWidth}px)` : "100%" }}>
         {/* Header */}
@@ -249,9 +250,10 @@ export default function PatientDetailPage() {
         <div className="flex-1 overflow-y-auto">
           <div className="container mx-auto px-6 py-8">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsList className="grid w-full grid-cols-5 mb-6">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="visits">Clinical Notes</TabsTrigger>
+                <TabsTrigger value="records">Medical Records</TabsTrigger>
+                <TabsTrigger value="visits">Visits</TabsTrigger>
                 <TabsTrigger value="labs">Lab Results</TabsTrigger>
                 <TabsTrigger value="imaging">Imaging</TabsTrigger>
               </TabsList>
@@ -259,6 +261,17 @@ export default function PatientDetailPage() {
               {/* Overview Tab */}
               <TabsContent value="overview">
                 <HealthOverview patient={patient} />
+              </TabsContent>
+
+              {/* Medical Records Tab */}
+              <TabsContent value="records">
+                <div className="mb-6">
+                  <h2 className="font-display text-xl font-semibold">Clinical Documentation</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Complete medical records including registration, encounters, and laboratory results
+                  </p>
+                </div>
+                <MedicalRecordsList records={patient.records || []} />
               </TabsContent>
 
               {/* Clinical Notes / Visits Tab */}

@@ -30,8 +30,9 @@ const navigation: NavItem[] = [
     href: "/agent",
     icon: MessageSquare,
     subItems: [
-      { name: "History", href: "/agent", icon: History },
-      { name: "Tools", href: "/agent/tools", icon: Sliders },
+      { name: "Chat", href: "/agent", icon: MessageSquare },
+      { name: "History", href: "/agent/history", icon: History },
+      { name: "Settings", href: "/agent/settings", icon: Settings },
       { name: "Usage", href: "/agent/configuration", icon: BarChart3 },
     ],
   },
@@ -149,7 +150,7 @@ export function Sidebar() {
                         )}
                       </button>
 
-                      {isExpanded && (
+                      {isExpanded && item.subItems && (
                         <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-4 animate-in fade-in slide-in-from-top-2 duration-150">
                           {item.subItems.map((subItem) => {
                             const SubIcon = subItem.icon;
