@@ -126,6 +126,11 @@ export function ToolAssignmentDialog({
                             {tool.category}
                           </Badge>
                         )}
+                        {tool.assigned_agent_id && tool.assigned_agent_id !== agent.id && (
+                           <Badge variant="destructive" className="text-xs">
+                             Assigned (Agent #{tool.assigned_agent_id})
+                           </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {tool.description}

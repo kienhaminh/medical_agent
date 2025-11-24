@@ -5,7 +5,7 @@ Provides information about sub-agents, tools, and overall architecture.
 
 from typing import Dict, List, Any
 from sqlalchemy import select
-from ...config.database import SubAgent, AgentToolAssignment, Tool
+from ...config.database import SubAgent, Tool
 
 
 def _get_enabled_subagents_sync() -> List[Dict[str, Any]]:
@@ -31,11 +31,9 @@ def _get_enabled_subagents_sync() -> List[Dict[str, Any]]:
             for agent in agents:
                 # Get agent's assigned tools
                 tools_result = db.execute(
-                    select(Tool)
-                    .join(AgentToolAssignment)
-                    .where(
-                        AgentToolAssignment.agent_id == agent.id,
-                        AgentToolAssignment.enabled == True
+                    select(Tool).where(
+                        Tool.assigned_agent_id == agent.id,
+                        Tool.enabled == True
                     )
                 )
                 tools = tools_result.scalars().all()

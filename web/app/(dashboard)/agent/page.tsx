@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,12 +11,22 @@ import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
 import { type AgentActivity } from "@/components/agent/agent-progress";
 import type { ToolCall } from "@/components/agent/tool-call-item";
+import type { LogItem } from "@/components/agent/thinking-progress";
 import { MessageRole } from "@/types/enums";
 import { getSessionMessages } from "@/lib/api";
 import { toast } from "sonner";
 
 import "highlight.js/styles/github-dark.css";
-import { Send, Sparkles, RefreshCw, Activity, Brain, Zap, History } from "lucide-react";
+import {
+  Send,
+  Sparkles,
+  RefreshCw,
+  Activity,
+  Brain,
+  Zap,
+  History,
+  Plus,
+} from "lucide-react";
 
 interface Message {
   id: string;
@@ -25,22 +35,27 @@ interface Message {
   timestamp: Date;
   toolCalls?: ToolCall[];
   reasoning?: string;
+  logs?: LogItem[];
 }
 
-export default function AgentChatPage() {
+function AgentChatPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlSessionId = searchParams.get("session");
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(urlSessionId);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(
+    urlSessionId
+  );
   const currentSessionIdRef = useRef<string | null>(urlSessionId);
   const isCreatingSessionRef = useRef(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [currentActivity, setCurrentActivity] = useState<AgentActivity | null>(null);
+  const [currentActivity, setCurrentActivity] = useState<AgentActivity | null>(
+    null
+  );
   const [activityDetails, setActivityDetails] = useState<string>("");
-  const [loadingSession, setLoadingSession] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(!!urlSessionId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,7 +88,9 @@ export default function AgentChatPage() {
 
       try {
         setLoadingSession(true);
-        const sessionMessages = await getSessionMessages(parseInt(currentSessionId));
+        const sessionMessages = await getSessionMessages(
+          parseInt(currentSessionId)
+        );
 
         // Convert ChatMessage to Message format
         const convertedMessages: Message[] = sessionMessages.map((msg) => ({
@@ -83,6 +100,7 @@ export default function AgentChatPage() {
           timestamp: new Date(msg.created_at),
           toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : undefined,
           reasoning: msg.reasoning || undefined,
+          // TODO: Load logs from DB if we decide to persist them
         }));
 
         setMessages(convertedMessages);
@@ -109,12 +127,12 @@ export default function AgentChatPage() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     const userInput = input.trim();
     setInput("");
     setIsLoading(true);
     setCurrentActivity("thinking");
-    setActivityDetails("Processing your request...");
+    setActivityDetails("Preparing to process your request");
 
     const assistantMessageId = (Date.now() + 1).toString();
     const assistantMessage: Message = {
@@ -124,20 +142,21 @@ export default function AgentChatPage() {
       timestamp: new Date(),
       toolCalls: [],
       reasoning: "",
+      logs: [],
     };
 
-    setMessages(prev => [...prev, assistantMessage]);
+    setMessages((prev) => [...prev, assistantMessage]);
 
     try {
       const activeSessionId = currentSessionIdRef.current || currentSessionId;
-      
+
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: userInput, 
+        body: JSON.stringify({
+          message: userInput,
           stream: true,
-          session_id: activeSessionId ? parseInt(activeSessionId) : undefined 
+          session_id: activeSessionId ? parseInt(activeSessionId) : undefined,
         }),
       });
 
@@ -159,12 +178,14 @@ export default function AgentChatPage() {
           const word = wordBuffer.shift();
           if (word !== undefined) {
             accumulatedContent += word;
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === assistantMessageId ? { ...msg, content: accumulatedContent } : msg
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: accumulatedContent }
+                  : msg
               )
             );
-            await new Promise(resolve => setTimeout(resolve, 30));
+            await new Promise((resolve) => setTimeout(resolve, 30));
           }
         }
         isProcessing = false;
@@ -186,28 +207,34 @@ export default function AgentChatPage() {
             try {
               const parsed = JSON.parse(data);
               if (parsed.error) throw new Error(parsed.error);
-              
+
               // Handle iteration events (autonomous ReAct loop)
               if (parsed.iteration) {
                 const phase = parsed.phase;
                 const iteration = parsed.iteration;
-                
+
                 if (phase === "thinking") {
                   setCurrentActivity("thinking");
-                  setActivityDetails(`Iteration ${iteration}: Analyzing and reasoning...`);
+                  setActivityDetails(
+                    `Step ${iteration}: Planning next actions`
+                  );
                 } else if (phase === "acting") {
                   setCurrentActivity("tool_calling");
                   const toolCount = parsed.tool_count || 0;
-                  setActivityDetails(`Iteration ${iteration}: Executing ${toolCount} tool${toolCount > 1 ? 's' : ''}...`);
+                  setActivityDetails(
+                    `Step ${iteration}: Running ${toolCount} tool${
+                      toolCount > 1 ? "s" : ""
+                    }`
+                  );
                 } else if (phase === "observing") {
                   setCurrentActivity("analyzing");
-                  setActivityDetails(`Iteration ${iteration}: Processing results...`);
+                  setActivityDetails(`Step ${iteration}: Reviewing results`);
                 } else if (phase === "answering") {
                   setCurrentActivity("thinking");
-                  setActivityDetails(`Iteration ${iteration}: Formulating final answer...`);
+                  setActivityDetails(`Step ${iteration}: Preparing answer`);
                 }
               }
-              
+
               if (parsed.chunk) {
                 // Match non-whitespace sequences OR whitespace sequences to preserve all characters
                 const words = parsed.chunk.match(/(\S+|\s+)/g) || [];
@@ -219,20 +246,25 @@ export default function AgentChatPage() {
               if (parsed.tool_call) {
                 const toolCallData = parsed.tool_call;
                 setCurrentActivity("tool_calling");
-                setActivityDetails(`Executing ${toolCallData.tool}...`);
-                setMessages(prev => 
-                  prev.map(msg => {
+                setActivityDetails(`Using ${toolCallData.tool}`);
+                setMessages((prev) =>
+                  prev.map((msg) => {
                     if (msg.id === assistantMessageId) {
                       const existingTools = msg.toolCalls || [];
                       // Check if already exists (unlikely with this stream logic but good safety)
-                      if (!existingTools.find(t => t.id === toolCallData.id)) {
+                      if (
+                        !existingTools.find((t) => t.id === toolCallData.id)
+                      ) {
                         return {
                           ...msg,
-                          toolCalls: [...existingTools, {
-                            id: toolCallData.id,
-                            tool: toolCallData.tool,
-                            args: toolCallData.args
-                          }]
+                          toolCalls: [
+                            ...existingTools,
+                            {
+                              id: toolCallData.id,
+                              tool: toolCallData.tool,
+                              args: toolCallData.args,
+                            },
+                          ],
                         };
                       }
                     }
@@ -244,17 +276,17 @@ export default function AgentChatPage() {
               if (parsed.tool_result) {
                 const toolResultData = parsed.tool_result;
                 setCurrentActivity("analyzing");
-                setActivityDetails("Analyzing results...");
-                setMessages(prev =>
-                  prev.map(msg => {
+                setActivityDetails("Processing results");
+                setMessages((prev) =>
+                  prev.map((msg) => {
                     if (msg.id === assistantMessageId && msg.toolCalls) {
                       return {
                         ...msg,
-                        toolCalls: msg.toolCalls.map(t =>
+                        toolCalls: msg.toolCalls.map((t) =>
                           t.id === toolResultData.id
                             ? { ...t, result: toolResultData.result }
                             : t
-                        )
+                        ),
                       };
                     }
                     return msg;
@@ -264,11 +296,25 @@ export default function AgentChatPage() {
 
               if (parsed.reasoning) {
                 setCurrentActivity("thinking");
-                setActivityDetails("Formulating response...");
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, reasoning: (msg.reasoning || "") + parsed.reasoning } 
+                setActivityDetails("Formulating response");
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? {
+                          ...msg,
+                          reasoning: (msg.reasoning || "") + parsed.reasoning,
+                        }
+                      : msg
+                  )
+                );
+              }
+
+              if (parsed.log) {
+                const logItem = parsed.log;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, logs: [...(msg.logs || []), logItem] }
                       : msg
                   )
                 );
@@ -283,12 +329,15 @@ export default function AgentChatPage() {
                   currentSessionIdRef.current = newSessionId; // Immediate update
                   isCreatingSessionRef.current = true;
                   setCurrentSessionId(newSessionId);
-                  
+
                   const url = new URL(window.location.href);
                   url.searchParams.set("session", newSessionId);
                   router.replace(url.toString(), { scroll: false });
                 } else {
-                    console.log("currentSessionId already set:", currentSessionIdRef.current);
+                  console.log(
+                    "currentSessionId already set:",
+                    currentSessionIdRef.current
+                  );
                 }
               }
 
@@ -300,17 +349,24 @@ export default function AgentChatPage() {
         }
       }
 
-      if (!accumulatedContent && !messages.find(m => m.id === assistantMessageId)?.toolCalls?.length) {
-         // If we have tool calls but no content yet, that's fine. 
-         // But if we have neither, it might be an error or just empty response.
+      if (
+        !accumulatedContent &&
+        !messages.find((m) => m.id === assistantMessageId)?.toolCalls?.length
+      ) {
+        // If we have tool calls but no content yet, that's fine.
+        // But if we have neither, it might be an error or just empty response.
       }
-      
     } catch (error) {
       console.error("Chat error:", error);
-      setMessages(prev =>
-        prev.map(msg =>
+      setMessages((prev) =>
+        prev.map((msg) =>
           msg.id === assistantMessageId
-            ? { ...msg, content: msg.content + "\n\n⚠️ Connection error. Please check if the backend server is running and try again." }
+            ? {
+                ...msg,
+                content:
+                  msg.content +
+                  "\n\n⚠️ Connection error. Please check if the backend server is running and try again.",
+              }
             : msg
         )
       );
@@ -328,11 +384,33 @@ export default function AgentChatPage() {
     }
   };
 
+  const handleNewChat = () => {
+    setMessages([]);
+    setCurrentSessionId(null);
+    currentSessionIdRef.current = null;
+    isCreatingSessionRef.current = false;
+    setInput("");
+    router.replace("/agent", { scroll: false });
+    toast.success("New chat session started");
+  };
+
   const suggestedPrompts = [
-    { icon: Brain, text: "Analyze patient symptoms and suggest diagnostic pathways" },
-    { icon: Activity, text: "Explain the latest treatment protocols for hypertension" },
-    { icon: Zap, text: "Summarize recent advances in medical imaging technology" },
-    { icon: Sparkles, text: "Generate a differential diagnosis for chest pain" },
+    {
+      icon: Brain,
+      text: "Analyze patient symptoms and suggest diagnostic pathways",
+    },
+    {
+      icon: Activity,
+      text: "Explain the latest treatment protocols for hypertension",
+    },
+    {
+      icon: Zap,
+      text: "Summarize recent advances in medical imaging technology",
+    },
+    {
+      icon: Sparkles,
+      text: "Generate a differential diagnosis for chest pain",
+    },
   ];
 
   return (
@@ -342,7 +420,10 @@ export default function AgentChatPage() {
         <div className="absolute inset-0 dot-matrix-bg opacity-20" />
         <div className="scan-line absolute inset-0" />
         <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div
+          className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        />
       </div>
 
       {/* Header */}
@@ -375,6 +456,15 @@ export default function AgentChatPage() {
               <Badge variant="secondary" className="medical-badge-text">
                 {messages.length} messages
               </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNewChat}
+                className="secondary-button gap-2"
+              >
+                <Plus className="w-3 h-3" />
+                New Chat
+              </Button>
               {currentSessionId && (
                 <Button
                   variant="outline"
@@ -409,7 +499,9 @@ export default function AgentChatPage() {
             <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
               <div className="space-y-4 text-center">
                 <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-muted-foreground">Loading chat session...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading chat session...
+                </p>
               </div>
             </div>
           ) : messages.length === 0 ? (
@@ -428,8 +520,9 @@ export default function AgentChatPage() {
                   Ready to Assist
                 </h2>
                 <p className="text-muted-foreground leading-relaxed">
-                  Multi-modal medical AI assistant powered by advanced language models.
-                  Ask questions, analyze cases, or discuss treatment protocols.
+                  Multi-modal medical AI assistant powered by advanced language
+                  models. Ask questions, analyze cases, or discuss treatment
+                  protocols.
                 </p>
               </div>
 
@@ -468,7 +561,6 @@ export default function AgentChatPage() {
               {messages.map((message, index) => (
                 <div
                   key={message.id}
-                  className="animate-in fade-in slide-in-from-bottom-4 duration-500"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   {message.role === MessageRole.USER ? (
@@ -481,17 +573,26 @@ export default function AgentChatPage() {
                       content={message.content}
                       reasoning={message.reasoning}
                       toolCalls={message.toolCalls}
+                      logs={message.logs}
                       timestamp={message.timestamp}
                       isLoading={isLoading}
-                      isLatest={message.id === messages[messages.length - 1]?.id}
-                      currentActivity={message.id === messages[messages.length - 1]?.id ? currentActivity : null}
-                      activityDetails={message.id === messages[messages.length - 1]?.id ? activityDetails : undefined}
+                      isLatest={
+                        message.id === messages[messages.length - 1]?.id
+                      }
+                      currentActivity={
+                        message.id === messages[messages.length - 1]?.id
+                          ? currentActivity
+                          : null
+                      }
+                      activityDetails={
+                        message.id === messages[messages.length - 1]?.id
+                          ? activityDetails
+                          : undefined
+                      }
                     />
                   )}
                 </div>
               ))}
-
-
 
               <div ref={messagesEndRef} />
             </div>
@@ -544,7 +645,9 @@ export default function AgentChatPage() {
               <Separator orientation="vertical" className="h-3" />
               <span>Powered by Advanced LLM</span>
               <Separator orientation="vertical" className="h-3" />
-              <span className="text-yellow-500">⚠ Verify medical information</span>
+              <span className="text-yellow-500">
+                ⚠ Verify medical information
+              </span>
             </div>
           </form>
         </div>
@@ -553,5 +656,19 @@ export default function AgentChatPage() {
   );
 }
 
+export default function AgentChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-screen">
+          <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <AgentChatPageContent />
+    </Suspense>
+  );
+}
+
 // Force dynamic rendering for this page
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";

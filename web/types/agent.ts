@@ -44,14 +44,12 @@ export interface Tool {
   enabled: boolean;
   scope?: 'global' | 'assignable' | 'both';
   category?: string;
+  assigned_agent_id?: number | null;
 }
 
 export interface AgentToolAssignment {
-  id: number;
   agent_id: number;
   tool_name: string;
-  enabled: boolean;
-  created_at: string;
 }
 
 export interface AgentWithTools extends SubAgent {

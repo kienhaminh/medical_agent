@@ -10,7 +10,7 @@ interface UserMessageProps {
 
 export function UserMessage({ content, timestamp }: UserMessageProps) {
   return (
-    <div className="flex justify-end gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="flex justify-end gap-4">
       {/* Message Content */}
       <div className="max-w-[80%] space-y-2">
         <Card className="p-4 bg-gradient-to-r from-cyan-500/10 to-teal-500/10 border-cyan-500/30 medical-border-glow">

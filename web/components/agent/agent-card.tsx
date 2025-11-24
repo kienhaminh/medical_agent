@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Edit, MoreVertical, Power, Trash, Wrench } from "lucide-react";
 import * as Icons from "lucide-react";
 import { SubAgent } from "@/types/agent";
@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toggleAgent, deleteAgent, cloneAgent } from "@/lib/api";
+import { toggleAgent, deleteAgent, cloneAgent, getAgentTools } from "@/lib/api";
 import { AgentFormDialog } from "./agent-form-dialog";
 import { ToolAssignmentDialog } from "./tool-assignment-dialog";
 import { toast } from "sonner";
@@ -41,9 +41,29 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showToolsDialog, setShowToolsDialog] = useState(false);
+  const [toolCount, setToolCount] = useState<number>(0);
+  const [isLoadingTools, setIsLoadingTools] = useState(true);
 
   // Get icon component
   const IconComponent = (Icons as any)[agent.icon] || Icons.Bot;
+
+  // Fetch tool count when component mounts or agent changes
+  useEffect(() => {
+    const fetchToolCount = async () => {
+      try {
+        setIsLoadingTools(true);
+        const tools = await getAgentTools(agent.id);
+        setToolCount(tools.length);
+      } catch (error) {
+        console.error("Failed to fetch tool count:", error);
+        setToolCount(0);
+      } finally {
+        setIsLoadingTools(false);
+      }
+    };
+
+    fetchToolCount();
+  }, [agent.id]);
 
   const handleToggle = async (enabled: boolean) => {
     try {
@@ -175,10 +195,18 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-2 border-t">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Wrench className="h-3 w-3" />
-              <span>0 tools</span>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary h-8 px-2 -ml-2"
+              onClick={() => setShowToolsDialog(true)}
+              title="Manage Assigned Tools"
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              <span>
+                {isLoadingTools ? "..." : `${toolCount} tool${toolCount !== 1 ? "s" : ""}`}
+              </span>
+            </Button>
 
             <Badge variant={agent.enabled ? "default" : "secondary"}>
               {agent.enabled ? "Active" : "Disabled"}
@@ -202,7 +230,16 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
         open={showToolsDialog}
         onOpenChange={setShowToolsDialog}
         agent={agent}
-        onSuccess={onUpdate}
+        onSuccess={async () => {
+          // Refresh tool count after assignment changes
+          try {
+            const tools = await getAgentTools(agent.id);
+            setToolCount(tools.length);
+          } catch (error) {
+            console.error("Failed to refresh tool count:", error);
+          }
+          onUpdate();
+        }}
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

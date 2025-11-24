@@ -6,7 +6,7 @@ This script:
 """
 import asyncio
 from sqlalchemy import select
-from src.config.database import AsyncSessionLocal, SubAgent, Tool, AgentToolAssignment
+from src.config.database import AsyncSessionLocal, SubAgent, Tool
 
 # ...
 
@@ -63,25 +63,15 @@ async def assign_tool_to_internist(session):
         return
 
     # Check if assignment already exists
-    result = await session.execute(
-        select(AgentToolAssignment).where(
-            AgentToolAssignment.agent_id == internist.id,
-            AgentToolAssignment.tool_name == PATIENT_TOOL["name"]
-        )
-    )
-    existing_assignment = result.scalar_one_or_none()
-
-    if existing_assignment:
-        print(f"  ⚠ Tool already assigned to Internist, ensuring it's enabled...")
-        existing_assignment.enabled = True
+    if patient_tool.assigned_agent_id:
+        if patient_tool.assigned_agent_id == internist.id:
+             print(f"  ⚠ Tool already assigned to Internist.")
+        else:
+             print(f"  ⚠ Tool assigned to another agent (ID {patient_tool.assigned_agent_id}). Reassigning to Internist...")
+             patient_tool.assigned_agent_id = internist.id
     else:
         # Create new assignment
-        assignment = AgentToolAssignment(
-            agent_id=internist.id,
-            tool_name=PATIENT_TOOL["name"],
-            enabled=True
-        )
-        session.add(assignment)
+        patient_tool.assigned_agent_id = internist.id
         print(f"  ✓ Assigned '{PATIENT_TOOL['name']}' to Internist")
 
     await session.commit()
@@ -104,11 +94,9 @@ async def verify_setup(session):
 
     # Get assigned tools
     result = await session.execute(
-        select(Tool)
-        .join(AgentToolAssignment)
-        .where(
-            AgentToolAssignment.agent_id == internist.id,
-            AgentToolAssignment.enabled == True
+        select(Tool).where(
+            Tool.assigned_agent_id == internist.id,
+            Tool.enabled == True
         )
     )
     tools = result.scalars().all()

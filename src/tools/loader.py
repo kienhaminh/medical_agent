@@ -31,8 +31,7 @@ async def load_custom_tools():
                         Patient, 
                         MedicalRecord,
                         SubAgent,
-                        Tool as ToolModel,
-                        AgentToolAssignment
+                        Tool as ToolModel
                     )
                     
                     global_scope = {
@@ -55,7 +54,6 @@ async def load_custom_tools():
                         'MedicalRecord': MedicalRecord,
                         'SubAgent': SubAgent,
                         'Tool': ToolModel,
-                        'AgentToolAssignment': AgentToolAssignment,
                     }
                     
                     # Create a local scope for execution

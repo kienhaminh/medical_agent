@@ -24,6 +24,21 @@ class PatientDetailResponse(BaseModel):
 class ToolToggleRequest(BaseModel):
     enabled: bool
 
+class ToolCreate(BaseModel):
+    """Create tool request."""
+    name: str
+    description: str
+    category: Optional[str] = "other"
+    code: str = ""  # Empty code for custom tools
+    scope: str = "assignable"  # Default to assignable for custom tools
+
+class ToolUpdate(BaseModel):
+    """Update tool request."""
+    description: Optional[str] = None
+    category: Optional[str] = None
+    code: Optional[str] = None
+    enabled: Optional[bool] = None
+
 class ChatRequest(BaseModel):
     """Chat request model."""
     message: str
@@ -109,11 +124,11 @@ class BulkToolsRequest(BaseModel):
 
 class AgentToolAssignmentResponse(BaseModel):
     """Agent-tool assignment response."""
-    id: int
+    # id: int # Removed as assignment is not a separate entity
     agent_id: int
     tool_name: str
-    enabled: bool
-    created_at: str
+    # enabled: bool # specific assignment enabled status is removed
+    # created_at: str
 
 class ToolResponse(BaseModel):
     """Tool response model."""
@@ -122,6 +137,7 @@ class ToolResponse(BaseModel):
     enabled: bool
     scope: str
     category: Optional[str]
+    assigned_agent_id: Optional[int] = None
 
 class ChatSessionResponse(BaseModel):
     """Chat session response model."""

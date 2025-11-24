@@ -125,6 +125,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                 yield f"data: {json.dumps({'tool_result': event})}\n\n"
                             elif event["type"] == "reasoning":
                                 yield f"data: {json.dumps({'reasoning': event['content']})}\n\n"
+                            elif event["type"] == "log":
+                                yield f"data: {json.dumps({'log': event['content']})}\n\n"
                         else:
                             # Fallback for string chunks if any
                             # LangGraphAgent yields full content in 'values' mode, so we update full_response
@@ -133,13 +135,17 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
                     # 3. Save Assistant Message (after streaming is done)
                     if full_response:
-                        assistant_msg = ChatMessage(
-                            session_id=session.id,
-                            role="assistant",
-                            content=full_response
-                        )
-                        db.add(assistant_msg)
-                        await db.commit()
+                        # Create a new session for saving the message to avoid "session closed" errors
+                        # in the streaming response callback
+                        from ...config.database import AsyncSessionLocal
+                        async with AsyncSessionLocal() as local_db:
+                            assistant_msg = ChatMessage(
+                                session_id=session.id,
+                                role="assistant",
+                                content=full_response
+                            )
+                            local_db.add(assistant_msg)
+                            await local_db.commit()
 
                     # Send session_id and done signal
                     yield f"data: {json.dumps({'session_id': session.id})}\n\n"

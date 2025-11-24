@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -18,11 +24,15 @@ import {
   ExternalLink,
   Brain,
   Activity,
-  Filter
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
-import { getChatSessions, deleteChatSession, type ChatSession } from "@/lib/api";
+import {
+  getChatSessions,
+  deleteChatSession,
+  type ChatSession,
+} from "@/lib/api";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -39,7 +49,9 @@ export default function ChatHistoryPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterBy, setFilterBy] = useState<"all" | "today" | "week" | "month">("all");
+  const [filterBy, setFilterBy] = useState<"all" | "today" | "week" | "month">(
+    "all"
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -59,17 +71,22 @@ export default function ChatHistoryPage() {
     }
   };
 
-  const filteredSessions = sessions.filter(session => {
+  const filteredSessions = sessions.filter((session) => {
     const matchesSearch =
       session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (session.preview && session.preview.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      session.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      (session.preview &&
+        session.preview.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      session.tags?.some((tag) =>
+        tag.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
     if (!matchesSearch) return false;
 
     const now = new Date();
     const sessionDate = new Date(session.updated_at);
-    const daysDiff = Math.floor((now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.floor(
+      (now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
 
     switch (filterBy) {
       case "today":
@@ -95,9 +112,11 @@ export default function ChatHistoryPage() {
 
     try {
       // Optimistically remove the session from the UI immediately
-      setSessions(prevSessions => prevSessions.filter(s => s.id !== sessionToDelete));
+      setSessions((prevSessions) =>
+        prevSessions.filter((s) => s.id !== sessionToDelete)
+      );
       setSessionToDelete(null);
-      
+
       // Then make the API call
       await deleteChatSession(sessionToDelete);
       toast.success("Conversation deleted successfully");
@@ -205,7 +224,9 @@ export default function ChatHistoryPage() {
             <div className="flex items-center justify-center py-20">
               <div className="space-y-4 text-center">
                 <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-muted-foreground">Loading chat history...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading chat history...
+                </p>
               </div>
             </div>
           ) : filteredSessions.length === 0 ? (
@@ -214,7 +235,9 @@ export default function ChatHistoryPage() {
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-teal-500/10 flex items-center justify-center mx-auto medical-border-glow">
                   <History className="w-8 h-8 text-cyan-500" />
                 </div>
-                <h3 className="font-display text-lg font-bold">No conversations found</h3>
+                <h3 className="font-display text-lg font-bold">
+                  No conversations found
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   {searchQuery || filterBy !== "all"
                     ? "Try adjusting your search or filter criteria"
@@ -234,7 +257,7 @@ export default function ChatHistoryPage() {
               {filteredSessions.map((session, index) => (
                 <Card
                   key={session.id}
-                  className="group cursor-pointer hover:scale-[1.01] transition-all duration-200 medical-border-glow-hover animate-in fade-in slide-in-from-bottom-4"
+                  className="group cursor-pointer hover:scale-[1.01] transition-all duration-200 medical-border-glow-hover"
                   style={{ animationDelay: `${index * 50}ms` }}
                   onClick={() => handleSessionClick(session.id)}
                 >
@@ -298,11 +321,20 @@ export default function ChatHistoryPage() {
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          <span>{formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}</span>
+                          <span>
+                            {formatDistanceToNow(new Date(session.updated_at), {
+                              addSuffix: true,
+                            })}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          <span>{format(new Date(session.created_at), "MMM d, yyyy")}</span>
+                          <span>
+                            {format(
+                              new Date(session.created_at),
+                              "MMM d, yyyy"
+                            )}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -314,17 +346,24 @@ export default function ChatHistoryPage() {
         </div>
       </ScrollArea>
 
-      <AlertDialog open={!!sessionToDelete} onOpenChange={() => setSessionToDelete(null)}>
+      <AlertDialog
+        open={!!sessionToDelete}
+        onOpenChange={() => setSessionToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the chat session and all associated messages.
+              This action cannot be undone. This will permanently delete the
+              chat session and all associated messages.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

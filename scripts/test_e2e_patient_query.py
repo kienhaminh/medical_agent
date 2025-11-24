@@ -2,10 +2,14 @@
 
 import asyncio
 import sys
+import os
 sys.path.insert(0, '/Users/kien.ha/Code/ai-agent')
 
 from src.agent.langgraph_agent import LangGraphAgent
-from src.llm import get_llm
+from src.llm.kimi import KimiProvider
+from dotenv import load_dotenv
+
+load_dotenv()
 
 async def test_patient_query():
     """Test the complete flow: User -> Main Agent -> Internist -> Tool -> Response"""
@@ -17,10 +21,14 @@ async def test_patient_query():
     
     # Initialize agent
     print("Initializing agent...")
-    llm = get_llm(temperature=0.0)  # Deterministic for testing
+    llm_provider = KimiProvider(
+        api_key=os.getenv("MOONSHOT_API_KEY"),
+        model="kimi-k2-thinking",
+        temperature=0.0  # Deterministic for testing
+    )
     
     agent = LangGraphAgent(
-        llm_with_tools=llm,
+        llm_with_tools=llm_provider.llm,
         user_id="test_user",
         max_iterations=5,
         use_persistence=False

@@ -4,7 +4,7 @@ Creates default medical specialist agents and updates existing tools.
 """
 import asyncio
 from sqlalchemy import select, update
-from src.config.database import AsyncSessionLocal, SubAgent, Tool, AgentToolAssignment
+from src.config.database import AsyncSessionLocal, SubAgent, Tool
 
 
 # Default medical specialist templates
@@ -170,11 +170,13 @@ async def create_sample_assignments(session):
 
     # Define which tools should be assigned to which agents
     # This is optional - for demonstration purposes
+    # NOTE: Tools can only be assigned to one agent at a time now.
+    # We will prioritize assignment based on order here.
     assignments = {
-        "Radiologist": [],  # Radiologist would use vision tools (not in CustomTool)
-        "Pathologist": ["get_current_datetime"],  # For timestamping lab results
-        "Pharmacist": ["get_current_datetime"],  # For medication scheduling
-        "Internist": ["get_current_datetime", "get_location_coordinates"],  # Clinical context
+        "Radiologist": [],  
+        "Pathologist": ["get_current_datetime"],  
+        "Pharmacist": [], # Can't share get_current_datetime anymore
+        "Internist": ["get_location_coordinates"], 
     }
 
     # Get all agents
@@ -198,25 +200,14 @@ async def create_sample_assignments(session):
             if not tool:
                 continue
 
-            # Check if assignment already exists
-            result = await session.execute(
-                select(AgentToolAssignment).where(
-                    AgentToolAssignment.agent_id == agent.id,
-                    AgentToolAssignment.tool_name == tool_name
-                )
-            )
-            existing = result.scalar_one_or_none()
-
-            if existing:
+            # Check if assignment already exists or tool is assigned to another agent
+            if tool.assigned_agent_id:
+                if tool.assigned_agent_id != agent.id:
+                     print(f"  ⚠ Tool '{tool_name}' already assigned to agent ID {tool.assigned_agent_id}, skipping assignment to {agent_name}")
                 continue
 
             # Create assignment
-            assignment = AgentToolAssignment(
-                agent_id=agent.id,
-                tool_name=tool_name,
-                enabled=True
-            )
-            session.add(assignment)
+            tool.assigned_agent_id = agent.id
             assignment_count += 1
             print(f"  ✓ Assigned '{tool_name}' to {agent_name}")
 

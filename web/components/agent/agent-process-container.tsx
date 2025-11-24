@@ -1,54 +1,168 @@
 "use client";
 
-import { useState } from "react";
-import { Brain, ChevronDown, ChevronRight } from "lucide-react";
-import { ThinkingProgress } from "./thinking-progress";
+import { Brain, Loader2, Terminal, Sparkles, Search } from "lucide-react";
+import { ThinkingProgress, type LogItem } from "./thinking-progress";
 import { ToolCallLog } from "./tool-call-log";
 import type { ToolCall } from "./tool-call-item";
+import { cn } from "@/lib/utils";
+import type { AgentActivity } from "./agent-progress";
 
 interface AgentProcessContainerProps {
   reasoning?: string;
   toolCalls?: ToolCall[];
+  logs?: LogItem[];
+  isLatest?: boolean;
+  isLoading?: boolean;
+  currentActivity?: AgentActivity | null;
+  activityDetails?: string;
 }
 
-export function AgentProcessContainer({ reasoning, toolCalls }: AgentProcessContainerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+const ACTIVITY_CONFIG: Record<AgentActivity, {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}> = {
+  thinking: {
+    icon: Brain,
+    label: "Thinking",
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10",
+    borderColor: "border-purple-500/20"
+  },
+  tool_calling: {
+    icon: Terminal,
+    label: "Executing Tools",
+    color: "text-green-500",
+    bgColor: "bg-green-500/10",
+    borderColor: "border-green-500/20"
+  },
+  analyzing: {
+    icon: Sparkles,
+    label: "Analyzing",
+    color: "text-cyan-500",
+    bgColor: "bg-cyan-500/10",
+    borderColor: "border-cyan-500/20"
+  },
+  searching: {
+    icon: Search,
+    label: "Searching",
+    color: "text-blue-500",
+    bgColor: "bg-blue-500/10",
+    borderColor: "border-blue-500/20"
+  },
+  processing: {
+    icon: Sparkles,
+    label: "Processing",
+    color: "text-teal-500",
+    bgColor: "bg-teal-500/10",
+    borderColor: "border-teal-500/20"
+  }
+};
 
-  if (!reasoning && (!toolCalls || toolCalls.length === 0)) return null;
+export function AgentProcessContainer({ 
+  reasoning, 
+  toolCalls, 
+  logs,
+  isLatest,
+  isLoading,
+  currentActivity,
+  activityDetails
+}: AgentProcessContainerProps) {
+  const hasContent = !!(reasoning || (toolCalls && toolCalls.length > 0) || (logs && logs.length > 0));
+  const showLoading = isLatest && isLoading;
 
-  const toolCount = toolCalls?.length || 0;
-  const hasReasoning = !!reasoning;
+  if (!hasContent && !showLoading) return null;
+
+  const isActive = showLoading;
+  const activityConfig = (isActive && currentActivity) ? ACTIVITY_CONFIG[currentActivity] : null;
+
+  // Default state (finished or no specific activity)
+  const defaultConfig = {
+    icon: Brain,
+    label: "Thought Process",
+    color: "text-muted-foreground",
+    bgColor: "bg-muted",
+    borderColor: "border-transparent"
+  };
+
+  const config = activityConfig || defaultConfig;
+  const Icon = config.icon;
 
   return (
-    <div className="border border-border/50 rounded-lg bg-card/30 overflow-hidden text-sm mb-1">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+    <div className="mb-2">
+      <div
+        className={cn(
+          "rounded-lg overflow-hidden border transition-colors duration-200",
+          "bg-card/50 border-border/50"
+        )}
       >
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 rounded bg-purple-500/10 text-purple-500">
-            <Brain className="w-4 h-4" />
+        <div
+          className={cn(
+            "w-full flex items-center gap-3 p-2 text-xs transition-all duration-200 rounded-lg",
+            "bg-muted/30"
+          )}
+        >
+          <div className={cn(
+            "p-1.5 rounded-md transition-colors relative",
+            isActive 
+              ? `${config.bgColor} ${config.color}` 
+              : "bg-muted text-muted-foreground"
+          )}>
+            {isActive ? (
+              <>
+                <Icon className="w-3.5 h-3.5 relative z-10" />
+                <span className={cn("absolute inset-0 rounded-md opacity-50 animate-pulse", config.bgColor)} />
+              </>
+            ) : (
+              <Icon className="w-3.5 h-3.5" />
+            )}
           </div>
-          <div className="flex flex-col items-start gap-0.5">
-            <span className="font-medium text-xs">
-              Agent Process
-            </span>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {hasReasoning && <span>Reasoning</span>}
-              {hasReasoning && toolCount > 0 && <span>•</span>}
-              {toolCount > 0 && <span>{toolCount} tool{toolCount > 1 ? 's' : ''} used</span>}
+          
+          <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+            <div className="flex items-center gap-2 w-full">
+              <span className={cn(
+                "font-medium",
+                isActive ? config.color : "text-foreground/80"
+              )}>
+                {isActive ? config.label : "Thought Process"}
+              </span>
+              
+              {isActive && (
+                <div className="flex gap-0.5 ml-1">
+                  <div className={`w-0.5 h-0.5 ${config.color} rounded-full animate-bounce`} style={{ animationDelay: "0ms" }} />
+                  <div className={`w-0.5 h-0.5 ${config.color} rounded-full animate-bounce`} style={{ animationDelay: "150ms" }} />
+                  <div className={`w-0.5 h-0.5 ${config.color} rounded-full animate-bounce`} style={{ animationDelay: "300ms" }} />
+                </div>
+              )}
             </div>
+            
+            {isActive && activityDetails && (
+               <span className="text-[10px] text-muted-foreground truncate w-full text-left">
+                 {activityDetails}
+               </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isActive && (
+               <Loader2 className={cn("w-3 h-3 animate-spin", config.color)} />
+            )}
           </div>
         </div>
-        {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-      </button>
 
-      {isOpen && (
-        <div className="border-t border-border/50 bg-muted/20">
-          {reasoning && <ThinkingProgress reasoning={reasoning} />}
-          {toolCalls && toolCalls.length > 0 && <ToolCallLog toolCalls={toolCalls} />}
-        </div>
-      )}
+        {hasContent && (
+          <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/30 mt-1">
+            {(reasoning || (logs && logs.length > 0)) && (
+              <ThinkingProgress reasoning={reasoning || ""} logs={logs} />
+            )}
+            {toolCalls && toolCalls.length > 0 && (
+              <ToolCallLog toolCalls={toolCalls} />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

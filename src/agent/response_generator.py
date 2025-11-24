@@ -79,7 +79,7 @@ class ResponseGenerator:
         initial_state: dict,
         config: dict,
         user_message: str
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[dict, None]:
         """Generate streaming response.
         
         Args:
@@ -88,26 +88,47 @@ class ResponseGenerator:
             user_message: The user's message
             
         Yields:
-            Chunks of the response content
+            Chunks of the response content and log events
         """
         final_content = []
         
-        # Stream through the graph (use async iteration)
-        async for chunk in self.graph.astream(initial_state, config=config, stream_mode="values"):
-            if "messages" in chunk and chunk["messages"]:
-                last_message = chunk["messages"][-1]
-                
-                # Only yield AI message content
-                if isinstance(last_message, AIMessage) and last_message.content:
-                    # Check if we've already yielded this content
-                    if last_message.content not in final_content:
-                        final_content.append(last_message.content)
-                        yield last_message.content
-        
+        # Stream through the graph events
+        async for event in self.graph.astream_events(initial_state, config=config, version="v2"):
+            event_type = event.get("event")
+            
+            # Handle custom log events
+            if event_type == "on_custom_event" and event.get("name") == "agent_log":
+                yield {
+                    "type": "log",
+                    "content": event["data"]
+                }
+            
+            # Handle streaming content from the main agent
+            elif event_type == "on_chat_model_stream":
+                # Only yield content from the main agent node to avoid showing sub-agent internal thoughts as final response
+                # The main agent node is named "agent" in graph_builder.py
+                if event.get("metadata", {}).get("langgraph_node") == "agent":
+                    data = event["data"]
+                    if "chunk" in data:
+                        chunk = data["chunk"]
+                        if hasattr(chunk, "content") and chunk.content:
+                            content = chunk.content
+                            final_content.append(content)
+                            yield {
+                                "type": "content",
+                                "content": content
+                            }
+            
+            # Handle tool calls (if we want to show them as they happen)
+            elif event_type == "on_tool_start":
+                # We can yield tool calls if needed, but chat.py handles tool_call events from the stream
+                # For now, let's stick to what chat.py expects or just logs
+                pass
+
         # Store in memory after streaming completes
         if self.memory_manager and final_content:
             try:
-                response_text = final_content[-1] if final_content else ""
+                response_text = "".join(final_content)
                 self.memory_manager.add_conversation(
                     user_id=self.user_id,
                     messages=[

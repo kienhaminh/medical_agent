@@ -110,7 +110,7 @@ class LangGraphAgent:
         user_message: str,
         stream: bool = False,
         chat_history: list = None
-    ) -> Union[str, AsyncGenerator[str, None]]:
+    ) -> Union[str, AsyncGenerator[dict, None]]:
         """Process user message through unified agent.
 
         Args:

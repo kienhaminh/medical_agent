@@ -227,7 +227,7 @@ async def verify_setup():
 
     # Check 3: Patient tool assignment
     try:
-        from src.config.database import AsyncSessionLocal, SubAgent, AgentToolAssignment
+        from src.config.database import AsyncSessionLocal, SubAgent, Tool
         from sqlalchemy import select
 
         async with AsyncSessionLocal() as session:
@@ -238,15 +238,15 @@ async def verify_setup():
 
             if internist:
                 result = await session.execute(
-                    select(AgentToolAssignment)
+                    select(Tool)
                     .where(
-                        AgentToolAssignment.agent_id == internist.id,
-                        AgentToolAssignment.tool_name == "query_patient_info",
-                        AgentToolAssignment.enabled == True
+                        Tool.assigned_agent_id == internist.id,
+                        Tool.name == "query_patient_info",
+                        Tool.enabled == True
                     )
                 )
-                assignment = result.scalar_one_or_none()
-                if assignment:
+                tool = result.scalar_one_or_none()
+                if tool:
                     checks.append(("Patient tool assignment", True))
                 else:
                     checks.append(("Patient tool assignment", False, "Not assigned"))

@@ -52,17 +52,16 @@ user_agents: Dict = {}
 def get_or_create_agent(user_id: str):
     """Get or create agent for user."""
     if user_id not in user_agents:
-        system_prompt = os.getenv(
-            "SYSTEM_PROMPT",
-            "You are a helpful AI assistant. Provide clear, accurate, and concise responses.",
-        )
+        # Use default system prompt from agent_config.py
+        # This prompt includes delegation instructions for sub-agents
+        # DO NOT override with environment variable as it breaks delegation
 
         # Create LangGraph agent
         user_agents[user_id] = LangGraphAgent(
             llm_with_tools=llm_provider.llm,  # Pass the LangChain LLM
-            system_prompt=system_prompt,
             memory_manager=memory_manager,
             user_id=user_id,
+            # system_prompt defaults to get_default_system_prompt() in LangGraphAgent.__init__
         )
 
     return user_agents[user_id]

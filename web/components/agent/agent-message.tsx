@@ -5,11 +5,13 @@ import { AgentProcessContainer } from "./agent-process-container";
 import { AnswerContent } from "./answer-content";
 import { AgentProgress, type AgentActivity } from "./agent-progress";
 import type { ToolCall } from "./tool-call-item";
+import type { LogItem } from "./thinking-progress";
 
 interface AgentMessageProps {
   content?: string;
   reasoning?: string;
   toolCalls?: ToolCall[];
+  logs?: LogItem[];
   timestamp: Date;
   isLoading?: boolean;
   isLatest?: boolean;
@@ -21,6 +23,7 @@ export function AgentMessage({
   content,
   reasoning,
   toolCalls,
+  logs,
   timestamp,
   isLoading,
   isLatest,
@@ -28,7 +31,7 @@ export function AgentMessage({
   activityDetails
 }: AgentMessageProps) {
   return (
-    <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="flex gap-4">
       {/* AI Avatar */}
       <div className="flex-shrink-0">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center border border-cyan-500/30">
@@ -39,7 +42,15 @@ export function AgentMessage({
       {/* Message Content */}
       <div className="flex-1 space-y-1">
         {/* Agent Process (Collapsible) */}
-        <AgentProcessContainer reasoning={reasoning} toolCalls={toolCalls} />
+        <AgentProcessContainer 
+          reasoning={reasoning} 
+          toolCalls={toolCalls} 
+          logs={logs} 
+          isLatest={isLatest}
+          isLoading={isLoading}
+          currentActivity={currentActivity}
+          activityDetails={activityDetails}
+        />
 
         {/* Answer (Always Visible) */}
         {content && (
@@ -48,13 +59,6 @@ export function AgentMessage({
             isLoading={isLoading}
             isLatest={isLatest}
           />
-        )}
-
-        {/* Agent Progress (Only for latest message) */}
-        {isLatest && currentActivity && (
-          <div className="mb-2">
-            <AgentProgress activity={currentActivity} details={activityDetails} />
-          </div>
         )}
 
         {/* Timestamp */}

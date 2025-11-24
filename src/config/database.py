@@ -90,7 +90,10 @@ class Tool(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     scope: Mapped[str] = mapped_column(String(20), default="global")  # 'global', 'assignable', 'both'
     category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'medical', 'diagnostic', etc.
+    assigned_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sub_agents.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    agent: Mapped[Optional["SubAgent"]] = relationship(back_populates="tools")
 
 class SubAgent(Base):
     """Sub-agent model for multi-agent system."""
@@ -110,7 +113,7 @@ class SubAgent(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
-    tool_assignments: Mapped[List["AgentToolAssignment"]] = relationship(
+    tools: Mapped[List["Tool"]] = relationship(
         back_populates="agent",
         cascade="all, delete-orphan"
     )
@@ -119,25 +122,6 @@ class SubAgent(Base):
     cloned_agents: Mapped[List["SubAgent"]] = relationship(
         foreign_keys=[parent_template_id],
         remote_side=[id]
-    )
-
-class AgentToolAssignment(Base):
-    """Junction table for many-to-many relationship between agents and tools."""
-    __tablename__ = "agent_tool_assignments"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    agent_id: Mapped[int] = mapped_column(ForeignKey("sub_agents.id", ondelete="CASCADE"))
-    tool_name: Mapped[str] = mapped_column(ForeignKey("tools.name", ondelete="CASCADE"))
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)  # Can disable assignment without deleting
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-
-    # Relationships
-    agent: Mapped["SubAgent"] = relationship(back_populates="tool_assignments")
-    tool: Mapped["Tool"] = relationship()
-
-    # Unique constraint: One assignment per agent-tool pair
-    __table_args__ = (
-        UniqueConstraint('agent_id', 'tool_name', name='uq_agent_tool'),
     )
 
 class ChatSession(Base):

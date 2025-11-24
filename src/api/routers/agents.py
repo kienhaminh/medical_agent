@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 
-from ...config.database import get_db, SubAgent, AgentToolAssignment, Tool
+from ...config.database import get_db, SubAgent, Tool
 from ..models import (
     SubAgentResponse, SubAgentCreate, SubAgentUpdate, ToggleRequest,
     ToolResponse, AssignToolRequest, AgentToolAssignmentResponse, BulkToolsRequest
@@ -217,19 +217,9 @@ async def clone_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(cloned_agent)
 
-    # Copy tool assignments
-    result = await db.execute(
-        select(AgentToolAssignment).where(AgentToolAssignment.agent_id == agent_id)
-    )
-    assignments = result.scalars().all()
-    for assignment in assignments:
-        new_assignment = AgentToolAssignment(
-            agent_id=cloned_agent.id,
-            tool_name=assignment.tool_name,
-            enabled=assignment.enabled
-        )
-        db.add(new_assignment)
-    await db.commit()
+    # Note: Tool assignments are not copied because tools are unique 1:N resources.
+    # The user must explicitly assign tools to the new agent (stealing them from others)
+    # or create new tools for the clone.
 
     return SubAgentResponse(
         id=cloned_agent.id,
@@ -259,9 +249,7 @@ async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
 
     # Get assigned tools
     result = await db.execute(
-        select(Tool)
-        .join(AgentToolAssignment)
-        .where(AgentToolAssignment.agent_id == agent_id)
+        select(Tool).where(Tool.assigned_agent_id == agent_id)
     )
     tools = result.scalars().all()
 
@@ -271,7 +259,8 @@ async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
             description=tool.description,
             enabled=tool.enabled,
             scope=tool.scope,
-            category=tool.category
+            category=tool.category,
+            assigned_agent_id=tool.assigned_agent_id
         ) for tool in tools
     ]
 
@@ -285,52 +274,37 @@ async def assign_tool_to_agent(agent_id: int, request: AssignToolRequest, db: As
 
     # Verify tool exists
     result = await db.execute(select(Tool).where(Tool.name == request.tool_name))
-    if not result.scalar_one_or_none():
+    tool = result.scalar_one_or_none()
+    if not tool:
         raise HTTPException(status_code=404, detail="Tool not found")
 
     # Check if assignment already exists
-    result = await db.execute(
-        select(AgentToolAssignment).where(
-            AgentToolAssignment.agent_id == agent_id,
-            AgentToolAssignment.tool_name == request.tool_name
-        )
-    )
-    existing = result.scalar_one_or_none()
-    if existing:
+    if tool.assigned_agent_id == agent_id:
         raise HTTPException(status_code=400, detail="Tool already assigned to this agent")
 
-    # Create assignment
-    assignment = AgentToolAssignment(
-        agent_id=agent_id,
-        tool_name=request.tool_name,
-        enabled=True
-    )
-    db.add(assignment)
+    # Update assignment
+    tool.assigned_agent_id = agent_id
     await db.commit()
-    await db.refresh(assignment)
+    await db.refresh(tool)
 
     return AgentToolAssignmentResponse(
-        id=assignment.id,
-        agent_id=assignment.agent_id,
-        tool_name=assignment.tool_name,
-        enabled=assignment.enabled,
-        created_at=assignment.created_at.isoformat()
+        agent_id=tool.assigned_agent_id,
+        tool_name=tool.name
     )
 
 @router.delete("/api/agents/{agent_id}/tools/{tool_name}")
 async def unassign_tool_from_agent(agent_id: int, tool_name: str, db: AsyncSession = Depends(get_db)):
     """Remove a tool assignment from an agent."""
-    result = await db.execute(
-        select(AgentToolAssignment).where(
-            AgentToolAssignment.agent_id == agent_id,
-            AgentToolAssignment.tool_name == tool_name
-        )
-    )
-    assignment = result.scalar_one_or_none()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Tool assignment not found")
+    result = await db.execute(select(Tool).where(Tool.name == tool_name))
+    tool = result.scalar_one_or_none()
+    
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+        
+    if tool.assigned_agent_id != agent_id:
+        raise HTTPException(status_code=404, detail="Tool is not assigned to this agent")
 
-    await db.delete(assignment)
+    tool.assigned_agent_id = None
     await db.commit()
     return {"status": "ok", "message": f"Tool '{tool_name}' unassigned from agent"}
 
@@ -342,86 +316,89 @@ async def bulk_update_agent_tools(agent_id: int, request: BulkToolsRequest, db: 
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    # Delete existing assignments
+    # Unassign all currently assigned tools
     await db.execute(
-        delete(AgentToolAssignment).where(AgentToolAssignment.agent_id == agent_id)
+        update(Tool)
+        .where(Tool.assigned_agent_id == agent_id)
+        .values(assigned_agent_id=None)
     )
 
-    # Create new assignments
-    new_assignments = []
-    for tool_name in request.tool_names:
-        # Verify tool exists
-        result = await db.execute(select(Tool).where(Tool.name == tool_name))
-        if not result.scalar_one_or_none():
-            continue  # Skip invalid tools
-
-        assignment = AgentToolAssignment(
-            agent_id=agent_id,
-            tool_name=tool_name,
-            enabled=True
+    # Assign new tools
+    if request.tool_names:
+        await db.execute(
+            update(Tool)
+            .where(Tool.name.in_(request.tool_names))
+            .values(assigned_agent_id=agent_id)
         )
-        db.add(assignment)
-        new_assignments.append(assignment)
 
     await db.commit()
 
-    # Refresh to get IDs and timestamps
-    for assignment in new_assignments:
-        await db.refresh(assignment)
+    # Return new assignments
+    # We need to fetch them to be sure
+    result = await db.execute(
+        select(Tool).where(Tool.assigned_agent_id == agent_id)
+    )
+    tools = result.scalars().all()
 
     return [
         AgentToolAssignmentResponse(
-            id=assignment.id,
-            agent_id=assignment.agent_id,
-            tool_name=assignment.tool_name,
-            enabled=assignment.enabled,
-            created_at=assignment.created_at.isoformat()
-        ) for assignment in new_assignments
+            agent_id=tool.assigned_agent_id,
+            tool_name=tool.name
+        ) for tool in tools
     ]
 
 @router.get("/api/agent-tool-assignments")
 async def get_all_assignments(db: AsyncSession = Depends(get_db)):
     """Get all agent-tool assignments (for matrix view)."""
+    # Get assigned tools
     result = await db.execute(
-        select(AgentToolAssignment)
-        .join(SubAgent, AgentToolAssignment.agent_id == SubAgent.id)
-        .join(Tool, AgentToolAssignment.tool_name == Tool.name)
-        .order_by(SubAgent.name, Tool.name)
+        select(Tool)
+        .where(Tool.assigned_agent_id.isnot(None))
+        .join(SubAgent, Tool.assigned_agent_id == SubAgent.id)
     )
-    assignments = result.scalars().all()
-
-    # Get agents and tools for context
+    tools = result.scalars().all()
+    
+    # Eager load or fetch agents? We can just join. 
+    # Let's refetch agents to build the response context if needed, 
+    # but we can probably just use the Tool's assigned_agent_id to lookup if we load all agents.
+    
     agents_result = await db.execute(select(SubAgent))
     agents = {agent.id: agent for agent in agents_result.scalars().all()}
 
-    tools_result = await db.execute(select(Tool))
-    tools = {tool.name: tool for tool in tools_result.scalars().all()}
-
-    return [
-        {
-            "id": assignment.id,
+    # Return list of assignments
+    assignments = []
+    for tool in tools:
+        if tool.assigned_agent_id not in agents:
+            continue
+            
+        agent = agents[tool.assigned_agent_id]
+        
+        assignments.append({
+            "id": 0, # Dummy ID as assignment entity is gone
             "agent": SubAgentResponse(
-                id=agents[assignment.agent_id].id,
-                name=agents[assignment.agent_id].name,
-                role=agents[assignment.agent_id].role,
-                description=agents[assignment.agent_id].description,
-                system_prompt=agents[assignment.agent_id].system_prompt,
-                enabled=agents[assignment.agent_id].enabled,
-                color=agents[assignment.agent_id].color,
-                icon=agents[assignment.agent_id].icon,
-                is_template=agents[assignment.agent_id].is_template,
-                parent_template_id=agents[assignment.agent_id].parent_template_id,
-                created_at=agents[assignment.agent_id].created_at.isoformat(),
-                updated_at=agents[assignment.agent_id].updated_at.isoformat()
+                id=agent.id,
+                name=agent.name,
+                role=agent.role,
+                description=agent.description,
+                system_prompt=agent.system_prompt,
+                enabled=agent.enabled,
+                color=agent.color,
+                icon=agent.icon,
+                is_template=agent.is_template,
+                parent_template_id=agent.parent_template_id,
+                created_at=agent.created_at.isoformat(),
+                updated_at=agent.updated_at.isoformat()
             ),
             "tool": ToolResponse(
-                name=tools[assignment.tool_name].name,
-                description=tools[assignment.tool_name].description,
-                enabled=tools[assignment.tool_name].enabled,
-                scope=tools[assignment.tool_name].scope,
-                category=tools[assignment.tool_name].category
+                name=tool.name,
+                description=tool.description,
+                enabled=tool.enabled,
+                scope=tool.scope,
+                category=tool.category,
+                assigned_agent_id=tool.assigned_agent_id
             ),
-            "enabled": assignment.enabled,
-            "created_at": assignment.created_at.isoformat()
-        } for assignment in assignments if assignment.agent_id in agents and assignment.tool_name in tools
-    ]
+            "enabled": tool.enabled, # Use tool's enabled status
+            "created_at": tool.created_at.isoformat() # Use tool's created_at
+        })
+
+    return assignments

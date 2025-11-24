@@ -148,6 +148,47 @@ class ToolRegistry:
                     tools.append(convert_to_langchain_tool(tool))
         return tools
 
+    async def get_langchain_tools_for_agent(self, agent_id: int) -> list:
+        """Fetch tools assigned to a specific agent from database.
+        
+        This method dynamically queries the database for all enabled tools
+        assigned to the given agent, converting them to LangChain format.
+        
+        Args:
+            agent_id: The ID of the sub-agent
+            
+        Returns:
+            List of LangChain tool objects assigned to this agent
+        """
+        from .adapters import convert_to_langchain_tool
+        from ..config.database import AsyncSessionLocal, Tool
+        from sqlalchemy import select
+        
+        tools = []
+        
+        try:
+            async with AsyncSessionLocal() as db:
+                # Query for tools assigned to this agent
+                result = await db.execute(
+                    select(Tool)
+                    .where(
+                        Tool.assigned_agent_id == agent_id,
+                        Tool.enabled == True
+                    )
+                )
+                db_tools = result.scalars().all()
+                
+                # Convert to LangChain format
+                for db_tool in db_tools:
+                    # Check if tool is registered in memory
+                    if db_tool.name in self._tools:
+                        tool_func = self._tools[db_tool.name]
+                        tools.append(convert_to_langchain_tool(tool_func))
+        except Exception as e:
+            print(f"Warning: Failed to fetch tools for agent {agent_id}: {e}")
+        
+        return tools
+
     def reset(self) -> None:
         """Clear all registered tools and scopes.
 

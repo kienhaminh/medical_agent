@@ -6,7 +6,7 @@ Handles loading enabled sub-agents from the database and managing their configur
 from typing import Dict, Any
 from sqlalchemy import select
 
-from ..config.database import SubAgent, AgentToolAssignment, Tool, AsyncSessionLocal
+from ..config.database import SubAgent, AsyncSessionLocal
 from ..tools.loader import load_custom_tools
 
 
@@ -37,17 +37,7 @@ class AgentLoader:
                 agents = result.scalars().all()
                 
                 for agent in agents:
-                    # Get agent's assigned tools
-                    tools_result = await db.execute(
-                        select(Tool)
-                        .join(AgentToolAssignment)
-                        .where(
-                            AgentToolAssignment.agent_id == agent.id,
-                            AgentToolAssignment.enabled == True
-                        )
-                    )
-                    tools = tools_result.scalars().all()
-                    
+                    # Store agent metadata with agent_id for dynamic tool fetching
                     agents_info[agent.role] = {
                         "id": agent.id,
                         "name": agent.name,
@@ -56,7 +46,6 @@ class AgentLoader:
                         "system_prompt": agent.system_prompt,
                         "color": agent.color,
                         "icon": agent.icon,
-                        "tools": [tool.name for tool in tools]
                     }
         except Exception as e:
             print(f"Warning: Failed to load sub-agents: {e}")
@@ -83,8 +72,6 @@ class AgentLoader:
             for role, info in self.sub_agents.items():
                 specialist_list += f"**{info['name']}** (role: {role})\n"
                 specialist_list += f"Description: {info['description']}\n"
-                if info.get('tools'):
-                    specialist_list += f"Tools: {', '.join(info['tools'])}\n"
                 specialist_list += "\n"
             specialist_list += "="*70 + "\n"
         else:
