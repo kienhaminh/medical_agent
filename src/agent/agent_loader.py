@@ -55,38 +55,3 @@ class AgentLoader:
         
         return agents_info
     
-    def build_decision_context(self, system_prompt: str) -> str:
-        """Build context for main agent's decision-making.
-        
-        Args:
-            system_prompt: The base system prompt
-            
-        Returns:
-            Complete decision context with specialist information
-        """
-        specialist_list = ""
-        if self.sub_agents:
-            specialist_list = "\n" + "="*70 + "\n"
-            specialist_list += "AVAILABLE SPECIALISTS\n"
-            specialist_list += "="*70 + "\n\n"
-            for role, info in self.sub_agents.items():
-                specialist_list += f"**{info['name']}** (role: {role})\n"
-                specialist_list += f"Description: {info['description']}\n"
-                specialist_list += "\n"
-            specialist_list += "="*70 + "\n"
-        else:
-            specialist_list = "\n(No specialists currently available)\n"
-        
-        return f"""{system_prompt}
-
-{specialist_list}
-
-**How to Delegate:**
-- Use the specialist's **role** (not name) in your CONSULT statement
-- Example: "CONSULT: clinical_text" (to consult the Internist)
-- For multiple: "CONSULT: clinical_text,imaging" (parallel consultation)
-
-**Important:**
-- Match the query to specialist descriptions above
-- Choose specialists based on their expertise and available tools
-- Use the exact role identifier shown in parentheses"""

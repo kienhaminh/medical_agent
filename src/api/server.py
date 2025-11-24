@@ -1,5 +1,9 @@
 """FastAPI server for AI Agent chat interface."""
 
+# Load environment variables FIRST, before any imports that need them
+from dotenv import load_dotenv
+load_dotenv()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,8 +18,7 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan events (startup and shutdown)."""
     # Startup: Initialize database only
     await init_db()
-    
-    print("Server started: Custom tools will be loaded dynamically by agents")
+    print("Database initialized")
     yield
 
 app = FastAPI(

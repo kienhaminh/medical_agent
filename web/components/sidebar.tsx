@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Activity, Users, MessageSquare, Settings, Sliders, Home, ChevronDown, ChevronRight, History, BarChart3, PanelLeftClose, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,6 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  {
-    name: "Home",
-    href: "/",
-    icon: Home,
-  },
   {
     name: "Patients",
     href: "/patient",
@@ -40,6 +35,7 @@ const navigation: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>(["Agent"]);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -73,7 +69,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-border px-3 justify-between">
         {!isCollapsed && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/")}>
             <div className="relative">
               <Activity className="w-6 h-6 text-cyan-500" />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
@@ -84,7 +80,7 @@ export function Sidebar() {
           </div>
         )}
         {isCollapsed && (
-          <div className="relative mx-auto">
+          <div className="relative mx-auto cursor-pointer" onClick={() => router.push("/")}>
             <Activity className="w-6 h-6 text-cyan-500" />
             <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
           </div>

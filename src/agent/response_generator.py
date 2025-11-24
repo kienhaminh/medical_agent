@@ -92,6 +92,11 @@ class ResponseGenerator:
         """
         final_content = []
         
+        # State for filtering CONSULT commands
+        buffer = ""
+        checking_consult = True
+        is_consult = False
+        
         # Stream through the graph events
         async for event in self.graph.astream_events(initial_state, config=config, version="v2"):
             event_type = event.get("event")
@@ -113,11 +118,68 @@ class ResponseGenerator:
                         chunk = data["chunk"]
                         if hasattr(chunk, "content") and chunk.content:
                             content = chunk.content
-                            final_content.append(content)
-                            yield {
-                                "type": "content",
-                                "content": content
-                            }
+                            
+                            # Filter out CONSULT commands
+                            if is_consult:
+                                continue
+                                
+                            if checking_consult:
+                                buffer += content
+                                # Check if buffer matches "CONSULT:" pattern
+                                # We allow leading whitespace
+                                stripped_buffer = buffer.lstrip()
+                                target = "CONSULT:"
+                                
+                                if len(stripped_buffer) >= len(target):
+                                    if stripped_buffer.upper().startswith(target):
+                                        is_consult = True
+                                        checking_consult = False
+                                        buffer = "" # Discard buffer
+                                    else:
+                                        # Not a command
+                                        checking_consult = False
+                                        # Flush buffer
+                                        final_content.append(buffer)
+                                        yield {
+                                            "type": "content",
+                                            "content": buffer
+                                        }
+                                        buffer = ""
+                                else:
+                                    # Buffer too short, check if it COULD be a command
+                                    current_upper = stripped_buffer.upper()
+                                    if not target.startswith(current_upper):
+                                        # Diverged
+                                        checking_consult = False
+                                        final_content.append(buffer)
+                                        yield {
+                                            "type": "content",
+                                            "content": buffer
+                                        }
+                                        buffer = ""
+                                    # Else: matches so far, keep buffering
+                            else:
+                                final_content.append(content)
+                                yield {
+                                    "type": "content",
+                                    "content": content
+                                }
+            
+            elif event_type == "on_chat_model_end":
+                if event.get("metadata", {}).get("langgraph_node") == "agent":
+                    # End of a turn
+                    if checking_consult and buffer:
+                        # Flush remaining buffer if we were still checking
+                        final_content.append(buffer)
+                        yield {
+                            "type": "content",
+                            "content": buffer
+                        }
+                    
+                    # Reset for next potential turn
+                    buffer = ""
+                    checking_consult = True
+                    is_consult = False
             
             # Handle tool calls (if we want to show them as they happen)
             elif event_type == "on_tool_start":

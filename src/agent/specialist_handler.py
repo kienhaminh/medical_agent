@@ -11,6 +11,12 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 
 from ..tools.registry import ToolRegistry
 from ..tools.executor import ToolExecutor
+from ..prompt.templates import (
+    format_specialist_report,
+    format_specialist_error,
+    format_specialist_timeout,
+    format_specialist_exception
+)
 
 
 class SpecialistHandler:
@@ -206,7 +212,7 @@ class SpecialistHandler:
                 
                 # Tag response with specialist name
                 tagged_response = SystemMessage(
-                    content=f"REPORT FROM SPECIALIST **[{agent_info['name']}]**:\n{response.content}"
+                    content=format_specialist_report(agent_info['name'], response.content)
                 )
                 return tagged_response
                 
@@ -217,7 +223,7 @@ class SpecialistHandler:
                 )
                 # Return error as SystemMessage to include in final response
                 return SystemMessage(
-                    content=f"REPORT FROM SPECIALIST **[{agent_info.get('name', specialist_role)}]**: Error during consultation - {str(e)}"
+                    content=format_specialist_error(agent_info.get('name', specialist_role), str(e))
                 )
         
         # FAN-OUT: Launch all specialist consultations concurrently
@@ -240,7 +246,7 @@ class SpecialistHandler:
         except asyncio.TimeoutError:
             # Handle timeout - return partial results
             sub_responses = [
-                SystemMessage(content=f"REPORT FROM SPECIALIST **[Timeout]**: Sub-agent consultation exceeded {self.subagent_timeout}s timeout")
+                SystemMessage(content=format_specialist_timeout(self.subagent_timeout))
             ]
         
         # Process results - convert exceptions to error messages
@@ -248,7 +254,7 @@ class SpecialistHandler:
         for i, result in enumerate(sub_responses):
             if isinstance(result, Exception):
                 error_msg = SystemMessage(
-                    content=f"REPORT FROM SPECIALIST **[{specialists_needed[i]}]**: Exception - {str(result)}"
+                    content=format_specialist_exception(specialists_needed[i], str(result))
                 )
                 final_responses.append(error_msg)
             else:

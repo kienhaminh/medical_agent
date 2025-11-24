@@ -10,7 +10,8 @@ from typing import Union, AsyncGenerator
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from .state import AgentState
-from .agent_config import AgentConfig, get_default_system_prompt
+from .agent_config import AgentConfig
+from ..prompt.system import get_default_system_prompt
 from .agent_loader import AgentLoader
 from .specialist_handler import SpecialistHandler
 from .graph_builder import GraphBuilder

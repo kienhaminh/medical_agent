@@ -104,7 +104,6 @@ function AgentChatPageContent() {
         }));
 
         setMessages(convertedMessages);
-        toast.success("Chat session loaded successfully");
       } catch (error) {
         console.error("Failed to load session:", error);
         toast.error("Failed to load chat session");
@@ -391,7 +390,6 @@ function AgentChatPageContent() {
     isCreatingSessionRef.current = false;
     setInput("");
     router.replace("/agent", { scroll: false });
-    toast.success("New chat session started");
   };
 
   const suggestedPrompts = [

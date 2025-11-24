@@ -6,14 +6,28 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
-# Database URL
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/medinexus"
-)
+# Database URL from environment
+# Format: postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+if not DATABASE_URL:
+    raise ValueError(
+        "DATABASE_URL environment variable is not set!\n"
+        "Please set it in your .env file with the format:\n"
+        "DATABASE_URL=postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
+    )
+
+# Convert psycopg2 URL to asyncpg for async operations
+ASYNC_DATABASE_URL = DATABASE_URL.replace("+psycopg2", "+asyncpg") if "+psycopg2" in DATABASE_URL else DATABASE_URL
 
 # Async Engine
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(
+    ASYNC_DATABASE_URL, 
+    echo=False,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_size=5,
+    max_overflow=10
+)
 
 # Session Factory
 AsyncSessionLocal = async_sessionmaker(
@@ -56,14 +70,17 @@ async def get_db():
         yield session
 
 async def init_db():
-    # Create pgvector extension first
+    """Initialize database with pgvector extension and create tables."""
+    from sqlalchemy import text
+    
+    # Create pgvector extension first (Supabase has this available)
     async with engine.begin() as conn:
-        await conn.execute(func.text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     
     # Dispose engine to force new connections that will load the new 'vector' type
     await engine.dispose()
     
-# Create tables
+    # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -71,14 +88,12 @@ async def init_db():
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-# Sync Database URL (same as async but with psycopg2 or similar if needed, 
-# but sqlalchemy can often use the same URL string if the driver is handled. 
-# However, asyncpg is async only. We need a sync driver like psycopg2 or default.)
-# We'll try to infer a sync URL or just use a default one for now.
-# Assuming standard postgres URL format.
-SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "")
-
-sync_engine = create_engine(SYNC_DATABASE_URL, echo=False)
+# Sync engine uses the original DATABASE_URL (with psycopg2 driver)
+sync_engine = create_engine(
+    DATABASE_URL, 
+    echo=False,
+    pool_pre_ping=True
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
 class Tool(Base):

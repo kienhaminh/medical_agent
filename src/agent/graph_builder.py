@@ -13,6 +13,7 @@ from .enums import GraphNode
 from .agent_loader import AgentLoader
 from .specialist_handler import SpecialistHandler
 from ..tools.registry import ToolRegistry
+from ..prompt.templates import build_decision_context
 
 
 class GraphBuilder:
@@ -70,7 +71,7 @@ class GraphBuilder:
             messages = state["messages"]
             
             # Build decision prompt with system prompt
-            decision_context = self.agent_loader.build_decision_context(self.system_prompt)
+            decision_context = build_decision_context(self.system_prompt, self.agent_loader.sub_agents)
             
             # Call LLM with ONLY global-scoped tools
             response = main_agent_llm.invoke(

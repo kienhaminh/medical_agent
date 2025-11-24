@@ -80,7 +80,7 @@ export function ThinkingProgress({ reasoning, logs = [] }: ThinkingProgressProps
 
       {/* Regular reasoning content */}
       {regularContent && (
-        <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap font-mono leading-relaxed bg-muted/30 p-3 rounded-md border border-border/50">
+        <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap font-mono leading-relaxed bg-muted/30 p-3 rounded-md border border-cyan-500/30">
           {regularContent}
         </div>
       )}
