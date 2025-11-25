@@ -107,7 +107,7 @@ class SpecialistHandler:
         self,
         response_content: str,
         agent_role: str,
-        agent_name: str
+        agent_name: str = None,
     ) -> str:
         """Parse structured JSON output and format it nicely.
 
@@ -147,7 +147,7 @@ class SpecialistHandler:
             data = json.loads(json_str)
 
             # Format based on agent type
-            if agent_role in ["clinical_text", "internist"]:
+            if agent_role == "clinical_text":
                 formatted = format_internist_output(data)
                 logger.info(f"Successfully formatted structured output for {agent_role}")
                 return formatted
@@ -318,6 +318,7 @@ class SpecialistHandler:
                     # Execute tools
                     tool_executor = ToolExecutor(self.tool_registry)
                     tool_outputs = []
+                    found_patient_profile = None
                     
                     for tool_call in response.tool_calls:
                         t_start = time.time()
@@ -330,6 +331,18 @@ class SpecialistHandler:
                             tool_call["name"], 
                             tool_call["args"]
                         )
+                        
+                        # Check for patient info in tool result
+                        if tool_call["name"] == "query_patient_info" and tool_result.success:
+                            # Parse: "Patient Found: {name} (ID: {id})"
+                            import re
+                            match = re.search(r"Patient Found: (.+?) \(ID: (\d+)\)", str(tool_result.data))
+                            if match:
+                                found_patient_profile = {
+                                    "name": match.group(1),
+                                    "id": int(match.group(2))
+                                }
+                                logger.info("Found patient profile in tool output: %s", found_patient_profile)
                         
                         logger.debug(
                             "Executed tool %s (success=%s)",
@@ -371,6 +384,7 @@ class SpecialistHandler:
                         response = AIMessage(content=f"Tool execution completed. Results:\n{tool_results_str}")
                 else:
                     logger.debug("No tool calls made by %s - responding directly", specialist_role)
+                    found_patient_profile = None
                 
                 total_duration = time.time() - start_time
                 await adispatch_custom_event(
@@ -389,6 +403,11 @@ class SpecialistHandler:
                 tagged_response = SystemMessage(
                     content=format_specialist_report(agent_info['name'], formatted_content)
                 )
+                
+                # Attach patient profile if found
+                if found_patient_profile:
+                    tagged_response.additional_kwargs["patient_profile"] = found_patient_profile
+                    
                 return tagged_response
                 
             except Exception as e:

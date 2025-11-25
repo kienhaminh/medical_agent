@@ -8,10 +8,33 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, User, Search, Calendar, Activity, ArrowRight, Grid3x3, List, Filter, X } from "lucide-react";
+import {
+  Plus,
+  User,
+  Search,
+  Calendar,
+  Activity,
+  ArrowRight,
+  Grid3x3,
+  List,
+  Filter,
+  X,
+} from "lucide-react";
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -19,7 +42,11 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newPatient, setNewPatient] = useState({ name: "", dob: "", gender: "" });
+  const [newPatient, setNewPatient] = useState({
+    name: "",
+    dob: "",
+    gender: "",
+  });
 
   // View and filter states
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -58,7 +85,9 @@ export default function PatientsPage() {
         case "dob":
           return new Date(a.dob).getTime() - new Date(b.dob).getTime();
         case "recent":
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
         default:
           return 0;
       }
@@ -116,7 +145,10 @@ export default function PatientsPage() {
                 Manage and view patient medical records
               </p>
             </div>
-            <Button onClick={() => setIsCreating(true)} className="primary-button">
+            <Button
+              onClick={() => setIsCreating(true)}
+              className="primary-button"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Patient
             </Button>
@@ -139,13 +171,19 @@ export default function PatientsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`secondary-button gap-2 ${showFilters ? 'bg-cyan-500/10 text-cyan-500' : ''}`}
+                className={`secondary-button gap-2 ${
+                  showFilters ? "bg-cyan-500/10 text-cyan-500" : ""
+                }`}
               >
                 <Filter className="w-4 h-4" />
                 Filters
                 {(genderFilter !== "all" || sortBy !== "name") && (
-                  <Badge variant="secondary" className="ml-1 bg-cyan-500 text-white text-xs">
-                    {(genderFilter !== "all" ? 1 : 0) + (sortBy !== "name" ? 1 : 0)}
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 bg-cyan-500 text-white text-xs"
+                  >
+                    {(genderFilter !== "all" ? 1 : 0) +
+                      (sortBy !== "name" ? 1 : 0)}
                   </Badge>
                 )}
               </Button>
@@ -155,7 +193,9 @@ export default function PatientsPage() {
             {showFilters && (
               <Card className="p-4 bg-card/50 border-border/50 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-semibold text-sm">Filter Options</h3>
+                  <h3 className="font-display font-semibold text-sm">
+                    Filter Options
+                  </h3>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -172,8 +212,13 @@ export default function PatientsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Gender</Label>
-                    <Select value={genderFilter} onValueChange={setGenderFilter}>
+                    <Label className="text-xs text-muted-foreground">
+                      Gender
+                    </Label>
+                    <Select
+                      value={genderFilter}
+                      onValueChange={setGenderFilter}
+                    >
                       <SelectTrigger className="medical-input h-9">
                         <SelectValue />
                       </SelectTrigger>
@@ -187,7 +232,9 @@ export default function PatientsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Sort By</Label>
+                    <Label className="text-xs text-muted-foreground">
+                      Sort By
+                    </Label>
                     <Select value={sortBy} onValueChange={setSortBy}>
                       <SelectTrigger className="medical-input h-9">
                         <SelectValue />
@@ -234,7 +281,10 @@ export default function PatientsPage() {
                 </p>
               </div>
               {!searchQuery && (
-                <Button onClick={() => setIsCreating(true)} className="primary-button mt-4">
+                <Button
+                  onClick={() => setIsCreating(true)}
+                  className="primary-button mt-4"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Patient
                 </Button>
@@ -279,7 +329,13 @@ export default function PatientsPage() {
               </div>
             </div>
 
-            <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-3"}>
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  : "space-y-3"
+              }
+            >
               {filteredPatients.map((patient) => (
                 <Link key={patient.id} href={`/patient/${patient.id}`}>
                   {viewMode === "grid" ? (
@@ -322,7 +378,8 @@ export default function PatientsPage() {
                             {patient.gender}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            Added {new Date(patient.created_at).toLocaleDateString()}
+                            Added{" "}
+                            {new Date(patient.created_at).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
@@ -354,13 +411,21 @@ export default function PatientsPage() {
                           </div>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <span className="font-medium text-foreground">ID:</span> #{patient.id}
+                              <span className="font-medium text-foreground">
+                                ID:
+                              </span>{" "}
+                              #{patient.id}
                             </span>
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {patient.dob}
                             </span>
-                            <span>Added {new Date(patient.created_at).toLocaleDateString()}</span>
+                            <span>
+                              Added{" "}
+                              {new Date(
+                                patient.created_at
+                              ).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
 
@@ -379,7 +444,9 @@ export default function PatientsPage() {
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="font-display text-2xl">Add New Patient</DialogTitle>
+            <DialogTitle className="font-display text-2xl">
+              Add New Patient
+            </DialogTitle>
             <DialogDescription>
               Enter patient information to create a new medical record
             </DialogDescription>
@@ -393,7 +460,9 @@ export default function PatientsPage() {
                 type="text"
                 required
                 value={newPatient.name}
-                onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                onChange={(e) =>
+                  setNewPatient({ ...newPatient, name: e.target.value })
+                }
                 placeholder="John Doe"
                 className="medical-input"
               />
@@ -406,7 +475,9 @@ export default function PatientsPage() {
                 type="date"
                 required
                 value={newPatient.dob}
-                onChange={(e) => setNewPatient({ ...newPatient, dob: e.target.value })}
+                onChange={(e) =>
+                  setNewPatient({ ...newPatient, dob: e.target.value })
+                }
                 className="medical-input"
               />
             </div>
@@ -415,7 +486,9 @@ export default function PatientsPage() {
               <Label htmlFor="gender">Gender *</Label>
               <Select
                 value={newPatient.gender}
-                onValueChange={(value) => setNewPatient({ ...newPatient, gender: value })}
+                onValueChange={(value) =>
+                  setNewPatient({ ...newPatient, gender: value })
+                }
               >
                 <SelectTrigger id="gender" className="medical-input">
                   <SelectValue placeholder="Select gender" />

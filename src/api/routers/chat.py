@@ -127,10 +127,13 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                 yield f"data: {json.dumps({'reasoning': event['content']})}\n\n"
                             elif event["type"] == "log":
                                 yield f"data: {json.dumps({'log': event['content']})}\n\n"
+                            elif event["type"] == "patient_references":
+                                # Forward patient references to frontend
+                                yield f"data: {json.dumps({'patient_references': event['patient_references']})}\n\n"
                         else:
                             # Fallback for string chunks if any
                             # LangGraphAgent yields full content in 'values' mode, so we update full_response
-                            full_response = event 
+                            full_response = event
                             yield f"data: {json.dumps({'chunk': event})}\n\n"
 
                     # 3. Save Assistant Message (after streaming is done)

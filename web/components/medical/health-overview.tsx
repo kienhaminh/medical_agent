@@ -1,9 +1,9 @@
 "use client";
 
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+
 import {
   Sparkles,
   Activity,
@@ -23,7 +23,10 @@ interface HealthOverviewProps {
   onRegenerateClick?: () => void;
 }
 
-export function HealthOverview({ patient, onRegenerateClick }: HealthOverviewProps) {
+export function HealthOverview({
+  patient,
+  onRegenerateClick,
+}: HealthOverviewProps) {
   const lastVisit = patient.visits?.[0];
 
   return (
@@ -33,7 +36,10 @@ export function HealthOverview({ patient, onRegenerateClick }: HealthOverviewPro
         {/* Animated background */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+          <div
+            className="absolute bottom-0 left-0 w-48 h-48 bg-teal-500/5 rounded-full blur-3xl animate-pulse"
+            style={{ animationDelay: "1s" }}
+          />
         </div>
 
         <div className="relative p-6">
@@ -66,14 +72,22 @@ export function HealthOverview({ patient, onRegenerateClick }: HealthOverviewPro
 
           <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-cyan-500 prose-li:text-muted-foreground">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {patient.health_summary || "No health summary available. Click 'Regenerate' to generate an AI-powered health overview."}
+              {patient.health_summary ||
+                "No health summary available. Click 'Regenerate' to generate an AI-powered health overview."}
             </ReactMarkdown>
           </div>
 
           <div className="mt-4 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Activity className="w-3.5 h-3.5 text-cyan-500" />
-              <span>Last updated: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
+              <span>
+                Last updated:{" "}
+                {new Date().toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </span>
             </div>
           </div>
         </div>
@@ -88,7 +102,9 @@ export function HealthOverview({ patient, onRegenerateClick }: HealthOverviewPro
             </div>
             <div className="flex-1">
               <p className="text-xs text-muted-foreground">Total Visits</p>
-              <p className="text-2xl font-bold font-display">{patient.visits?.length || 0}</p>
+              <p className="text-2xl font-bold font-display">
+                {patient.visits?.length || 0}
+              </p>
             </div>
           </div>
         </Card>
@@ -100,7 +116,9 @@ export function HealthOverview({ patient, onRegenerateClick }: HealthOverviewPro
             </div>
             <div className="flex-1">
               <p className="text-xs text-muted-foreground">Medical Records</p>
-              <p className="text-2xl font-bold font-display">{patient.records?.length || 0}</p>
+              <p className="text-2xl font-bold font-display">
+                {patient.records?.length || 0}
+              </p>
             </div>
           </div>
         </Card>
@@ -114,7 +132,10 @@ export function HealthOverview({ patient, onRegenerateClick }: HealthOverviewPro
               <p className="text-xs text-muted-foreground">Last Visit</p>
               <p className="text-sm font-medium">
                 {lastVisit
-                  ? new Date(lastVisit.visit_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                  ? new Date(lastVisit.visit_date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })
                   : "N/A"}
               </p>
             </div>

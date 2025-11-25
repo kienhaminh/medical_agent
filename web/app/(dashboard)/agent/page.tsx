@@ -9,7 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
-import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
+import type {
+  AgentActivity,
+  ToolCall,
+  LogItem,
+  PatientReference,
+} from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import { getSessionMessages } from "@/lib/api";
 import { toast } from "sonner";
@@ -340,6 +345,10 @@ function AgentChatPageContent() {
               }
 
               if (parsed.patient_references) {
+                console.log(
+                  "Received patient_references:",
+                  parsed.patient_references
+                );
                 setMessages((prev) =>
                   prev.map((msg) =>
                     msg.id === assistantMessageId
@@ -596,6 +605,7 @@ function AgentChatPageContent() {
                           ? activityDetails
                           : undefined
                       }
+                      patientReferences={message.patientReferences}
                       patientReferences={message.patientReferences}
                       sessionId={currentSessionId || undefined}
                     />

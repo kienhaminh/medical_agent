@@ -14,78 +14,93 @@ export function AnswerContent({
   patientReferences,
   sessionId,
 }: AnswerContentProps) {
-  // Process content to replace patient references with PatientLink components
-  const processedContent = React.useMemo(() => {
+  // Create a map of patient names to their info for quick lookup
+  const patientMap = React.useMemo(() => {
+    console.log("AnswerContent - patientReferences:", patientReferences);
     if (!patientReferences || patientReferences.length === 0) {
-      return content;
+      return new Map();
     }
 
-    // Sort references by start_index in descending order to replace from end to start
-    const sortedRefs = [...patientReferences].sort(
-      (a, b) => b.start_index - a.start_index
-    );
+    const map = new Map();
+    patientReferences.forEach(ref => {
+      console.log("Adding to patientMap:", ref.patient_name, "ID:", ref.patient_id);
+      map.set(ref.patient_name, {
+        patientId: ref.patient_id,
+        patientName: ref.patient_name
+      });
+    });
+    console.log("PatientMap created with", map.size, "entries");
+    return map;
+  }, [patientReferences]);
 
-    let processedText = content;
+  // Function to render text with patient links
+  const renderTextWithPatientLinks = (text: string) => {
+    if (patientMap.size === 0) {
+      return text;
+    }
 
-    // Replace each patient reference with a unique marker that we can identify later
-    sortedRefs.forEach((ref, index) => {
-      const before = processedText.substring(0, ref.start_index);
-      const after = processedText.substring(ref.end_index);
-      const marker = `__PATIENT_LINK_${index}__`;
-      processedText = before + marker + after;
+    // Find all patient name matches with their positions
+    const matches: Array<{
+      start: number;
+      end: number;
+      patientId: number;
+      patientName: string;
+    }> = [];
+
+    patientMap.forEach((patientInfo, patientName) => {
+      // Escape special regex characters in patient name
+      const escapedName = patientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedName}\\b`, 'g');
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({
+          start: match.index,
+          end: match.index + patientName.length,
+          patientId: patientInfo.patientId,
+          patientName: patientInfo.patientName,
+        });
+      }
     });
 
-    return { processedText, references: sortedRefs };
-  }, [content, patientReferences]);
-
-  // Custom text renderer to replace markers with PatientLink components
-  const renderText = (text: string) => {
-    if (
-      typeof processedContent === "object" &&
-      processedContent.references
-    ) {
-      const parts: (string | React.ReactElement)[] = [];
-      let lastIndex = 0;
-
-      processedContent.references.forEach((ref, index) => {
-        const marker = `__PATIENT_LINK_${index}__`;
-        const markerIndex = text.indexOf(marker, lastIndex);
-
-        if (markerIndex !== -1) {
-          // Add text before marker
-          if (markerIndex > lastIndex) {
-            parts.push(text.substring(lastIndex, markerIndex));
-          }
-
-          // Add PatientLink component
-          parts.push(
-            <PatientLink
-              key={`patient-${ref.patient_id}-${index}`}
-              patientId={ref.patient_id}
-              patientName={ref.patient_name}
-              sessionId={sessionId}
-            />
-          );
-
-          lastIndex = markerIndex + marker.length;
-        }
-      });
-
-      // Add remaining text
-      if (lastIndex < text.length) {
-        parts.push(text.substring(lastIndex));
-      }
-
-      return parts.length > 0 ? parts : text;
+    // If no matches found, return original text
+    if (matches.length === 0) {
+      return text;
     }
 
-    return text;
-  };
+    // Sort matches by start position
+    matches.sort((a, b) => a.start - b.start);
 
-  const displayContent =
-    typeof processedContent === "object"
-      ? processedContent.processedText
-      : processedContent;
+    // Build the parts array with text and PatientLink components
+    const parts: (string | React.ReactElement)[] = [];
+    let lastIndex = 0;
+
+    matches.forEach((match, idx) => {
+      // Add text before this match
+      if (match.start > lastIndex) {
+        parts.push(text.substring(lastIndex, match.start));
+      }
+
+      // Add PatientLink component
+      parts.push(
+        <PatientLink
+          key={`patient-${match.patientId}-${idx}`}
+          patientId={match.patientId}
+          patientName={match.patientName}
+          sessionId={sessionId}
+        />
+      );
+
+      lastIndex = match.end;
+    });
+
+    // Add any remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return parts;
+  };
 
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere prose-p:leading-7 prose-p:my-3 prose-headings:mt-6 prose-headings:mb-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-pre:my-4 prose-code:text-cyan-400">
@@ -127,7 +142,7 @@ export function AnswerContent({
           p: ({ children, ...props }: any) => {
             const processChildren = (child: any): any => {
               if (typeof child === "string") {
-                return renderText(child);
+                return renderTextWithPatientLinks(child);
               }
               if (React.isValidElement(child)) {
                 const childProps = child.props as any;
@@ -144,14 +159,37 @@ export function AnswerContent({
             };
 
             return (
-              <p {...props}>
+              <p {...props}>{React.Children.map(children, processChildren)}</p>
+            );
+          },
+          li: ({ children, ...props }: any) => {
+            const processChildren = (child: any): any => {
+              if (typeof child === "string") {
+                return renderTextWithPatientLinks(child);
+              }
+              if (React.isValidElement(child)) {
+                const childProps = child.props as any;
+                if (childProps.children) {
+                  return React.cloneElement(child, {
+                    children: React.Children.map(
+                      childProps.children,
+                      processChildren
+                    ),
+                  } as any);
+                }
+              }
+              return child;
+            };
+
+            return (
+              <li {...props}>
                 {React.Children.map(children, processChildren)}
-              </p>
+              </li>
             );
           },
         }}
       >
-        {displayContent}
+        {content}
       </ReactMarkdown>
       {isLoading && isLatest && (
         <span className="inline-block w-2 h-4 ml-1 bg-cyan-500 animate-pulse" />

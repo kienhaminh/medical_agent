@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Node,
@@ -21,6 +21,7 @@ import { Tool } from "@/lib/api";
 import { AgentNode } from "./canvas/agent-node";
 import { ToolNode } from "./canvas/tool-node";
 import { MainAgentNode } from "./canvas/main-agent-node";
+import { CustomEdge } from "./canvas/custom-edge";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AssignmentCanvasProps } from "@/types/agent-ui";
@@ -29,6 +30,10 @@ const nodeTypes = {
   agent: AgentNode,
   tool: ToolNode,
   mainAgent: MainAgentNode,
+};
+
+const edgeTypes = {
+  custom: CustomEdge,
 };
 
 export function AssignmentCanvas({
@@ -103,7 +108,7 @@ export function AssignmentCanvas({
       id: `delegation-${agent.id}`,
       source: "main-agent",
       target: `agent-${agent.id}`,
-      animated: false,
+      animated: true,
       style: {
         stroke: "#06b6d4",
         strokeWidth: 2,
@@ -120,28 +125,78 @@ export function AssignmentCanvas({
         target: `tool-${tool.name}`,
         animated: true,
         style: { stroke: "#10b981", strokeWidth: 2 },
-        type: "smoothstep",
+        type: "custom",
+        data: {
+          agentId: tool.assigned_agent_id,
+          toolName: tool.name,
+        },
       })),
   ];
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const initializedRef = useRef(false);
+
+  // Handler for edge deletion - stable function that doesn't depend on edges
+  const handleEdgeDelete = useCallback(
+    async (edgeId: string, agentId: number, toolName: string) => {
+      // Only allow deletion of tool assignment edges (not delegation edges)
+      if (edgeId.startsWith("delegation-")) return;
+
+      try {
+        await onUnassign(toolName, agentId);
+        setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      } catch (error) {
+        console.error("Failed to unassign tool:", error);
+      }
+    },
+    [onUnassign, setEdges]
+  );
+
+  // Update edges with onDelete handler once after mount
+  useEffect(() => {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      setEdges((eds) =>
+        eds.map((edge) => {
+          if (edge.type === "custom") {
+            return {
+              ...edge,
+              data: { ...edge.data, onDelete: handleEdgeDelete },
+            };
+          }
+          return edge;
+        })
+      );
+    }
+  }, [handleEdgeDelete, setEdges]);
 
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!connection.source || !connection.target) return;
 
-      // Only allow connections from agents to tools
+      let agentId: number;
+      let toolName: string;
+
+      // Allow connections from agents to tools OR from tools to agents
       if (
-        !connection.source.startsWith("agent-") ||
-        !connection.target.startsWith("tool-")
+        connection.source.startsWith("agent-") &&
+        connection.target.startsWith("tool-")
       ) {
+        // Agent → Tool
+        agentId = parseInt(connection.source.replace("agent-", ""));
+        toolName = connection.target.replace("tool-", "");
+      } else if (
+        connection.source.startsWith("tool-") &&
+        connection.target.startsWith("agent-")
+      ) {
+        // Tool → Agent (reverse direction)
+        agentId = parseInt(connection.target.replace("agent-", ""));
+        toolName = connection.source.replace("tool-", "");
+      } else {
+        // Invalid connection
         return;
       }
-
-      // Extract agent ID and tool name from the connection
-      const agentId = parseInt(connection.source.replace("agent-", ""));
-      const toolName = connection.target.replace("tool-", "");
 
       try {
         await onAssign(toolName, agentId);
@@ -151,7 +206,12 @@ export function AssignmentCanvas({
               ...connection,
               animated: true,
               style: { stroke: "#10b981", strokeWidth: 2 },
-              type: "smoothstep",
+              type: "custom",
+              data: {
+                agentId,
+                toolName,
+                onDelete: handleEdgeDelete,
+              },
             },
             eds
           )
@@ -160,26 +220,7 @@ export function AssignmentCanvas({
         console.error("Failed to assign tool:", error);
       }
     },
-    [onAssign, setEdges]
-  );
-
-  const onEdgeClick = useCallback(
-    async (_event: React.MouseEvent, edge: Edge) => {
-      // Only allow deletion of tool assignment edges (not delegation edges)
-      if (edge.id.startsWith("delegation-")) return;
-
-      // Extract agent ID and tool name from the edge
-      const agentId = parseInt(edge.source.replace("agent-", ""));
-      const toolName = edge.target.replace("tool-", "");
-
-      try {
-        await onUnassign(toolName, agentId);
-        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-      } catch (error) {
-        console.error("Failed to unassign tool:", error);
-      }
-    },
-    [onUnassign, setEdges]
+    [onAssign, setEdges, handleEdgeDelete]
   );
 
   return (
@@ -206,10 +247,11 @@ export function AssignmentCanvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         className="bg-background"
+        connectionMode="loose"
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls
@@ -232,8 +274,7 @@ export function AssignmentCanvas({
           className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg p-3 text-sm"
         >
           <p className="text-muted-foreground">
-            <strong>Tip:</strong> Drag from an agent to a tool to create an
-            assignment
+            <strong>Tip:</strong> Drag between agents and tools to create assignments. Hover over connections to disconnect.
           </p>
         </Panel>
       </ReactFlow>

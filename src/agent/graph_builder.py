@@ -152,9 +152,24 @@ class GraphBuilder:
                 synthesize_response=False
             )
             
+            # Extract patient info from tool outputs if available
+            patient_profile = {}
+            
+            for response in responses:
+                # Check for patient profile in additional_kwargs (populated by SpecialistHandler)
+                if hasattr(response, "additional_kwargs") and "patient_profile" in response.additional_kwargs:
+                    patient_profile = response.additional_kwargs["patient_profile"]
+                    logger.info("[SUB_AGENT] Found patient profile in message kwargs: %s", patient_profile)
+                    break
+            
             duration = time.time() - start_time
             logger.info("[SUB_AGENT] DONE - Received %d responses in %.2fs", len(responses), duration)
-            return {"messages": responses}
+            
+            # Return updates to state
+            return {
+                "messages": responses, 
+                "patient_profile": patient_profile
+            }
 
         # 4. Synthesis Node
         async def synthesis_node(state: AgentState):

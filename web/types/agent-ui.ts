@@ -1,6 +1,18 @@
 import { Brain, Terminal, Sparkles, Search } from "lucide-react";
 import { SubAgent } from "./agent";
 import { Tool } from "@/lib/api";
+import { MessageRole } from "@/types/enums";
+
+export interface Message {
+  id: string;
+  role: MessageRole;
+  content: string;
+  timestamp: Date;
+  toolCalls?: ToolCall[];
+  reasoning?: string;
+  logs?: LogItem[];
+  patientReferences?: PatientReference[];
+}
 
 export type AgentActivity =
   | "thinking"

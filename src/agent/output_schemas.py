@@ -177,59 +177,19 @@ def create_internist_instruction() -> str:
         Instruction text to append to system prompt
     """
     return """
-## OUTPUT FORMAT REQUIREMENTS
-
-You MUST structure your response as a JSON object with the following fields:
-
-```json
+## OUTPUT FORMAT
+Respond with JSON:
 {
-  "patient_summary": "Brief 1-2 sentence summary of patient demographics and complaint",
-  "key_findings": [
-    "Finding 1: description",
-    "Finding 2: description",
-    "Finding 3: description"
-  ],
-  "differential_diagnosis": [
-    {
-      "diagnosis": "Primary diagnosis name",
-      "reasoning": "Why this diagnosis is being considered"
-    },
-    {
-      "diagnosis": "Alternative diagnosis name",
-      "reasoning": "Supporting evidence for this consideration"
-    }
-  ],
-  "clinical_assessment": "2-4 sentence comprehensive assessment synthesizing all findings",
-  "recommendations": [
-    "Specific recommendation 1",
-    "Specific recommendation 2",
-    "Specific recommendation 3"
-  ],
+  "patient_summary": "1-2 sentence summary",
+  "key_findings": ["finding1", "finding2", ...],
+  "differential_diagnosis": [{"diagnosis": "name", "reasoning": "why"}, ...],
+  "clinical_assessment": "2-4 sentence assessment",
+  "recommendations": ["action1", "action2", ...],
   "priority": "routine|urgent|emergent",
-  "red_flags": [
-    "Warning sign 1 (if applicable)",
-    "Warning sign 2 (if applicable)"
-  ],
-  "additional_notes": "Optional context or caveats"
+  "red_flags": ["flag1", ...],
+  "additional_notes": "optional"
 }
-```
-
-### Field Requirements:
-- **patient_summary**: 10-500 characters
-- **key_findings**: 1-10 items, each non-empty
-- **differential_diagnosis**: OPTIONAL - 0-5 diagnoses, each with 'diagnosis' and 'reasoning'
-- **clinical_assessment**: 50-1000 characters
-- **recommendations**: 1-10 specific, actionable items
-- **priority**: Must be one of: routine, urgent, emergent
-- **red_flags**: Optional, 0-5 items
-- **additional_notes**: Optional, max 500 characters
-
-### Priority Definitions:
-- **routine**: Standard follow-up, no immediate concerns
-- **urgent**: Needs attention within 24-48 hours
-- **emergent**: Requires immediate medical attention
-
-IMPORTANT: Always respond with valid JSON matching this exact structure. The system will parse and format your response for display.
+Priority: routine (standard), urgent (24-48h), emergent (immediate).
 """
 
 
@@ -254,7 +214,6 @@ def get_output_schema_for_agent(agent_role: str) -> Optional[type[BaseModel]]:
     """
     schema_map = {
         "clinical_text": InternistOutputSchema,
-        "internist": InternistOutputSchema,
     }
 
     return schema_map.get(agent_role)
@@ -271,7 +230,6 @@ def get_output_instructions_for_agent(agent_role: str) -> Optional[str]:
     """
     instruction_map = {
         "clinical_text": create_internist_instruction(),
-        "internist": create_internist_instruction(),
     }
 
     return instruction_map.get(agent_role)

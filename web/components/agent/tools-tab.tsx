@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  getTools,
-  createTool,
-  updateTool,
-  deleteTool,
-  Tool,
-} from "@/lib/api";
+import { getTools, createTool, updateTool, deleteTool, Tool } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -140,7 +134,10 @@ export function ToolsTab() {
       const errorMessage = error?.message || "Failed to create tool";
 
       // Check if it's a duplicate symbol error
-      if (errorMessage.includes("symbol") && errorMessage.includes("already exists")) {
+      if (
+        errorMessage.includes("symbol") &&
+        errorMessage.includes("already exists")
+      ) {
         setFormError("Choose another symbol name for tool");
       } else {
         setFormError(errorMessage);
@@ -343,20 +340,20 @@ export function ToolsTab() {
           {filteredTools.map((tool) => (
             <Card
               key={tool.name}
-              className="group p-5 transition-all hover:shadow-md border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-teal-500/5"
+              className="group p-4 transition-all hover:shadow-md border-cyan-500/30 bg-gradient-to-br from-cyan-500/5 to-teal-500/5"
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
                     {tool.tool_type === "function" ? (
-                      <Code className="w-5 h-5 text-cyan-500" />
+                      <Code className="w-4 h-4 text-cyan-500" />
                     ) : (
-                      <Globe className="w-5 h-5 text-cyan-500" />
+                      <Globe className="w-4 h-4 text-cyan-500" />
                     )}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg">{tool.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <h3 className="font-semibold text-base">{tool.name}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
                       <Badge variant="secondary" className="text-xs font-mono">
                         {tool.symbol}
                       </Badge>
@@ -376,12 +373,12 @@ export function ToolsTab() {
               </div>
 
               {tool.description && (
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                   {tool.description}
                 </p>
               )}
 
-              <div className="flex items-center justify-end mt-auto pt-4 border-t border-border/50">
+              <div className="flex items-center justify-end mt-auto pt-3 border-t border-border/50">
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
@@ -408,7 +405,7 @@ export function ToolsTab() {
 
       {/* Create Tool Dialog */}
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-cyan-500" />
@@ -419,7 +416,10 @@ export function ToolsTab() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreate} className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+          <form
+            onSubmit={handleCreate}
+            className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2"
+          >
             {formError && (
               <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md border border-destructive/20">
                 {formError}
@@ -580,7 +580,7 @@ export function ToolsTab() {
 
       {/* Edit Tool Dialog */}
       <Dialog open={!!editingTool} onOpenChange={() => setEditingTool(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5 text-cyan-500" />
@@ -591,7 +591,10 @@ export function ToolsTab() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleUpdate} className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+          <form
+            onSubmit={handleUpdate}
+            className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto pr-2"
+          >
             <div className="space-y-2">
               <Label htmlFor="edit-name">Tool Name *</Label>
               <Input

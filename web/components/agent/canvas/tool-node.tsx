@@ -10,43 +10,47 @@ import { Badge } from "@/components/ui/badge";
 export const ToolNode = memo(({ data }: NodeProps) => {
   const tool = data as unknown as Tool;
 
+  const DISCONNECTED_COLOR = "#6b7280";
+
   const getCategoryColor = (category?: string) => {
     const colors: Record<string, string> = {
       medical: "#10b981",
       diagnostic: "#f59e0b",
       research: "#8b5cf6",
       communication: "#06b6d4",
-      other: "#6b7280",
+      other: DISCONNECTED_COLOR,
     };
-    return colors[category || "other"] || "#6b7280";
+    return colors[category || "other"] || DISCONNECTED_COLOR;
   };
 
   const color = getCategoryColor(tool.category);
+  const isConnected = !!tool.assigned_agent_id;
+  const displayColor = isConnected ? color : DISCONNECTED_COLOR;
 
   return (
     <div
       className="px-4 py-3 rounded-lg border-2 shadow-lg min-w-[180px] max-w-[250px] transition-all hover:shadow-xl bg-card"
       style={{
-        borderColor: tool.enabled ? color : "#6b7280",
-        background: tool.enabled
+        borderColor: displayColor,
+        background: isConnected
           ? `linear-gradient(135deg, ${color}08 0%, ${color}18 100%)`
-          : "linear-gradient(135deg, #f3f4f608 0%, #f3f4f610 100%)",
-        opacity: tool.enabled ? 1 : 0.6,
+          : `linear-gradient(135deg, ${DISCONNECTED_COLOR}08 0%, ${DISCONNECTED_COLOR}10 100%)`,
+        opacity: isConnected ? 1 : 0.6,
       }}
     >
       <Handle
-        type="target"
+        type="source"
         position={Position.Left}
         className="w-3 h-3"
-        style={{ background: color }}
+        style={{ background: displayColor }}
       />
 
       <div className="flex items-start gap-3">
         <div
           className="p-2 rounded-lg"
-          style={{ backgroundColor: `${color}20` }}
+          style={{ backgroundColor: `${displayColor}20` }}
         >
-          <Wrench className="w-4 h-4" style={{ color }} />
+          <Wrench className="w-4 h-4" style={{ color: displayColor }} />
         </div>
 
         <div className="flex-1">
@@ -60,16 +64,16 @@ export const ToolNode = memo(({ data }: NodeProps) => {
                 variant="outline"
                 className="text-xs"
                 style={{
-                  borderColor: color,
-                  color: color,
+                  borderColor: displayColor,
+                  color: displayColor,
                 }}
               >
                 {tool.category}
               </Badge>
             )}
-            {!tool.enabled && (
+            {!isConnected && (
               <Badge variant="secondary" className="text-xs h-5">
-                Disabled
+                Unassigned
               </Badge>
             )}
           </div>

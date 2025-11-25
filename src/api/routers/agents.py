@@ -12,11 +12,9 @@ router = APIRouter()
 
 @router.get("/api/agents", response_model=list[SubAgentResponse])
 async def list_agents(db: AsyncSession = Depends(get_db)):
-    """List all sub-agents (excluding hidden core agents)."""
-    # Exclude core agents that should be hidden from frontend
+    """List all sub-agents."""
     result = await db.execute(
         select(SubAgent)
-        .where(SubAgent.is_core == False)
         .order_by(SubAgent.created_at.desc())
     )
     agents = result.scalars().all()
