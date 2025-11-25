@@ -10,37 +10,50 @@ import { Badge } from "@/components/ui/badge";
 export const AgentNode = memo(({ data }: NodeProps) => {
   const agent = data as unknown as SubAgent;
 
+  const getRoleColor = (role?: string) => {
+    const colors: Record<string, string> = {
+      imaging: "#06b6d4",
+      lab_results: "#10b981",
+      drug_interaction: "#f59e0b",
+      clinical_text: "#8b5cf6",
+      diagnostic: "#ef4444",
+      research: "#3b82f6",
+      communication: "#14b8a6",
+    };
+    return colors[role || ""] || agent.color || "#8b5cf6";
+  };
+
+  const color = getRoleColor(agent.role);
+
   return (
     <div
       className="px-4 py-3 rounded-lg border-2 shadow-lg min-w-[200px] max-w-[280px] transition-all hover:shadow-xl bg-card"
       style={{
-        borderColor: agent.color || "#06b6d4",
-        background: `linear-gradient(135deg, ${
-          agent.color || "#06b6d4"
-        }08 0%, ${agent.color || "#06b6d4"}15 100%)`,
+        borderColor: color,
+        background: `linear-gradient(135deg, ${color}08 0%, ${color}15 100%)`,
       }}
     >
       <Handle
         type="target"
         position={Position.Left}
         className="w-3 h-3"
-        style={{ background: agent.color || "#06b6d4" }}
+        style={{ background: color }}
       />
       <Handle
         type="source"
         position={Position.Right}
         className="w-3 h-3"
-        style={{ background: agent.color || "#06b6d4" }}
+        style={{ background: color }}
       />
 
       <div className="flex items-start gap-3">
         <div
           className="p-2 rounded-lg"
-          style={{ backgroundColor: `${agent.color || "#06b6d4"}20` }}
+          style={{ backgroundColor: `${color}20` }}
         >
           <Bot
             className="w-5 h-5"
-            style={{ color: agent.color || "#06b6d4" }}
+            style={{ color: color }}
           />
         </div>
 
@@ -60,8 +73,8 @@ export const AgentNode = memo(({ data }: NodeProps) => {
             variant="outline"
             className="mt-2 text-xs"
             style={{
-              borderColor: agent.color || "#06b6d4",
-              color: agent.color || "#06b6d4",
+              borderColor: color,
+              color: color,
             }}
           >
             {agent.role}

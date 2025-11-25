@@ -166,6 +166,7 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text)
     tool_calls: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string of tool calls
     reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Agent's reasoning
+    patient_references: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string of patient references
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Relationships

@@ -78,7 +78,7 @@ export function AssignmentCanvas({
           type: "tool" as const,
           position: {
             x: 850,
-            y: 100 + agentIndex * 200 + toolIndexForAgent * 90 - 30,
+            y: 100 + agentIndex * 200 + toolIndexForAgent * 150 - 30,
           },
           data: tool as any,
         };
@@ -94,7 +94,7 @@ export function AssignmentCanvas({
         type: "tool" as const,
         position: {
           x: 850,
-          y: 100 + agents.length * 200 + unassignedIndex * 90,
+          y: 100 + agents.length * 200 + unassignedIndex * 150,
         },
         data: tool as any,
       };
@@ -145,12 +145,29 @@ export function AssignmentCanvas({
 
       try {
         await onUnassign(toolName, agentId);
+
+        // Update the tool node data immediately
+        setNodes((nds) =>
+          nds.map((node) => {
+            if (node.id === `tool-${toolName}`) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  assigned_agent_id: null,
+                },
+              };
+            }
+            return node;
+          })
+        );
+
         setEdges((eds) => eds.filter((e) => e.id !== edgeId));
       } catch (error) {
         console.error("Failed to unassign tool:", error);
       }
     },
-    [onUnassign, setEdges]
+    [onUnassign, setNodes, setEdges]
   );
 
   // Update edges with onDelete handler once after mount
@@ -200,6 +217,23 @@ export function AssignmentCanvas({
 
       try {
         await onAssign(toolName, agentId);
+
+        // Update the tool node data immediately
+        setNodes((nds) =>
+          nds.map((node) => {
+            if (node.id === `tool-${toolName}`) {
+              return {
+                ...node,
+                data: {
+                  ...node.data,
+                  assigned_agent_id: agentId,
+                },
+              };
+            }
+            return node;
+          })
+        );
+
         setEdges((eds) =>
           addEdge(
             {
@@ -220,7 +254,7 @@ export function AssignmentCanvas({
         console.error("Failed to assign tool:", error);
       }
     },
-    [onAssign, setEdges, handleEdgeDelete]
+    [onAssign, setNodes, setEdges, handleEdgeDelete]
   );
 
   return (

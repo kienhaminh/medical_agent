@@ -72,6 +72,9 @@ export default function PatientDetailPage() {
           timestamp: new Date(msg.created_at),
           toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : undefined,
           reasoning: msg.reasoning || undefined,
+          patientReferences: msg.patient_references
+            ? JSON.parse(msg.patient_references)
+            : undefined,
         }));
 
         setMessages(convertedMessages);

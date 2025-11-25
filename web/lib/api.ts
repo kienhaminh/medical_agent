@@ -350,6 +350,7 @@ export interface ChatMessage {
   content: string;
   tool_calls: string | null;
   reasoning: string | null;
+  patient_references: string | null;
   created_at: string;
 }
 

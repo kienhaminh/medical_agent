@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import {
   EdgeProps,
   getBezierPath,
@@ -22,6 +22,9 @@ export function CustomEdge({
   data,
 }: EdgeProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [showButton, setShowButton] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -31,6 +34,44 @@ export function CustomEdge({
     targetY,
     targetPosition,
   });
+
+  // Handle hover with delay to prevent flickering
+  useEffect(() => {
+    if (isHovered) {
+      // Clear any pending leave timeout
+      if (leaveTimeoutRef.current) {
+        clearTimeout(leaveTimeoutRef.current);
+        leaveTimeoutRef.current = null;
+      }
+      // Show button after short delay
+      hoverTimeoutRef.current = setTimeout(() => {
+        setShowButton(true);
+      }, 150);
+    } else {
+      // Clear any pending hover timeout
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+        hoverTimeoutRef.current = null;
+      }
+      // Hide button after short delay
+      leaveTimeoutRef.current = setTimeout(() => {
+        setShowButton(false);
+      }, 100);
+    }
+
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+    };
+  }, [isHovered]);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
 
   const onEdgeClick = useCallback(
     (event: React.MouseEvent) => {
@@ -44,15 +85,23 @@ export function CustomEdge({
 
   return (
     <>
-      <BaseEdge
-        path={edgePath}
-        markerEnd={markerEnd}
-        style={style}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+      {/* Visible edge path */}
+      <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+
+      {/* Invisible wider path for hover detection */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={20}
+        className="react-flow__edge-interaction"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={{ cursor: 'pointer' }}
       />
+
       <EdgeLabelRenderer>
-        {isHovered && (
+        {showButton && (
           <div
             style={{
               position: "absolute",
@@ -60,10 +109,12 @@ export function CustomEdge({
               pointerEvents: "all",
             }}
             className="nodrag nopan"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           >
             <button
               onClick={onEdgeClick}
-              className="flex items-center justify-center w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all hover:scale-110"
+              className="flex items-center justify-center w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all duration-200 hover:scale-110 animate-in fade-in zoom-in-75"
               title="Disconnect"
             >
               <X className="w-4 h-4" />

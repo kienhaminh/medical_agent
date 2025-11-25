@@ -104,6 +104,9 @@ function AgentChatPageContent() {
           timestamp: new Date(msg.created_at),
           toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : undefined,
           reasoning: msg.reasoning || undefined,
+          patientReferences: msg.patient_references
+            ? JSON.parse(msg.patient_references)
+            : undefined,
           // TODO: Load logs from DB if we decide to persist them
         }));
 
@@ -605,7 +608,6 @@ function AgentChatPageContent() {
                           ? activityDetails
                           : undefined
                       }
-                      patientReferences={message.patientReferences}
                       patientReferences={message.patientReferences}
                       sessionId={currentSessionId || undefined}
                     />

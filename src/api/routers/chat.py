@@ -103,6 +103,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         if request.stream:
             async def generate():
                 full_response = ""
+                all_patient_references = []
                 try:
                     # Process message through agent with streaming (await to get async generator)
                     stream = await user_agent.process_message(
@@ -129,6 +130,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                 yield f"data: {json.dumps({'log': event['content']})}\n\n"
                             elif event["type"] == "patient_references":
                                 # Forward patient references to frontend
+                                all_patient_references = event['patient_references']
                                 yield f"data: {json.dumps({'patient_references': event['patient_references']})}\n\n"
                         else:
                             # Fallback for string chunks if any
@@ -145,7 +147,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                             assistant_msg = ChatMessage(
                                 session_id=session.id,
                                 role="assistant",
-                                content=full_response
+                                content=full_response,
+                                patient_references=json.dumps(all_patient_references) if all_patient_references else None
                             )
                             local_db.add(assistant_msg)
                             await local_db.commit()
@@ -258,6 +261,7 @@ async def get_session_messages(session_id: int, db: AsyncSession = Depends(get_d
                 content=msg.content,
                 tool_calls=msg.tool_calls,
                 reasoning=msg.reasoning,
+                patient_references=msg.patient_references,
                 created_at=msg.created_at.isoformat()
             )
             for msg in messages

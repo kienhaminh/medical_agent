@@ -166,6 +166,7 @@ class ChatMessageResponse(BaseModel):
     content: str
     tool_calls: Optional[str] = None
     reasoning: Optional[str] = None
+    patient_references: Optional[str] = None
     created_at: str
 
 class ChatSessionCreate(BaseModel):
