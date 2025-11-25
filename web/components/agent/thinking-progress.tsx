@@ -1,24 +1,19 @@
 "use client";
 
-import { SubAgentConsultationItem, type SubAgentConsultation } from "./sub-agent-consultation";
-
-export interface LogItem {
-  message: string;
-  duration?: string;
-  level?: "info" | "warning" | "error";
-}
-
-interface ThinkingProgressProps {
-  reasoning: string;
-  logs?: LogItem[];
-}
+import { SubAgentConsultationItem } from "./sub-agent-consultation";
+import type {
+  LogItem,
+  ThinkingProgressProps,
+  SubAgentConsultation,
+} from "@/types/agent-ui";
 
 function parseSubAgentConsultations(reasoning: string): {
   regularContent: string;
   consultations: SubAgentConsultation[];
 } {
   // Check if reasoning contains sub-agent consultations or reports
-  const hasConsult = /CONSULT:/i.test(reasoning) || /REPORT FROM SPECIALIST/i.test(reasoning);
+  const hasConsult =
+    /CONSULT:/i.test(reasoning) || /REPORT FROM SPECIALIST/i.test(reasoning);
 
   if (!hasConsult) {
     return { regularContent: reasoning, consultations: [] };
@@ -29,20 +24,24 @@ function parseSubAgentConsultations(reasoning: string): {
 
   // Split by sub-agent responses (marked with **[AgentName]** or REPORT FROM SPECIALIST **[AgentName]**)
   // We look for the start of a report block
-  const parts = reasoning.split(/(REPORT FROM SPECIALIST \*\*\[[^\]]+\]\*\*:|\*\*\[[^\]]+\]\*\*:)/);
+  const parts = reasoning.split(
+    /(REPORT FROM SPECIALIST \*\*\[[^\]]+\]\*\*:|\*\*\[[^\]]+\]\*\*:)/
+  );
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i].trim();
     if (!part) continue;
 
     // Check if this is an agent tag
-    const agentMatch = part.match(/REPORT FROM SPECIALIST \*\*\[([^\]]+)\]\*\*:| \*\*\[([^\]]+)\]\*\*:/);
+    const agentMatch = part.match(
+      /REPORT FROM SPECIALIST \*\*\[([^\]]+)\]\*\*:| \*\*\[([^\]]+)\]\*\*:/
+    );
     if (agentMatch && i + 1 < parts.length) {
       const agentName = agentMatch[1] || agentMatch[2];
       const agentResponse = parts[i + 1].trim();
       consultations.push({
         agent: agentName,
-        response: agentResponse
+        response: agentResponse,
       });
       i++; // Skip the next part since we consumed it
     } else if (!agentMatch && !part.match(/CONSULT:/i)) {
@@ -54,8 +53,12 @@ function parseSubAgentConsultations(reasoning: string): {
   return { regularContent: regularContent.trim(), consultations };
 }
 
-export function ThinkingProgress({ reasoning, logs = [] }: ThinkingProgressProps) {
-  const { regularContent, consultations } = parseSubAgentConsultations(reasoning);
+export function ThinkingProgress({
+  reasoning,
+  logs = [],
+}: ThinkingProgressProps) {
+  const { regularContent, consultations } =
+    parseSubAgentConsultations(reasoning);
 
   return (
     <div className="space-y-3">
@@ -63,8 +66,15 @@ export function ThinkingProgress({ reasoning, logs = [] }: ThinkingProgressProps
       {logs.length > 0 && (
         <div className="space-y-1.5">
           {logs.map((log, idx) => (
-            <div key={idx} className="flex items-start justify-between text-xs font-mono group">
-              <span className={`text-muted-foreground/80 ${log.level === 'error' ? 'text-red-400' : ''}`}>
+            <div
+              key={idx}
+              className="flex items-start justify-between text-xs font-mono group"
+            >
+              <span
+                className={`text-muted-foreground/80 ${
+                  log.level === "error" ? "text-red-400" : ""
+                }`}
+              >
                 <span className="opacity-50 mr-2">›</span>
                 {log.message}
               </span>

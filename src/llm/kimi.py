@@ -54,6 +54,18 @@ class KimiProvider(LangChainAdapter):
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retries = max_retries
+        
+        # Create a fast LLM for routing/classification tasks
+        # Use moonshot-v1-8k which is much faster than k2-thinking
+        self.fast_llm = ChatOpenAI(
+            model="moonshot-v1-8k",
+            api_key=api_key,
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+            streaming=False,  # No need for streaming in fast tasks
+        )
 
 
     def generate(self, messages: list[Message], **kwargs):

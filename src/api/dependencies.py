@@ -61,6 +61,8 @@ def get_or_create_agent(user_id: str):
             llm_with_tools=llm_provider.llm,  # Pass the LangChain LLM
             memory_manager=memory_manager,
             user_id=user_id,
+            fast_llm=llm_provider.fast_llm,  # Pass the fast LLM for routing/classification
+            subagent_timeout=60.0,  # Increased timeout for k2-thinking model (was 30s)
             # system_prompt defaults to get_default_system_prompt() in LangGraphAgent.__init__
         )
 

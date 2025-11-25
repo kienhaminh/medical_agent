@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,13 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SubAgent, SubAgentCreate, SubAgentUpdate } from "@/types/agent";
 import { createAgent, updateAgent } from "@/lib/api";
 import { toast } from "sonner";
-
-interface AgentFormDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  agent?: SubAgent;
-  onSuccess: () => void;
-}
+import type { AgentFormDialogProps } from "@/types/agent-ui";
 
 export function AgentFormDialog({
   open,
@@ -183,9 +184,7 @@ export function AgentFormDialog({
                 }
                 placeholder="e.g., Bot, Brain, Activity"
               />
-              <p className="text-xs text-muted-foreground">
-                Lucide icon name
-              </p>
+              <p className="text-xs text-muted-foreground">Lucide icon name</p>
             </div>
           </div>
 

@@ -40,11 +40,11 @@ class ToolExecutor:
     def execute(self, name: str, args: dict[str, Any]) -> ToolResult:
         """Execute tool with error handling.
 
-        Invokes tool by name with provided arguments. Handles all errors
+        Invokes tool by symbol with provided arguments. Handles all errors
         gracefully, returning ToolResult with success/failure status.
 
         Args:
-            name: Tool name to execute
+            name: Tool symbol (unique identifier) to execute
             args: Tool arguments as dictionary (matches tool's parameter schema)
 
         Returns:

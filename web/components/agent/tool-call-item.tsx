@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronRight } from "lucide-react";
-
-export interface ToolCall {
-  id: string;
-  tool: string;
-  args: Record<string, any>;
-  result?: string;
-}
-
-interface ToolCallItemProps {
-  toolCall: ToolCall;
-}
+import type { ToolCall, ToolCallItemProps } from "@/types/agent-ui";
 
 export function ToolCallItem({ toolCall }: ToolCallItemProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,20 +24,28 @@ export function ToolCallItem({ toolCall }: ToolCallItemProps) {
             <div className="w-3 h-3 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin" />
           )}
         </div>
-        {isOpen ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+        {isOpen ? (
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+        )}
       </button>
 
       {isOpen && (
         <div className="p-2 border-t border-border/50 bg-muted/10 space-y-2">
           <div>
-            <div className="text-[10px] text-muted-foreground mb-1 font-medium">Arguments</div>
+            <div className="text-[10px] text-muted-foreground mb-1 font-medium">
+              Arguments
+            </div>
             <pre className="text-[10px] bg-background/50 p-2 rounded overflow-x-auto font-mono leading-relaxed">
               {JSON.stringify(toolCall.args, null, 2)}
             </pre>
           </div>
           {toolCall.result && (
             <div>
-              <div className="text-[10px] text-muted-foreground mb-1 font-medium">Result</div>
+              <div className="text-[10px] text-muted-foreground mb-1 font-medium">
+                Result
+              </div>
               <pre className="text-[10px] bg-background/50 p-2 rounded overflow-x-auto font-mono whitespace-pre-wrap leading-relaxed max-h-40">
                 {toolCall.result}
               </pre>

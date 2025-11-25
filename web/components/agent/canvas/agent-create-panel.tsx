@@ -9,14 +9,13 @@ import { Card } from "@/components/ui/card";
 import { Bot, X, Plus } from "lucide-react";
 import { createAgent } from "@/lib/api";
 import type { SubAgentCreate } from "@/types/agent";
+import type { AgentCreatePanelProps } from "@/types/agent-ui";
 
-interface AgentCreatePanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-export function AgentCreatePanel({ isOpen, onClose, onSuccess }: AgentCreatePanelProps) {
+export function AgentCreatePanel({
+  isOpen,
+  onClose,
+  onSuccess,
+}: AgentCreatePanelProps) {
   const [formData, setFormData] = useState<SubAgentCreate>({
     name: "",
     role: "",
@@ -59,14 +58,21 @@ export function AgentCreatePanel({ isOpen, onClose, onSuccess }: AgentCreatePane
           <Bot className="w-5 h-5 text-cyan-500" />
           <h3 className="font-semibold">Create Agent</h3>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="h-8 w-8"
+        >
           <X className="w-4 h-4" />
         </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="agent-name" className="text-sm">Name *</Label>
+          <Label htmlFor="agent-name" className="text-sm">
+            Name *
+          </Label>
           <Input
             id="agent-name"
             value={formData.name}
@@ -78,7 +84,9 @@ export function AgentCreatePanel({ isOpen, onClose, onSuccess }: AgentCreatePane
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="agent-role" className="text-sm">Role *</Label>
+          <Label htmlFor="agent-role" className="text-sm">
+            Role *
+          </Label>
           <Input
             id="agent-role"
             value={formData.role}
@@ -90,11 +98,15 @@ export function AgentCreatePanel({ isOpen, onClose, onSuccess }: AgentCreatePane
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="agent-description" className="text-sm">Description *</Label>
+          <Label htmlFor="agent-description" className="text-sm">
+            Description *
+          </Label>
           <Textarea
             id="agent-description"
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
             placeholder="Brief description of the agent's purpose..."
             required
             className="min-h-[60px] resize-none text-sm"
@@ -102,11 +114,15 @@ export function AgentCreatePanel({ isOpen, onClose, onSuccess }: AgentCreatePane
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="agent-prompt" className="text-sm">System Prompt *</Label>
+          <Label htmlFor="agent-prompt" className="text-sm">
+            System Prompt *
+          </Label>
           <Textarea
             id="agent-prompt"
             value={formData.system_prompt}
-            onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, system_prompt: e.target.value })
+            }
             placeholder="Instructions for the agent..."
             required
             className="min-h-[80px] resize-none text-sm"
@@ -114,18 +130,24 @@ export function AgentCreatePanel({ isOpen, onClose, onSuccess }: AgentCreatePane
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="agent-color" className="text-sm">Color</Label>
+          <Label htmlFor="agent-color" className="text-sm">
+            Color
+          </Label>
           <div className="flex gap-2">
             <Input
               id="agent-color"
               type="color"
               value={formData.color}
-              onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, color: e.target.value })
+              }
               className="w-16 h-9 p-1 cursor-pointer"
             />
             <Input
               value={formData.color}
-              onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, color: e.target.value })
+              }
               placeholder="#06b6d4"
               className="flex-1 h-9 font-mono text-sm"
             />

@@ -3,12 +3,15 @@
 Allows the agent to query patient information and medical records from the database.
 """
 
+import logging
 from typing import Optional
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.config.database import SessionLocal, Patient, MedicalRecord
 from src.tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 def query_patient_info(query: str) -> str:
     """Query patient information and medical records.
@@ -19,6 +22,11 @@ def query_patient_info(query: str) -> str:
     Args:
         query: The search query. Can be a Patient ID (e.g., "1") or a Name (e.g., "John Doe").
     """
+    # IMPORTANT: Use synchronous engine for synchronous tools
+    # We cannot use the async engine/session here because this function is called synchronously by LangChain
+    # The SessionLocal uses the synchronous engine (psycopg2)
+    
+    logger.info("Patient tool invoked with query='%s'", query)
     session: Session = SessionLocal()
     try:
         patient: Optional[Patient] = None
@@ -26,25 +34,28 @@ def query_patient_info(query: str) -> str:
         # Try to parse query as ID
         try:
             patient_id = int(query)
-            patient = session.execute(
-                select(Patient).where(Patient.id == patient_id)
-            ).scalar_one_or_none()
+            stmt = select(Patient).where(Patient.id == patient_id)
+            patient = session.execute(stmt).scalar_one_or_none()
+            logger.debug("Parsed patient query as id=%s", patient_id)
         except ValueError:
             # Not an ID, search by name
-            patient = session.execute(
-                select(Patient).where(Patient.name.ilike(f"%{query}%"))
-            ).scalars().first()
+            stmt = select(Patient).where(Patient.name.ilike(f"%{query}%"))
+            patient = session.execute(stmt).scalars().first()
+            logger.debug("Patient query treated as name search")
             
         if not patient:
+            logger.info("No patient matched query='%s'", query)
             return f"No patient found matching query: '{query}'"
             
         # Get recent records
-        records = session.execute(
+        stmt = (
             select(MedicalRecord)
             .where(MedicalRecord.patient_id == patient.id)
             .order_by(MedicalRecord.created_at.desc())
             .limit(5)
-        ).scalars().all()
+        )
+        records = session.execute(stmt).scalars().all()
+        logger.debug("Fetched %d recent records for patient_id=%s", len(records), patient.id)
         
         # Format response
         response = [
@@ -75,13 +86,19 @@ def query_patient_info(query: str) -> str:
                 created_str = r.created_at.strftime("%Y-%m-%d")
                 response.append(f"  - [{created_str}] {r.record_type.upper()}: {title}")
                 
-        return "\n".join(response)
+        result = "\n".join(response)
+        logger.info("Patient tool returning summary for patient_id=%s", patient.id)
+        return result
         
     except Exception as e:
+        logger.exception("Error querying patient info: %s", e)
         return f"Error querying patient info: {str(e)}"
     finally:
         session.close()
+        logger.debug("Patient tool session closed")
 
 # NOTE: This tool is NOT auto-registered to the global registry
 # It should only be available to sub-agents via database assignment
 # The tool is loaded dynamically by load_custom_tools() from the database
+_registry = ToolRegistry()
+_registry.register(query_patient_info, scope="assignable", symbol="query_patient_info")

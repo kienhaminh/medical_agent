@@ -3,17 +3,18 @@
 Handles construction of the state graph with nodes and edges for agent orchestration.
 """
 
-from typing import Literal
-from langchain_core.messages import BaseMessage, SystemMessage, AIMessage
+import logging
+
+from langchain_core.messages import BaseMessage, SystemMessage, AIMessage, HumanMessage
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
+from langchain_core.prompts import ChatPromptTemplate
 
 from .state import AgentState
-from .enums import GraphNode
 from .agent_loader import AgentLoader
 from .specialist_handler import SpecialistHandler
 from ..tools.registry import ToolRegistry
-from ..prompt.templates import build_decision_context
+
+logger = logging.getLogger(__name__)
 
 
 class GraphBuilder:
@@ -28,19 +29,16 @@ class GraphBuilder:
         system_prompt: str,
         max_iterations: int = 10,
         checkpointer = None,
+        fast_llm = None,  # Optional fast LLM for routing/classification
     ):
-        """Initialize graph builder.
-        
-        Args:
-            llm: The base language model
-            tool_registry: Registry of available tools
-            agent_loader: Loader for sub-agents
-            specialist_handler: Handler for specialist consultations
-            system_prompt: System prompt for the agent
-            max_iterations: Maximum iterations for ReAct loop
-            checkpointer: Optional checkpointer for persistence
-        """
+        """Initialize graph builder."""
         self.llm = llm
+        self.fast_llm = fast_llm or llm  # Use fast LLM if provided, otherwise use main LLM
+        if fast_llm:
+            logger.info("GraphBuilder initialized with fast_llm (model: %s)", 
+                       getattr(fast_llm, 'model_name', 'unknown'))
+        else:
+            logger.warning("GraphBuilder: No fast_llm provided, will use main LLM for routing (SLOW!)")
         self.tool_registry = tool_registry
         self.agent_loader = agent_loader
         self.specialist_handler = specialist_handler
@@ -49,124 +47,179 @@ class GraphBuilder:
         self.checkpointer = checkpointer
     
     def build(self):
-        """Build unified LangGraph with both delegation and tool execution.
+        """Build unified LangGraph with specialist routing."""
+        logger.debug("Building LangGraph workflow")
         
-        Returns:
-            Compiled graph ready for execution
-        """
-        # Get tools for main agent (only scope="global" or scope="both")
-        # This ensures main agent CANNOT directly call assignable tools
-        main_agent_tools = self.tool_registry.get_langchain_tools(scope_filter="global")
-        
-        # Rebind LLM with scope-filtered tools
-        # This prevents the main agent from accessing assignable tools like query_patient_info
-        if main_agent_tools:
-            main_agent_llm = self.llm.bind_tools(main_agent_tools)
-        else:
-            main_agent_llm = self.llm
-        
-        # 1. Main Agent Node - Decides next action
-        def agent_node(state: AgentState):
-            """Main agent decides: use tools, delegate to specialists, or finish."""
-            messages = state["messages"]
-            
-            # Build decision prompt with system prompt
-            decision_context = build_decision_context(self.system_prompt, self.agent_loader.sub_agents)
-            
-            # Call LLM with ONLY global-scoped tools
-            response = main_agent_llm.invoke(
-                [SystemMessage(content=decision_context)] + messages
-            )
-            
-            return {"messages": [response], "steps_taken": 1}
-        
-        # 2. Tool Execution Node
-        # Create tool node from the same filtered tools
-        tool_node = ToolNode(main_agent_tools) if main_agent_tools else None
-        
-        # 3. Sub-Agent Consultation Node (Async with Parallel Execution)
-        async def sub_agent_consultation(state: AgentState):
-            """Execute consultation with sub-agents IN PARALLEL when delegated.
-            
-            Uses fan-out/fan-in pattern with asyncio.gather for concurrent execution.
-            """
+        # 1. Specialist Router Node (Medical Query Detection + Routing)
+        def specialist_router_node(state: AgentState):
+            """Classify query and route medical queries to appropriate specialist."""
+            import time
+            start_time = time.time()
             messages = state["messages"]
             last_message = messages[-1]
+            logger.info("[SPECIALIST_ROUTER] START - Analyzing query: %s", last_message.content[:100])
             
-            # Check if last message requests specialist consultation
-            specialists_needed = self.specialist_handler.extract_specialist_request(last_message)
+            # Step 1: Classify if medical or non-medical
+            classifier_prompt = ChatPromptTemplate.from_messages([
+                ("system", "Classify the query as 'MEDICAL' or 'NON_MEDICAL'.\n\n"
+                           "MEDICAL queries include:\n"
+                           "- Questions about patients, medical records, diagnoses, treatments\n"
+                           "- Symptoms, diseases, test results, procedures\n"
+                           "- Clinical data, prescriptions, medical history\n\n"
+                           "NON_MEDICAL queries include:\n"
+                           "- General conversations, greetings, jokes\n"
+                           "- Non-healthcare topics, coding, technical questions\n\n"
+                           "Respond ONLY with 'MEDICAL' or 'NON_MEDICAL'."),
+                ("user", "{query}")
+            ])
             
-            if not specialists_needed:
-                return {"messages": [], "steps_taken": 0}
+            classification = self.fast_llm.invoke(
+                classifier_prompt.format_messages(query=last_message.content)
+            )
+            is_medical = classification.content.strip().upper() == "MEDICAL"
+            logger.info("[SPECIALIST_ROUTER] Classification: %s", "MEDICAL" if is_medical else "NON_MEDICAL")
             
-            # Get user's original query (shared across all specialists)
-            user_messages = [m for m in messages if hasattr(m, '__class__') and m.__class__.__name__ == 'HumanMessage']
-            if not user_messages:
-                return {"messages": [], "steps_taken": 0}
+            if not is_medical:
+                # Non-medical query - mark for direct answer
+                duration = time.time() - start_time
+                logger.info("[SPECIALIST_ROUTER] DONE - Non-medical query, routing to direct answer in %.2fs", duration)
+                return {"target_specialist": "non_medical", "is_medical": False}
             
-            user_query = user_messages[-1]
+            # Step 2: For medical queries, select appropriate specialist
+            available_agents = list(self.agent_loader.sub_agents.keys())
+            logger.info("[SPECIALIST_ROUTER] Routing to specialist (available=%s)", ", ".join(available_agents))
             
-            # Execute consultations in parallel
-            final_responses = await self.specialist_handler.consult_specialists(
-                specialists_needed,
-                user_query
+            router_prompt = ChatPromptTemplate.from_messages([
+                ("system", f"You are a medical router. Available specialists: {', '.join(available_agents)}. "
+                           "Select the ONE best specialist to handle the user's medical request. "
+                           "Respond ONLY with the exact name of the specialist."),
+                ("user", "{query}")
+            ])
+            
+            response = self.fast_llm.invoke(
+                router_prompt.format_messages(query=last_message.content)
+            )
+            target_specialist = response.content.strip()
+            
+            # Validation
+            if target_specialist not in available_agents:
+                logger.warning(
+                    "[SPECIALIST_ROUTER] Invalid specialist '%s' selected. Defaulting to first available.",
+                    target_specialist,
+                )
+                target_specialist = available_agents[0] if available_agents else None
+            
+            duration = time.time() - start_time
+            logger.info("[SPECIALIST_ROUTER] DONE - Selected: %s in %.2fs", target_specialist, duration)
+            return {"target_specialist": target_specialist, "is_medical": True}
+
+        # 2. Direct Answer Node (for non-medical queries)
+        async def direct_answer_node(state: AgentState):
+            """Handle non-medical queries directly."""
+            import time
+            start_time = time.time()
+            messages = state["messages"]
+            logger.info("[DIRECT_ANSWER] START - Handling non-medical query")
+            
+            # Simple direct response using the LLM with async invoke for streaming support
+            response = await self.llm.ainvoke(
+                [SystemMessage(content=self.system_prompt)] + messages
             )
             
-            # Return messages using operator.add compatible format
-            return {"messages": final_responses, "steps_taken": 1}
-        
-        # 4. Build the workflow
+            duration = time.time() - start_time
+            logger.info("[DIRECT_ANSWER] DONE - Generated response in %.2fs", duration)
+            return {"messages": [response], "final_report": response.content}
+
+        # 3. Sub-Agent Node
+        async def sub_agent_node(state: AgentState):
+            """Execute the selected specialist."""
+            import time
+            start_time = time.time()
+            target_specialist = state.get("target_specialist")
+            messages = state["messages"]
+            user_query = messages[-1] # Assuming last message is user query
+            logger.info("[SUB_AGENT] START - Invoking specialist: %s", target_specialist)
+            
+            if not target_specialist:
+                logger.warning("[SUB_AGENT] No specialist available")
+                return {"messages": [AIMessage(content="No specialist available.")]}
+            
+            # Use existing specialist handler
+            # It expects a list of specialists
+            responses = await self.specialist_handler.consult_specialists(
+                specialists_needed=[target_specialist],
+                user_query=user_query,
+                synthesize_response=False
+            )
+            
+            duration = time.time() - start_time
+            logger.info("[SUB_AGENT] DONE - Received %d responses in %.2fs", len(responses), duration)
+            return {"messages": responses}
+
+        # 4. Synthesis Node
+        async def synthesis_node(state: AgentState):
+            """Synthesize the final answer from specialist response."""
+            import time
+            start_time = time.time()
+            messages = state["messages"]
+            # The last message should be the specialist's response (SystemMessage or AIMessage)
+            specialist_response = messages[-1]
+            logger.info("[SYNTHESIS] START - Aggregating specialist response (length=%d chars)", len(specialist_response.content))
+            
+            synthesis_prompt = ChatPromptTemplate.from_messages([
+                ("system", "You are a medical assistant helping healthcare providers access patient information. "
+                           "Synthesize the following specialist report into a clear, professional summary. "
+                           "Your audience is a DOCTOR or HEALTHCARE PROVIDER, not the patient. "
+                           "Use third-person perspective when referring to the patient (e.g., 'Patient X is...', 'The patient has...', 'Patient records show...'). "
+                           "Maintain medical accuracy and use appropriate clinical terminology. "
+                           "Respond in your own words, do not copy the specialist's phrasing. "
+                           "DO NOT address the patient directly or use greetings like 'Dear [Patient Name]'."),
+                ("user", "Specialist Report: {report}")
+            ])
+            
+            # Use main LLM (not fast_llm) for better quality synthesis and streaming support
+            chain = synthesis_prompt | self.llm
+            response = await chain.ainvoke({"report": specialist_response.content})
+            
+            duration = time.time() - start_time
+            logger.info("[SYNTHESIS] DONE - Generated response (%d chars) in %.2fs", len(response.content), duration)
+            return {"messages": [response], "final_report": response.content}
+
+        # Build Workflow
         workflow = StateGraph(AgentState)
         
         # Add nodes
-        workflow.add_node(GraphNode.AGENT.value, agent_node)
-        if tool_node:
-            workflow.add_node(GraphNode.TOOLS.value, tool_node)
-        workflow.add_node("sub_agents", sub_agent_consultation)
+        workflow.add_node("specialist_router", specialist_router_node)
+        workflow.add_node("direct_answer", direct_answer_node)
+        workflow.add_node("sub_agent", sub_agent_node)
+        workflow.add_node("synthesis", synthesis_node)
         
-        # Set entry point
-        workflow.set_entry_point(GraphNode.AGENT.value)
+        # Set entry point to specialist router (handles classification + routing)
+        workflow.set_entry_point("specialist_router")
         
-        # 5. Conditional routing logic
-        def should_continue(state: AgentState) -> Literal["tools", "sub_agents", END]:
-            """Decide next step: use tools, consult specialists, or finish."""
-            messages = state["messages"]
-            last_message = messages[-1]
-            
-            # Check iteration limit
-            if state.get("steps_taken", 0) >= self.max_iterations:
-                return END
-            
-            # Check for tool calls (ReAct pattern)
-            if tool_node and hasattr(last_message, "tool_calls") and last_message.tool_calls:
-                return GraphNode.TOOLS.value
-            
-            # Check for specialist consultation requests
-            if self.specialist_handler.has_specialist_request(last_message):
-                return "sub_agents"
-            
-            # Otherwise, we're done
-            return END
-        
-        # Add conditional edges from main agent
-        edges_map = {END: END}
-        if tool_node:
-            # Use string values for keys to avoid Enum hashing issues
-            edges_map[GraphNode.TOOLS.value] = GraphNode.TOOLS.value
-        edges_map["sub_agents"] = "sub_agents"
+        # Conditional routing after specialist_router
+        def route_after_classification(state: AgentState):
+            """Route based on whether query is medical or not."""
+            target_specialist = state.get("target_specialist")
+            if target_specialist == "non_medical":
+                return "direct_answer"
+            return "sub_agent"
         
         workflow.add_conditional_edges(
-            GraphNode.AGENT.value,
-            should_continue,
-            edges_map
+            "specialist_router",
+            route_after_classification,
+            {
+                "direct_answer": "direct_answer",
+                "sub_agent": "sub_agent"
+            }
         )
         
-        # After tools, go back to agent
-        if tool_node:
-            workflow.add_edge(GraphNode.TOOLS.value, GraphNode.AGENT.value)
+        # Medical Flow: specialist_router -> sub_agent -> synthesis -> END
+        workflow.add_edge("sub_agent", "synthesis")
+        workflow.add_edge("synthesis", END)
         
-        # After sub-agent consultation, go back to agent
-        workflow.add_edge("sub_agents", GraphNode.AGENT.value)
+        # Non-medical Flow: specialist_router -> direct_answer -> END
+        workflow.add_edge("direct_answer", END)
         
-        # Compile the graph
+        logger.debug("LangGraph workflow built")
         return workflow.compile(checkpointer=self.checkpointer)

@@ -21,23 +21,26 @@ class PatientDetailResponse(BaseModel):
     created_at: str
     records: list
 
-class ToolToggleRequest(BaseModel):
-    enabled: bool
-
 class ToolCreate(BaseModel):
     """Create tool request."""
     name: str
+    symbol: str  # snake_case identifier
     description: str
-    category: Optional[str] = "other"
-    code: str = ""  # Empty code for custom tools
+    tool_type: str = "function"  # 'function' or 'api'
+    code: Optional[str] = None  # For function type
+    api_endpoint: Optional[str] = None  # For api type
+    api_request_payload: Optional[str] = None  # JSON schema for request
+    api_response_payload: Optional[str] = None  # JSON schema for response
     scope: str = "assignable"  # Default to assignable for custom tools
 
 class ToolUpdate(BaseModel):
     """Update tool request."""
     description: Optional[str] = None
-    category: Optional[str] = None
+    tool_type: Optional[str] = None
     code: Optional[str] = None
-    enabled: Optional[bool] = None
+    api_endpoint: Optional[str] = None
+    api_request_payload: Optional[str] = None
+    api_response_payload: Optional[str] = None
 
 class ChatRequest(BaseModel):
     """Chat request model."""
@@ -133,10 +136,14 @@ class AgentToolAssignmentResponse(BaseModel):
 class ToolResponse(BaseModel):
     """Tool response model."""
     name: str
+    symbol: str
     description: str
-    enabled: bool
+    tool_type: str
+    code: Optional[str] = None
+    api_endpoint: Optional[str] = None
+    api_request_payload: Optional[str] = None
+    api_response_payload: Optional[str] = None
     scope: str
-    category: Optional[str]
     assigned_agent_id: Optional[int] = None
 
 class ChatSessionResponse(BaseModel):

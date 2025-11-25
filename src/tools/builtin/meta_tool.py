@@ -83,13 +83,15 @@ Requirements:
             if existing:
                 existing.code = code
                 existing.description = description
-                existing.enabled = True
             else:
+                # Generate symbol from name
+                symbol = name.lower().replace(' ', '_').replace('-', '_')
                 new_tool = Tool(
                     name=name,
+                    symbol=symbol,
                     description=description,
                     code=code,
-                    enabled=True
+                    tool_type="function"
                 )
                 session.add(new_tool)
             session.commit()
@@ -112,11 +114,12 @@ Requirements:
         # Registry raises ValueError if exists.
         # We should probably allow overwriting for this tool.
         # But ToolRegistry doesn't have unregister.
-        # We can access _tools directly.
-        registry._tools[name] = func
-        registry.enable_tool(name)
+        # We can access _tools directly using the symbol.
+        symbol = name.lower().replace(' ', '_').replace('-', '_')
+        registry._tools[symbol] = func
 
-        return f"Tool '{name}' created and registered successfully. You can now use it."
+
+        return f"Tool '{name}' (symbol: {symbol}) created and registered successfully. You can now use it."
 
     except Exception as e:
         return f"Error creating tool: {e}"

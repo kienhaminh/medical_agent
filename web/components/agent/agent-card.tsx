@@ -29,12 +29,7 @@ import { toggleAgent, deleteAgent, cloneAgent, getAgentTools } from "@/lib/api";
 import { AgentFormDialog } from "./agent-form-dialog";
 import { ToolAssignmentDialog } from "./tool-assignment-dialog";
 import { toast } from "sonner";
-
-interface AgentCardProps {
-  agent: SubAgent;
-  onUpdate: (updatedAgent?: SubAgent) => void;
-  onDelete: () => void;
-}
+import type { AgentCardProps } from "@/types/agent-ui";
 
 export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
   const [isToggling, setIsToggling] = useState(false);
@@ -204,7 +199,9 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
             >
               <Wrench className="h-3.5 w-3.5" />
               <span>
-                {isLoadingTools ? "..." : `${toolCount} tool${toolCount !== 1 ? "s" : ""}`}
+                {isLoadingTools
+                  ? "..."
+                  : `${toolCount} tool${toolCount !== 1 ? "s" : ""}`}
               </span>
             </Button>
 
@@ -247,8 +244,8 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Agent</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{agent.name}"? This action
-              cannot be undone and will remove all tool assignments.
+              Are you sure you want to delete "{agent.name}"? This action cannot
+              be undone and will remove all tool assignments.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

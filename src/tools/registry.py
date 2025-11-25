@@ -1,99 +1,88 @@
 """Tool registry for managing and discovering available tools."""
 
-from typing import Optional, Callable, Any
-import inspect
+from typing import Optional, Callable
 
 
 class ToolRegistry:
     """Singleton registry for tool registration and discovery.
 
     Manages a centralized collection of tools (functions), enabling:
-    - Tool registration with unique names
-    - Tool lookup by name
+    - Tool registration with unique symbols (identifiers)
+    - Tool lookup by symbol
     - Listing all available tools
     - Bulk retrieval for LLM binding
+
+    Tools are identified by their 'symbol' (unique snake_case identifier) rather than
+    their display name. All registered tools are enabled by default.
 
     Uses singleton pattern to ensure single source of truth across application.
     """
 
     _instance: Optional["ToolRegistry"] = None
-    _tools: dict[str, Callable]
-    _tool_scopes: dict[str, str]  # Maps tool name to scope (global, assignable, both)
+    _tools: dict[str, Callable]  # Maps symbol to callable
+    _tool_scopes: dict[str, str]  # Maps symbol to scope (global, assignable)
 
     def __new__(cls) -> "ToolRegistry":
         """Create or return existing singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._tools = {}
-            cls._instance._disabled_tools = set()
             cls._instance._tool_scopes = {}
         return cls._instance
 
-    def register(self, tool: Callable, scope: str = "global") -> None:
-        """Register a tool function with optional scope.
+    def register(self, tool: Callable, scope: str = "global", symbol: Optional[str] = None) -> None:
+        """Register a tool function with optional scope and symbol.
 
         Args:
             tool: Callable tool function. Must have a docstring and name.
-            scope: Tool scope - "global" (main agent), "assignable" (sub-agents only),
-                   or "both" (main agent + sub-agents). Defaults to "global".
+            scope: Tool scope - "global" (main agent only) or "assignable" (sub-agents only).
+                   Defaults to "global".
+            symbol: Unique identifier for the tool (snake_case). If not provided, uses tool.__name__.
 
         Raises:
-            ValueError: If tool name conflicts with existing tool or invalid scope
+            ValueError: If tool symbol conflicts with existing tool or invalid scope
         """
-        if scope not in ("global", "assignable", "both"):
-            raise ValueError(f"Invalid scope '{scope}'. Must be 'global', 'assignable', or 'both'")
+        if scope not in ("global", "assignable"):
+            raise ValueError(f"Invalid scope '{scope}'. Must be 'global' or 'assignable'")
 
-        name = tool.__name__
-        if name in self._tools:
-            raise ValueError(f"Tool '{name}' already registered")
-        self._tools[name] = tool
-        self._tool_scopes[name] = scope
+        # Use provided symbol or fallback to function name
+        tool_symbol = symbol if symbol is not None else tool.__name__
+        
+        if tool_symbol in self._tools:
+            raise ValueError(f"Tool with symbol '{tool_symbol}' already registered")
+        
+        self._tools[tool_symbol] = tool
+        self._tool_scopes[tool_symbol] = scope
 
-    def enable_tool(self, name: str) -> None:
-        """Enable a tool."""
-        if name in self._tools:
-            self._disabled_tools.discard(name)
-
-    def disable_tool(self, name: str) -> None:
-        """Disable a tool."""
-        if name in self._tools:
-            self._disabled_tools.add(name)
-
-    def is_tool_enabled(self, name: str) -> bool:
-        """Check if a tool is enabled."""
-        return name in self._tools and name not in self._disabled_tools
-
-    def get(self, name: str) -> Optional[Callable]:
-        """Get tool by name if enabled.
+    def get(self, symbol: str) -> Optional[Callable]:
+        """Get tool by symbol.
 
         Args:
-            name: Tool name to lookup
+            symbol: Tool symbol to lookup
 
         Returns:
-            Tool function if found and enabled, None otherwise
+            Tool function if found, None otherwise
         """
-        if self.is_tool_enabled(name):
-            return self._tools.get(name)
-        return None
+        return self._tools.get(symbol)
 
     def list_tools(self) -> list[dict]:
-        """List all registered tools with their status.
+        """List all registered tools.
 
         Returns:
-            List of dicts with name and enabled status
+            List of dicts with symbol information
         """
         return [
-            {"name": name, "enabled": self.is_tool_enabled(name)}
-            for name in sorted(self._tools.keys())
+            {"symbol": symbol}
+            for symbol in sorted(self._tools.keys())
         ]
 
     def get_all_tools(self) -> list[Callable]:
-        """Get all enabled tools for LLM binding.
+        """Get all registered tools for LLM binding.
 
         Returns:
-            List of all enabled tool functions
+            List of all tool functions
         """
-        return [t for name, t in self._tools.items() if self.is_tool_enabled(name)]
+        return list(self._tools.values())
 
     def get_langchain_tools(self, scope_filter: Optional[str] = None) -> list:
         """Get enabled tools in LangChain format with optional scope filtering.
@@ -102,10 +91,8 @@ class ToolRegistry:
         auto-generated schemas from function signatures and docstrings.
 
         Args:
-            scope_filter: Optional scope filter. If provided, only returns tools with:
-                - scope == scope_filter, OR
-                - scope == "both"
-                Common values: "global" (main agent), "assignable" (sub-agents)
+            scope_filter: Optional scope filter. If provided, only returns tools with
+                matching scope. Common values: "global" (main agent), "assignable" (sub-agents)
                 If None, returns all enabled tools regardless of scope.
 
         Returns:
@@ -114,38 +101,40 @@ class ToolRegistry:
         from .adapters import convert_to_langchain_tool
 
         tools = []
-        for name, t in self._tools.items():
-            if not self.is_tool_enabled(name):
-                continue
-
+        for symbol, t in self._tools.items():
             # Apply scope filter if provided
             if scope_filter is not None:
-                tool_scope = self._tool_scopes.get(name, "global")
-                # Include if scope matches OR tool is "both"
-                if tool_scope != scope_filter and tool_scope != "both":
+                tool_scope = self._tool_scopes.get(symbol, "global")
+                # Include only if scope matches exactly
+                if tool_scope != scope_filter:
                     continue
 
-            tools.append(convert_to_langchain_tool(t))
+            try:
+                tools.append(convert_to_langchain_tool(t))
+            except Exception as e:
+                print(f"[ERROR] Failed to convert tool '{symbol}' to LangChain format: {e}")
         print(f"get_langchain_tools: {tools}")
         return tools
 
-    def get_tools_by_names(self, names: list[str]) -> list:
-        """Get specific enabled tools in LangChain format.
+    def get_tools_by_symbols(self, symbols: list[str]) -> list:
+        """Get specific tools in LangChain format by their symbols.
 
         Args:
-            names: List of tool names to retrieve
+            symbols: List of tool symbols to retrieve
 
         Returns:
-            List of LangChain tool objects for the specified names
+            List of LangChain tool objects for the specified symbols
         """
         from .adapters import convert_to_langchain_tool
         
         tools = []
-        for name in names:
-            if self.is_tool_enabled(name):
-                tool = self._tools.get(name)
-                if tool:
+        for symbol in symbols:
+            tool = self._tools.get(symbol)
+            if tool:
+                try:
                     tools.append(convert_to_langchain_tool(tool))
+                except Exception as e:
+                    print(f"[ERROR] Failed to convert tool '{symbol}' to LangChain format: {e}")
         return tools
 
     async def get_langchain_tools_for_agent(self, agent_id: int) -> list:
@@ -168,25 +157,42 @@ class ToolRegistry:
         
         try:
             async with AsyncSessionLocal() as db:
+                print(f"Fetching tools for agent {agent_id}")
                 # Query for tools assigned to this agent
                 result = await db.execute(
                     select(Tool)
                     .where(
-                        Tool.assigned_agent_id == agent_id,
-                        Tool.enabled == True
+                        Tool.assigned_agent_id == agent_id
                     )
                 )
+                print(f"Result: {result}")
                 db_tools = result.scalars().all()
+                print(f"DB tools: {db_tools}")
                 
                 # Convert to LangChain format
                 for db_tool in db_tools:
+                    print(f"[DEBUG] Processing DB tool: {db_tool.name} (scope={db_tool.scope}, type={db_tool.tool_type})")
+                    
                     # Check if tool is registered in memory
-                    if db_tool.name in self._tools:
-                        tool_func = self._tools[db_tool.name]
-                        tools.append(convert_to_langchain_tool(tool_func))
+                    if db_tool.symbol in self._tools:
+                        tool_func = self._tools[db_tool.symbol]
+                        try:
+                            tools.append(convert_to_langchain_tool(tool_func))
+                            print(f"[DEBUG] ✓ Added tool: {db_tool.symbol}")
+                        except Exception as e:
+                            print(f"[ERROR] Failed to convert tool '{db_tool.symbol}' to LangChain format: {e}")
+                            import traceback
+                            print(traceback.format_exc())
+                    else:
+                        print(f"[WARNING] Tool '{db_tool.name}' is assigned to agent {agent_id} in DB but NOT registered in memory!")
+                        print(f"[WARNING] Available tools in memory: {list(self._tools.keys())}")
+                        print(f"[WARNING] This tool will be SKIPPED. Did you forget to load custom tools?")
+                        print(f"[WARNING] Tool details - scope: {db_tool.scope}, type: {db_tool.tool_type}, has code: {bool(db_tool.code)}")
         except Exception as e:
+            import traceback
             print(f"Warning: Failed to fetch tools for agent {agent_id}: {e}")
-        
+            print(traceback.format_exc())
+        print(f"Tools for agent {agent_id}: {tools}")
         return tools
 
     def reset(self) -> None:
@@ -195,5 +201,4 @@ class ToolRegistry:
         Primarily for testing purposes.
         """
         self._tools.clear()
-        self._disabled_tools.clear()
         self._tool_scopes.clear()

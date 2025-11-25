@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from ..config.database import SubAgent, AsyncSessionLocal
 from ..tools.loader import load_custom_tools
+from .core_agents import CORE_AGENTS
 
 
 class AgentLoader:
@@ -25,19 +26,39 @@ class AgentLoader:
         """
         agents_info = {}
         
-        # Load custom tools into registry FIRST
+        # 1. Load Core Agents (Hardcoded)
+        for core_agent in CORE_AGENTS:
+            # Assign a mock ID (e.g., 0) since they don't have a DB ID.
+            # Note: Chat sessions handled by core agents will have agent_id=None in DB
+            # or need to handle the ID=0 case specifically if enforced.
+            
+            agents_info[core_agent["role"]] = {
+                "id": 0, 
+                "name": core_agent["name"],
+                "role": core_agent["role"],
+                "description": core_agent["description"],
+                "system_prompt": core_agent["system_prompt"],
+                "color": core_agent["color"],
+                "icon": core_agent["icon"],
+                "tools": core_agent.get("tools", []), # Pass hardcoded tools list
+            }
+
+        # 2. Load Custom Tools into registry
         await load_custom_tools()
         
         try:
             async with AsyncSessionLocal() as db:
-                # Get all enabled agents
+                # 3. Get enabled custom agents from DB
                 result = await db.execute(
                     select(SubAgent).where(SubAgent.enabled == True)
                 )
                 agents = result.scalars().all()
                 
                 for agent in agents:
-                    # Store agent metadata with agent_id for dynamic tool fetching
+                    # Skip if role conflicts with core agent (Core takes precedence)
+                    if agent.role in agents_info:
+                        continue
+                        
                     agents_info[agent.role] = {
                         "id": agent.id,
                         "name": agent.name,

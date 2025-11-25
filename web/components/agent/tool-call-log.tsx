@@ -1,11 +1,8 @@
 "use client";
 
 import { Terminal } from "lucide-react";
-import { ToolCallItem, type ToolCall } from "./tool-call-item";
-
-interface ToolCallLogProps {
-  toolCalls: ToolCall[];
-}
+import { ToolCallItem } from "./tool-call-item";
+import type { ToolCall, ToolCallLogProps } from "@/types/agent-ui";
 
 export function ToolCallLog({ toolCalls }: ToolCallLogProps) {
   if (toolCalls.length === 0) return null;

@@ -15,3 +15,7 @@ class AgentState(TypedDict):
     final_report: Union[str, None]
     # Sub-agents to route to (for supervisor pattern)
     next_agents: List[str]
+    # Classification result
+    is_medical: bool
+    # Selected specialist for medical queries
+    target_specialist: Union[str, None]

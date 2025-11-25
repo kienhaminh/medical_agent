@@ -9,9 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
-import { type AgentActivity } from "@/components/agent/agent-progress";
-import type { ToolCall } from "@/components/agent/tool-call-item";
-import type { LogItem } from "@/components/agent/thinking-progress";
+import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import { getSessionMessages } from "@/lib/api";
 import { toast } from "sonner";
@@ -36,6 +34,7 @@ interface Message {
   toolCalls?: ToolCall[];
   reasoning?: string;
   logs?: LogItem[];
+  patientReferences?: PatientReference[];
 }
 
 function AgentChatPageContent() {
@@ -340,6 +339,16 @@ function AgentChatPageContent() {
                 }
               }
 
+              if (parsed.patient_references) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, patientReferences: parsed.patient_references }
+                      : msg
+                  )
+                );
+              }
+
               if (parsed.done) break;
             } catch (parseError) {
               // Ignore parse errors
@@ -587,6 +596,8 @@ function AgentChatPageContent() {
                           ? activityDetails
                           : undefined
                       }
+                      patientReferences={message.patientReferences}
+                      sessionId={currentSessionId || undefined}
                     />
                   )}
                 </div>

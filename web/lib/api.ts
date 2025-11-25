@@ -10,10 +10,14 @@ export interface Patient {
 
 export interface Tool {
   name: string;
+  symbol: string;
   description?: string;
-  enabled: boolean;
+  tool_type: "function" | "api";
+  code?: string;
+  api_endpoint?: string;
+  api_request_payload?: string;
+  api_response_payload?: string;
   scope?: "global" | "assignable" | "both";
-  category?: string;
   assigned_agent_id?: number | null;
 }
 
@@ -101,24 +105,13 @@ export async function getTools(): Promise<Tool[]> {
   return res.json();
 }
 
-export async function toggleTool(
-  name: string,
-  enabled: boolean
+export async function createTool(
+  tool: Omit<Tool, "assigned_agent_id">
 ): Promise<Tool> {
-  const res = await fetch(`${API_BASE_URL}/tools/${name}/toggle`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled }),
-  });
-  if (!res.ok) throw new Error("Failed to toggle tool");
-  return res.json();
-}
-
-export async function createTool(tool: Omit<Tool, "enabled">): Promise<Tool> {
   const res = await fetch(`${API_BASE_URL}/tools`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...tool, enabled: true }),
+    body: JSON.stringify(tool),
   });
   if (!res.ok) throw new Error("Failed to create tool");
   return res.json();

@@ -3,10 +3,13 @@
 Handles both streaming and non-streaming response generation with memory management.
 """
 
+import logging
 from typing import AsyncGenerator, Optional
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from ..utils.enums import MessageRole
+
+logger = logging.getLogger(__name__)
 
 
 class ResponseGenerator:
@@ -36,6 +39,7 @@ class ResponseGenerator:
             graph: The new compiled graph
         """
         self.graph = graph
+        logger.debug("ResponseGenerator graph reference updated")
     
     async def generate_response(
         self,
@@ -53,11 +57,14 @@ class ResponseGenerator:
         Returns:
             The generated response content
         """
+        logger.info("Generating response via LangGraph")
         # Invoke the graph
         final_state = await self.graph.ainvoke(initial_state, config=config)
+        logger.debug("Graph execution complete for non-streaming response")
         
         # Extract response from final state
         response_content = final_state["messages"][-1].content
+        logger.info("Response ready with %d chars", len(response_content or ""))
         
         # Store in memory if available
         if self.memory_manager:
@@ -69,8 +76,9 @@ class ResponseGenerator:
                         {"role": MessageRole.ASSISTANT, "content": response_content},
                     ],
                 )
+                logger.debug("Conversation stored in memory for user_id=%s", self.user_id)
             except Exception as e:
-                print(f"Memory storage failed: {e}")
+                logger.exception("Memory storage failed: %s", e)
         
         return response_content
     
@@ -90,6 +98,7 @@ class ResponseGenerator:
         Yields:
             Chunks of the response content and log events
         """
+        logger.info("Streaming response via LangGraph")
         final_content = []
         
         # State for filtering CONSULT commands
@@ -110,9 +119,10 @@ class ResponseGenerator:
             
             # Handle streaming content from the main agent
             elif event_type == "on_chat_model_stream":
-                # Only yield content from the main agent node to avoid showing sub-agent internal thoughts as final response
-                # The main agent node is named "agent" in graph_builder.py
-                if event.get("metadata", {}).get("langgraph_node") == "agent":
+                # Only yield content from nodes that generate final responses
+                # These nodes are: "direct_answer" and "synthesis"
+                node = event.get("metadata", {}).get("langgraph_node")
+                if node in ["direct_answer", "synthesis"]:
                     data = event["data"]
                     if "chunk" in data:
                         chunk = data["chunk"]
@@ -166,7 +176,8 @@ class ResponseGenerator:
                                 }
             
             elif event_type == "on_chat_model_end":
-                if event.get("metadata", {}).get("langgraph_node") == "agent":
+                node = event.get("metadata", {}).get("langgraph_node")
+                if node in ["direct_answer", "synthesis"]:
                     # End of a turn
                     if checking_consult and buffer:
                         # Flush remaining buffer if we were still checking
@@ -198,5 +209,6 @@ class ResponseGenerator:
                         {"role": MessageRole.ASSISTANT, "content": response_text},
                     ],
                 )
+                logger.debug("Stored streamed conversation for user_id=%s", self.user_id)
             except Exception as e:
-                print(f"Memory storage failed: {e}")
+                logger.exception("Memory storage failed: %s", e)

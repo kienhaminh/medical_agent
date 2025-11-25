@@ -7,17 +7,8 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
 # Database URL from environment
-# Format: postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-if not DATABASE_URL:
-    raise ValueError(
-        "DATABASE_URL environment variable is not set!\n"
-        "Please set it in your .env file with the format:\n"
-        "DATABASE_URL=postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
-    )
-
-# Convert psycopg2 URL to asyncpg for async operations
 ASYNC_DATABASE_URL = DATABASE_URL.replace("+psycopg2", "+asyncpg") if "+psycopg2" in DATABASE_URL else DATABASE_URL
 
 # Async Engine
@@ -88,11 +79,16 @@ async def init_db():
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-# Sync engine uses the original DATABASE_URL (with psycopg2 driver)
+# Sync Engine
+# NOTE: We must use the synchronous driver string (without +asyncpg)
+SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "+psycopg2") if "+asyncpg" in DATABASE_URL else DATABASE_URL
+
 sync_engine = create_engine(
-    DATABASE_URL, 
+    SYNC_DATABASE_URL,
     echo=False,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 
@@ -100,11 +96,14 @@ class Tool(Base):
     __tablename__ = "tools"
 
     name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(100), unique=True)  # snake_case identifier
     description: Mapped[str] = mapped_column(Text)
-    code: Mapped[str] = mapped_column(Text)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    scope: Mapped[str] = mapped_column(String(20), default="global")  # 'global', 'assignable', 'both'
-    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 'medical', 'diagnostic', etc.
+    tool_type: Mapped[str] = mapped_column(String(20), default="function")  # 'function' or 'api'
+    code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # For function type
+    api_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # For api type
+    api_request_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON schema for request
+    api_response_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON schema for response
+    scope: Mapped[str] = mapped_column(String(20), default="global")  # 'global' or 'assignable'
     assigned_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sub_agents.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 

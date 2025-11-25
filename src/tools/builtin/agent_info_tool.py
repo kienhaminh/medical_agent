@@ -32,8 +32,7 @@ def _get_enabled_subagents_sync() -> List[Dict[str, Any]]:
                 # Get agent's assigned tools
                 tools_result = db.execute(
                     select(Tool).where(
-                        Tool.assigned_agent_id == agent.id,
-                        Tool.enabled == True
+                        Tool.assigned_agent_id == agent.id
                     )
                 )
                 tools = tools_result.scalars().all()

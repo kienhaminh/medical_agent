@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { getPatient, type Patient, type MedicalRecord, type PatientVisit } from "@/lib/api";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { getPatient, getSessionMessages, type Patient, type MedicalRecord, type PatientVisit } from "@/lib/api";
 import { getMockPatientById, type PatientWithDetails } from "@/lib/mock-data";
+import { MessageRole } from "@/types/enums";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import {
   FileHeart,
   Scan,
   Plus,
+  History,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { RecordUpload } from "@/components/medical/record-upload";
@@ -38,16 +40,20 @@ import { MedicalRecordsList } from "@/components/medical/medical-records-list";
 export default function PatientDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session");
   const [patient, setPatient] = useState<PatientWithDetails | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
-  const [aiOpen, setAiOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(!!sessionId); // Auto-open if session exists
   const [aiWidth, setAiWidth] = useState(400); // Default width in pixels
   const [isResizing, setIsResizing] = useState(false);
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingSession, setLoadingSession] = useState(!!sessionId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef<string | null>(sessionId);
 
   // Modals
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -67,6 +73,33 @@ export default function PatientDetailPage() {
         });
     }
   }, [params.id]);
+
+  // Load session messages if session ID is provided
+  useEffect(() => {
+    const loadSession = async () => {
+      if (!sessionId) return;
+
+      try {
+        setLoadingSession(true);
+        const sessionMessages = await getSessionMessages(parseInt(sessionId));
+
+        // Convert to patient detail AI panel message format
+        const convertedMessages = sessionMessages.map((msg) => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        }));
+
+        setMessages(convertedMessages);
+        sessionIdRef.current = sessionId;
+      } catch (error) {
+        console.error("Failed to load session:", error);
+      } finally {
+        setLoadingSession(false);
+      }
+    };
+
+    loadSession();
+  }, [sessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -114,6 +147,7 @@ export default function PatientDetailPage() {
           message: userMessage,
           patient_id: patient.id,
           stream: true,
+          session_id: sessionIdRef.current ? parseInt(sessionIdRef.current) : undefined,
         }),
       });
 
@@ -196,13 +230,29 @@ export default function PatientDetailPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => router.push("/patient")}
+                  onClick={() => {
+                    if (sessionId) {
+                      router.push(`/agent?session=${sessionId}`);
+                    } else {
+                      router.push("/patient");
+                    }
+                  }}
                   className="hover:bg-cyan-500/10"
+                  title={sessionId ? "Back to Chat" : "Back to Patients"}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
 
                 <div>
+                  {sessionId && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                      <span className="text-cyan-500 cursor-pointer hover:underline" onClick={() => router.push(`/agent?session=${sessionId}`)}>
+                        Agent Chat
+                      </span>
+                      <span>/</span>
+                      <span>Patient: {patient.name}</span>
+                    </div>
+                  )}
                   <h1 className="font-display text-2xl font-bold flex items-center gap-3">
                     <div className="w-1 h-8 bg-gradient-to-b from-cyan-500 to-teal-500 rounded-full" />
                     {patient.name}
@@ -661,11 +711,34 @@ export default function PatientDetailPage() {
             <p className="text-xs text-muted-foreground mt-1">
               Context: {patient.name} • {activeTab}
             </p>
+            {sessionId && (
+              <div className="mt-3 flex items-center gap-2">
+                <Badge variant="outline" className="medical-badge-text text-xs">
+                  <History className="w-3 h-3 mr-1" />
+                  Continuing Chat Session
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/agent?session=${sessionId}`)}
+                  className="text-xs h-6 px-2 hover:bg-cyan-500/10 hover:text-cyan-400"
+                >
+                  Back to Chat
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Messages */}
           <ScrollArea className="flex-1 p-4">
-            {messages.length === 0 && (
+            {loadingSession ? (
+              <div className="text-center text-muted-foreground mt-10 space-y-4">
+                <div className="w-8 h-8 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
+                <div>
+                  <p className="font-medium">Loading chat session...</p>
+                </div>
+              </div>
+            ) : messages.length === 0 && (
               <div className="text-center text-muted-foreground mt-10 space-y-4">
                 <div className="inline-flex p-4 rounded-full bg-cyan-500/10">
                   <Activity className="w-8 h-8 text-cyan-500" />

@@ -1,21 +1,15 @@
 "use client";
 
 import { Brain, Loader2, Terminal, Sparkles, Search } from "lucide-react";
-import { ThinkingProgress, type LogItem } from "./thinking-progress";
+import { ThinkingProgress } from "./thinking-progress";
 import { ToolCallLog } from "./tool-call-log";
-import type { ToolCall } from "./tool-call-item";
 import { cn } from "@/lib/utils";
-import type { AgentActivity } from "./agent-progress";
-
-interface AgentProcessContainerProps {
-  reasoning?: string;
-  toolCalls?: ToolCall[];
-  logs?: LogItem[];
-  isLatest?: boolean;
-  isLoading?: boolean;
-  currentActivity?: AgentActivity | null;
-  activityDetails?: string;
-}
+import type {
+  AgentActivity,
+  AgentProcessContainerProps,
+  LogItem,
+  ToolCall,
+} from "@/types/agent-ui";
 
 const ACTIVITY_CONFIG: Record<
   AgentActivity,

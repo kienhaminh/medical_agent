@@ -12,8 +12,13 @@ router = APIRouter()
 
 @router.get("/api/agents", response_model=list[SubAgentResponse])
 async def list_agents(db: AsyncSession = Depends(get_db)):
-    """List all sub-agents."""
-    result = await db.execute(select(SubAgent).order_by(SubAgent.created_at.desc()))
+    """List all sub-agents (excluding hidden core agents)."""
+    # Exclude core agents that should be hidden from frontend
+    result = await db.execute(
+        select(SubAgent)
+        .where(SubAgent.is_core == False)
+        .order_by(SubAgent.created_at.desc())
+    )
     agents = result.scalars().all()
     return [
         SubAgentResponse(
@@ -256,10 +261,10 @@ async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
     return [
         ToolResponse(
             name=tool.name,
+            symbol=tool.symbol,
             description=tool.description,
-            enabled=tool.enabled,
+            tool_type=tool.tool_type,
             scope=tool.scope,
-            category=tool.category,
             assigned_agent_id=tool.assigned_agent_id
         ) for tool in tools
     ]
@@ -391,13 +396,13 @@ async def get_all_assignments(db: AsyncSession = Depends(get_db)):
             ),
             "tool": ToolResponse(
                 name=tool.name,
+                symbol=tool.symbol,
                 description=tool.description,
-                enabled=tool.enabled,
+                tool_type=tool.tool_type,
                 scope=tool.scope,
-                category=tool.category,
                 assigned_agent_id=tool.assigned_agent_id
             ),
-            "enabled": tool.enabled, # Use tool's enabled status
+            # "enabled": tool.enabled, # Removed as enabled column is gone
             "created_at": tool.created_at.isoformat() # Use tool's created_at
         })
 

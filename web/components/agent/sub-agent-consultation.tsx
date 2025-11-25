@@ -4,17 +4,14 @@ import { useState } from "react";
 import { Users, ChevronDown, ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type {
+  SubAgentConsultation,
+  SubAgentConsultationItemProps,
+} from "@/types/agent-ui";
 
-export interface SubAgentConsultation {
-  agent: string;
-  response: string;
-}
-
-interface SubAgentConsultationItemProps {
-  consultation: SubAgentConsultation;
-}
-
-export function SubAgentConsultationItem({ consultation }: SubAgentConsultationItemProps) {
+export function SubAgentConsultationItem({
+  consultation,
+}: SubAgentConsultationItemProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -29,12 +26,18 @@ export function SubAgentConsultationItem({ consultation }: SubAgentConsultationI
             {consultation.agent}
           </span>
         </div>
-        {isOpen ? <ChevronDown className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+        {isOpen ? (
+          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+        )}
       </button>
 
       {isOpen && (
         <div className="p-2 border-t border-orange-500/30 bg-background/30">
-          <div className="text-[10px] text-muted-foreground mb-1 font-medium">Response</div>
+          <div className="text-[10px] text-muted-foreground mb-1 font-medium">
+            Response
+          </div>
           <div className="prose prose-xs dark:prose-invert max-w-none text-[10px] leading-relaxed">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {consultation.response}

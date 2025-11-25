@@ -6,6 +6,7 @@ This agent combines:
 3. Hybrid decision-making: Routes to specialists OR uses tools based on query
 """
 
+import logging
 from typing import Union, AsyncGenerator
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
@@ -17,6 +18,8 @@ from .specialist_handler import SpecialistHandler
 from .graph_builder import GraphBuilder
 from .response_generator import ResponseGenerator
 from ..tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 
 class LangGraphAgent:
@@ -38,6 +41,7 @@ class LangGraphAgent:
         use_persistence: bool = False,
         max_concurrent_subagents: int = 5,
         subagent_timeout: float = 30.0,
+        fast_llm = None,  # Optional fast LLM for routing/classification
     ):
         """Initialize unified LangGraph agent.
 
@@ -87,6 +91,7 @@ class LangGraphAgent:
             system_prompt=self.system_prompt,
             max_iterations=max_iterations,
             checkpointer=self.config.checkpointer,
+            fast_llm=fast_llm,
         )
         
         # Build the initial graph
@@ -98,11 +103,29 @@ class LangGraphAgent:
             memory_manager=memory_manager,
             user_id=user_id,
         )
+        
+        logger.debug(
+            "LangGraphAgent initialized for user=%s (max_iterations=%s, subagent_timeout=%s)",
+            user_id,
+            max_iterations,
+            subagent_timeout,
+        )
     
-    async def _reload_graph(self):
-        """Reload the graph after loading sub-agents."""
+    async def _reload_graph(self, sub_agents: dict = None):
+        """Reload the graph after loading sub-agents.
+
+        Args:
+            sub_agents: Optional dict of sub-agents to use. If provided,
+                       updates the agent_loader's sub_agents.
+        """
+        # Update agent_loader's sub_agents if provided
+        if sub_agents is not None:
+            logger.debug("Reloading graph with %d sub-agents", len(sub_agents))
+            self.agent_loader.sub_agents = sub_agents
+
         # Rebuild graph with updated sub-agents
         self.graph = self.graph_builder.build()
+        logger.debug("Graph rebuilt successfully")
         # Update response generator with new graph
         self.response_generator.update_graph(self.graph)
     
@@ -122,14 +145,18 @@ class LangGraphAgent:
         Returns:
             Response string (non-streaming) or generator (streaming)
         """
+        logger.info("Processing user message: %s", user_message)
+
         # Load sub-agents from database
         sub_agents = await self.agent_loader.load_enabled_agents()
-        
+        logger.debug("Loaded %d sub-agents", len(sub_agents))
+
         # Update specialist handler with loaded agents
         self.specialist_handler.set_sub_agents(sub_agents)
-        
-        # Rebuild graph with updated sub-agents
-        await self._reload_graph()
+        logger.debug("Specialist handler updated with latest agents")
+
+        # Rebuild graph with updated sub-agents (pass sub_agents explicitly)
+        await self._reload_graph(sub_agents)
         
         # Retrieve memories if available
         memories = []
@@ -139,7 +166,9 @@ class LangGraphAgent:
                     query=user_message, user_id=self.config.user_id, limit=5
                 )
             except Exception as e:
-                print(f"Memory retrieval failed: {e}")
+                logger.exception("Memory retrieval failed: %s", e)
+            else:
+                logger.debug("Retrieved %d relevant memories", len(memories))
 
         # Build initial state with messages
         messages = []
@@ -175,12 +204,20 @@ class LangGraphAgent:
             "final_report": None,
             "next_agents": []
         }
+        logger.debug(
+            "Initial state prepared (history=%d, memories=%d)",
+            len(messages),
+            len(memories),
+        )
         
         config = self.config.get_config()
+        logger.debug("Agent config resolved: %s", config)
 
         if stream:
+            logger.info("Streaming response enabled for message")
             return self.response_generator.stream_response(initial_state, config, user_message)
         else:
+            logger.info("Generating standard response for message")
             return await self.response_generator.generate_response(initial_state, config, user_message)
     
     def __repr__(self) -> str:

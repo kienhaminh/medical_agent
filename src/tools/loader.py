@@ -14,11 +14,14 @@ async def load_custom_tools():
     try:
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(Tool).where(Tool.enabled == True)
+                select(Tool)
             )
             tools = result.scalars().all()
             
             for tool_record in tools:
+                if not tool_record.code:
+                    continue
+                    
                 try:
                     # Create a global scope with necessary imports for tool execution
                     # This allows tools to use common imports like SessionLocal, typing, etc.
@@ -36,10 +39,11 @@ async def load_custom_tools():
                     
                     global_scope = {
                         # Typing imports
-                        'Optional': typing.Optional,
-                        'List': typing.List,
-                        'Dict': typing.Dict,
-                        'Any': typing.Any,
+                        # 'Optional': typing.Optional, # Removed to avoid inspection errors
+                        # 'List': typing.List,
+                        # 'Dict': typing.Dict,
+                        # 'Any': typing.Any,
+                        'typing': typing, # Add typing module instead
                         
                         # SQLAlchemy imports
                         'select': sqlalchemy.select,
@@ -75,16 +79,17 @@ async def load_custom_tools():
                             tool_func = callables[0]
                     
                     if tool_func:
-                        # Register the tool with its scope from database
+                        # Register the tool with its scope and symbol from database
                         # ToolRegistry raises ValueError on duplicate, so we might need to handle that
                         try:
                             scope = tool_record.scope or "global"  # Default to global if not set
-                            registry.register(tool_func, scope=scope)
-                            logger.info(f"Loaded custom tool: {tool_record.name} (scope: {scope})")
+                            symbol = tool_record.symbol  # Use the unique symbol from database
+                            registry.register(tool_func, scope=scope, symbol=symbol)
+                            logger.info(f"Loaded custom tool: {tool_record.name} (symbol: {symbol}, scope: {scope})")
                         except ValueError:
                             # If already registered, maybe we want to update it?
                             # For now, just log warning
-                            logger.warning(f"Tool {tool_record.name} already registered, skipping.")
+                            logger.warning(f"Tool {tool_record.name} (symbol: {tool_record.symbol}) already registered, skipping.")
                     else:
                         logger.warning(f"No callable found in code for tool: {tool_record.name}")
                         

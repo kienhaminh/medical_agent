@@ -4,6 +4,9 @@ Handles parsing specialist consultation requests and executing them in parallel.
 """
 
 import asyncio
+import json
+import logging
+import re
 import time
 from typing import List
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage, ToolMessage
@@ -17,6 +20,12 @@ from ..prompt.templates import (
     format_specialist_timeout,
     format_specialist_exception
 )
+from .output_schemas import (
+    get_output_schema_for_agent,
+    format_internist_output
+)
+
+logger = logging.getLogger(__name__)
 
 
 class SpecialistHandler:
@@ -93,11 +102,80 @@ class SpecialistHandler:
                 specialists.append(role)
         
         return specialists
-    
+
+    def _parse_and_format_structured_output(
+        self,
+        response_content: str,
+        agent_role: str,
+        agent_name: str
+    ) -> str:
+        """Parse structured JSON output and format it nicely.
+
+        Args:
+            response_content: The raw response content from the specialist
+            agent_role: The role identifier of the agent
+            agent_name: Display name of the agent
+
+        Returns:
+            Formatted report string
+        """
+        # Check if agent has a custom output schema
+        schema_class = get_output_schema_for_agent(agent_role)
+
+        if not schema_class:
+            # No custom schema, return as-is
+            return response_content
+
+        try:
+            # Try to extract JSON from response
+            # Look for JSON code blocks first
+            json_match = re.search(r'```json\s*(\{.*?\})\s*```', response_content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+            else:
+                # Try to find raw JSON object with more flexible regex
+                # Look for any JSON object (starts with { and ends with })
+                json_match = re.search(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', response_content, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                else:
+                    # No structured output found, return as-is
+                    logger.warning(f"No structured output found for {agent_role}, using raw content")
+                    return response_content
+
+            # Parse JSON
+            data = json.loads(json_str)
+
+            # Format based on agent type
+            if agent_role in ["clinical_text", "internist"]:
+                formatted = format_internist_output(data)
+                logger.info(f"Successfully formatted structured output for {agent_role}")
+                return formatted
+            else:
+                # Generic formatting for other agents with schemas
+                return response_content
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON from {agent_role}: {e}")
+            logger.debug(f"Failed JSON content: {response_content[:200]}...")
+            # Return original content without technical error for end user
+            return response_content
+        except ValueError as e:
+            logger.error(f"Invalid output structure from {agent_role}: {e}")
+            logger.debug(f"Validation failed for data: {json_str[:200] if 'json_str' in locals() else 'N/A'}...")
+            # Return original content without technical error for end user
+            return response_content
+        except Exception as e:
+            logger.error(f"Unexpected error formatting output from {agent_role}: {e}")
+            logger.exception("Full traceback:")
+            return response_content
+
     async def consult_specialists(
         self,
         specialists_needed: List[str],
-        user_query: HumanMessage
+        user_query: HumanMessage,
+        delegation_queries: dict = None,
+        synthesize_response: bool = True
     ) -> List[BaseMessage]:
         """Execute consultation with specialists IN PARALLEL.
         
@@ -105,13 +183,17 @@ class SpecialistHandler:
         
         Args:
             specialists_needed: List of specialist roles to consult
-            user_query: The user's query message
+            user_query: The user's query message (fallback)
+            delegation_queries: Optional dict mapping specialist role to specific query
             
         Returns:
             List of BaseMessage responses from specialists
         """
         if not specialists_needed:
             return []
+        
+        if delegation_queries is None:
+            delegation_queries = {}
         
         # Define async consultation function for a single specialist
         async def consult_single_specialist(specialist_role: str) -> BaseMessage:
@@ -141,16 +223,49 @@ class SpecialistHandler:
                 # Create specialist prompt
                 specialist_prompt = SystemMessage(content=agent_info["system_prompt"])
                 
-                # Dynamically fetch agent's tools from database
+                # Dynamically fetch agent's tools
                 t0 = time.time()
-                agent_id = agent_info["id"]
-                agent_tools = await self.tool_registry.get_langchain_tools_for_agent(agent_id)
+                agent_tools = []
                 
-                # Add global tools to sub-agent
-                global_tools = self.tool_registry.get_langchain_tools(scope_filter="global")
+                # Check if agent has hardcoded tools (Core Agent)
+                if "tools" in agent_info and agent_info["tools"]:
+                    logger.debug(
+                        "Using hardcoded tools for %s: %s", specialist_role, agent_info["tools"]
+                    )
+                    agent_tools = self.tool_registry.get_tools_by_symbols(agent_info["tools"])
+                else:
+                    # Fetch from DB for custom agents
+                    agent_id = agent_info["id"]
+                    agent_tools = await self.tool_registry.get_langchain_tools_for_agent(agent_id)
                 
-                # Combine tools (avoid duplicates if any)
-                all_tools = agent_tools + [t for t in global_tools if t.name not in [at.name for at in agent_tools]]
+                logger.debug(
+                    "Fetched %d agent-specific tools for %s",
+                    len(agent_tools),
+                    specialist_role,
+                )
+
+                # Add assignable tools to sub-agent
+                # Sub-agents should get:
+                # - Tools with scope="assignable" (sub-agent only tools)
+                # They should NOT get:
+                # - Tools with scope="global" (main agent only, includes delegation tools)
+                assignable_tools = self.tool_registry.get_langchain_tools(scope_filter="assignable")
+
+                # Combine tools (avoid duplicates)
+                all_tools = agent_tools.copy()
+                existing_names = {t.name for t in all_tools}
+
+                for tool in assignable_tools:
+                    if tool.name not in existing_names:
+                        all_tools.append(tool)
+                        existing_names.add(tool.name)
+                
+                logger.debug(
+                    "Total tools for %s: %d (%s)",
+                    specialist_role,
+                    len(all_tools),
+                    [t.name for t in all_tools],
+                )
                 
                 duration = time.time() - t0
                 await adispatch_custom_event(
@@ -162,14 +277,44 @@ class SpecialistHandler:
                 agent_llm = self.llm
                 if all_tools:
                     agent_llm = self.llm.bind_tools(all_tools)
+                    logger.debug("Bound %d tools to LLM for %s", len(all_tools), specialist_role)
+                else:
+                    logger.debug("No tools to bind for %s", specialist_role)
+                
+                # Determine which query to use for this specialist
+                # Use delegation query if provided, otherwise use original user query
+                specialist_query = user_query
+                if specialist_role in delegation_queries:
+                    # Create a new HumanMessage with the delegation-specific query
+                    from langchain_core.messages import HumanMessage
+                    specialist_query = HumanMessage(content=delegation_queries[specialist_role])
                 
                 # 1. First LLM Call (async)
+                logger.debug("Starting first LLM call for %s", specialist_role)
                 response = await agent_llm.ainvoke(
-                    [specialist_prompt, user_query]
+                    [specialist_prompt, specialist_query]
                 )
+                logger.debug(
+                    "First LLM response received for %s (tool_calls=%s)",
+                    specialist_role,
+                    bool(getattr(response, "tool_calls", None)),
+                )
+                if hasattr(response, 'tool_calls') and response.tool_calls:
+                    logger.debug(
+                        "Tool calls: %s",
+                        [tc["name"] for tc in response.tool_calls],
+                    )
                 
                 # 2. Handle Tool Calls (Single turn ReAct for Sub-Agent)
                 if response.tool_calls:
+                    logger.debug(
+                        "LLM made %d tool calls for %s",
+                        len(response.tool_calls),
+                        specialist_role,
+                    )
+                    for tc in response.tool_calls:
+                        logger.debug("Tool call detail: %s args=%s", tc["name"], tc.get("args", {}))
+                    
                     # Execute tools
                     tool_executor = ToolExecutor(self.tool_registry)
                     tool_outputs = []
@@ -186,6 +331,18 @@ class SpecialistHandler:
                             tool_call["args"]
                         )
                         
+                        logger.debug(
+                            "Executed tool %s (success=%s)",
+                            tool_call["name"],
+                            tool_result.success,
+                        )
+                        if not tool_result.success:
+                            logger.error(
+                                "Tool %s failed: %s",
+                                tool_call["name"],
+                                tool_result.error,
+                            )
+                        
                         t_end = time.time()
                         await adispatch_custom_event(
                             "agent_log", 
@@ -199,20 +356,38 @@ class SpecialistHandler:
                             )
                         )
                     
-                    # 3. Second LLM Call with Tool Outputs (async)
-                    response = await agent_llm.ainvoke(
-                        [specialist_prompt, user_query, response] + tool_outputs
-                    )
+                    if synthesize_response:
+                        # 3. Second LLM Call with Tool Outputs (async)
+                        logger.debug("Starting second LLM call with tool outputs for %s", specialist_role)
+                        response = await agent_llm.ainvoke(
+                            [specialist_prompt, specialist_query, response] + tool_outputs
+                        )
+                        logger.debug("Second LLM response received for %s", specialist_role)
+                    else:
+                        # Skip second LLM call, return tool outputs directly
+                        logger.debug("Skipping second LLM call for %s", specialist_role)
+                        # Create a summary message with tool outputs
+                        tool_results_str = "\n".join([str(t.content) for t in tool_outputs])
+                        response = AIMessage(content=f"Tool execution completed. Results:\n{tool_results_str}")
+                else:
+                    logger.debug("No tool calls made by %s - responding directly", specialist_role)
                 
                 total_duration = time.time() - start_time
                 await adispatch_custom_event(
-                    "agent_log", 
+                    "agent_log",
                     {"message": f"Finished {specialist_role}", "duration": f"{total_duration:.1f}s", "level": "info"}
                 )
-                
+
+                # Parse and format structured output if applicable
+                formatted_content = self._parse_and_format_structured_output(
+                    response.content,
+                    specialist_role,
+                    agent_info['name']
+                )
+
                 # Tag response with specialist name
                 tagged_response = SystemMessage(
-                    content=format_specialist_report(agent_info['name'], response.content)
+                    content=format_specialist_report(agent_info['name'], formatted_content)
                 )
                 return tagged_response
                 

@@ -23,19 +23,13 @@ import { ToolNode } from "./canvas/tool-node";
 import { MainAgentNode } from "./canvas/main-agent-node";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { AssignmentCanvasProps } from "@/types/agent-ui";
 
 const nodeTypes = {
   agent: AgentNode,
   tool: ToolNode,
   mainAgent: MainAgentNode,
 };
-
-interface AssignmentCanvasProps {
-  agents: SubAgent[];
-  tools: Tool[];
-  onAssign: (toolName: string, agentId: number) => Promise<void>;
-  onUnassign: (toolName: string, agentId: number) => Promise<void>;
-}
 
 export function AssignmentCanvas({
   agents,
