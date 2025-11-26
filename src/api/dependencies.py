@@ -44,6 +44,8 @@ llm_provider = KimiProvider(
     api_key=config.kimi_api_key,
     model="kimi-k2-thinking", # Enforce k2 thinking model
     temperature=0.3,
+    streaming=True,  # Enable streaming for real-time responses
+    # Note: stream_usage=True is already set in KimiProvider.__init__
 )
 
 # User-specific agents

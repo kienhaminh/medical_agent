@@ -622,10 +622,36 @@ export async function getTaskStatus(
  * Stream message updates via Server-Sent Events.
  * Polls database for message updates and closes when completed.
  */
+export type StreamEvent =
+  | { type: "chunk"; content: string }
+  | { type: "content"; content: string } // New event type from backend
+  | {
+      type: "status";
+      status: string;
+      content?: string;
+      tool_calls?: any[];
+      reasoning?: string;
+      logs?: any[];
+      patient_references?: any[];
+      error_message?: string;
+      usage?: any;
+    }
+  | { type: "tool_call"; tool: string; id: string; args: any }
+  | { type: "tool_result"; id: string; result: string }
+  | { type: "reasoning"; content: string }
+  | { type: "log"; content: any }
+  | { type: "patient_references"; patient_references: any[] }
+  | { type: "usage"; usage: any }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+/**
+ * Stream message updates via Server-Sent Events.
+ * Polls database for message updates and closes when completed.
+ */
 export function streamMessageUpdates(
   messageId: number,
-  onUpdate: (message: Partial<ChatMessage>) => void,
-  onComplete: () => void,
+  onEvent: (event: StreamEvent) => void,
   onError: (error: Error) => void
 ): () => void {
   const eventSource = new EventSource(
@@ -636,20 +662,29 @@ export function streamMessageUpdates(
     try {
       const data = JSON.parse(event.data);
 
-      if (data.done) {
+      if (data.done || data.type === "done") {
         eventSource.close();
-        onComplete();
+        onEvent({ type: "done" });
         return;
       }
 
-      if (data.error) {
+      if (data.error && !data.type) {
         eventSource.close();
         onError(new Error(data.error));
         return;
       }
 
-      // Send update to callback
-      onUpdate(data);
+      // Handle new event format
+      if (data.type) {
+        onEvent(data as StreamEvent);
+      } else {
+        // Legacy format (if any) or fallback
+        // onUpdate(data);
+        // For now, we assume backend only sends typed events or we map them
+        if (data.content) onEvent({ type: "chunk", content: data.content });
+        if (data.status)
+          onEvent({ type: "status", status: data.status, ...data });
+      }
     } catch (err) {
       onError(err as Error);
     }

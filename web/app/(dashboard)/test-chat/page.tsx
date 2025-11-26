@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  sendChatMessage,
-  pollMessageStatus,
   getSessionMessages,
+  sendChatMessage,
+  streamMessageUpdates,
   type ChatMessage,
-  type ChatTaskResponse,
+  type StreamEvent,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import Image from "next/image";
+
+const API_BASE_URL = "http://localhost:8000";
 
 // Component to render message content with image support
 function MessageContent({ content }: { content: string }) {
@@ -96,9 +98,6 @@ function TestChatPageContent() {
 
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [taskResponse, setTaskResponse] = useState<ChatTaskResponse | null>(
-    null
-  );
   const [currentMessage, setCurrentMessage] = useState<ChatMessage | null>(
     null
   );
@@ -120,77 +119,13 @@ function TestChatPageContent() {
   }, [searchParams]);
 
   // Load existing messages for a session
-  const loadSessionMessages = async (
-    sessionId: number,
-    skipAutoResume = false
-  ) => {
+  const loadSessionMessages = async (sessionId: number) => {
     setIsLoadingHistory(true);
     addLog(`📥 Loading messages for session ${sessionId}...`);
     try {
       const msgs = await getSessionMessages(sessionId);
       setMessages(msgs);
       addLog(`✅ Loaded ${msgs.length} messages`);
-
-      // Check for any in-progress messages and resume polling (unless skipped)
-      if (skipAutoResume) {
-        return;
-      }
-
-      const inProgressMsg = msgs.find(
-        (msg) =>
-          msg.role === "assistant" &&
-          (msg.status === "streaming" || msg.status === "pending")
-      );
-
-      if (inProgressMsg) {
-        addLog(`🔄 Resuming streaming for message ${inProgressMsg.id}...`);
-        setCurrentMessage(inProgressMsg);
-        setIsSubmitting(true);
-
-        // Start polling for the in-progress message
-        const cancelPoll = await pollMessageStatus(
-          sessionId,
-          inProgressMsg.id,
-          (updatedMessage) => {
-            setCurrentMessage(updatedMessage);
-            addLog(`📊 Status update: ${updatedMessage.status}`);
-
-            // Update the message in the messages array in real-time
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === updatedMessage.id ? updatedMessage : msg
-              )
-            );
-
-            if (
-              updatedMessage.content &&
-              updatedMessage.content !== inProgressMsg.content
-            ) {
-              addLog(
-                `💬 Content updated (${updatedMessage.content.length} chars)`
-              );
-            }
-          },
-          () => {
-            addLog("✅ Resumed message completed!");
-            setIsSubmitting(false);
-            // Reload to get final state
-            loadSessionMessages(sessionId);
-          },
-          (err) => {
-            addLog(`❌ Error: ${err.message}`);
-            setError(err.message);
-            setIsSubmitting(false);
-          },
-          {
-            initialDelay: 500, // Start faster for resume
-            maxDelay: 5000,
-            maxAttempts: 120, // Allow longer polling for resumed messages
-          }
-        );
-
-        cancelPollRef.current = cancelPoll;
-      }
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to load messages";
@@ -201,7 +136,7 @@ function TestChatPageContent() {
     }
   };
 
-  // Cleanup polling on unmount
+  // Cleanup SSE connection on unmount
   useEffect(() => {
     return () => {
       if (cancelPollRef.current) {
@@ -214,107 +149,88 @@ function TestChatPageContent() {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${log}`]);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || isSubmitting) return;
-
-    setIsSubmitting(true);
-    setError(null);
-    setTaskResponse(null);
-    setCurrentMessage(null);
-    setLogs([]);
+  // SSE streaming handler (Background Task)
+  const startBackgroundStream = async (
+    sessionId: number | null,
+    messageText: string
+  ) => {
+    addLog("🚀 Sending message to background task...");
 
     try {
-      addLog("📤 Sending message to backend...");
-
-      // Send message and get immediate response
+      // 1. Send message to API
       const response = await sendChatMessage({
-        message: message.trim(),
-        user_id: "test_user",
+        message: messageText,
         session_id: sessionId,
+        user_id: "test_user",
       });
 
-      addLog(`✅ Got immediate response: task_id=${response.task_id}`);
       addLog(
-        `   message_id=${response.message_id}, session_id=${response.session_id}`
+        `✅ Task started! Task ID: ${response.task_id}, Message ID: ${response.message_id}`
       );
 
-      setTaskResponse(response);
-      setSessionId(response.session_id);
-
-      // Update URL with session ID for persistence
-      if (!sessionId || sessionId !== response.session_id) {
+      if (response.session_id && response.session_id !== sessionId) {
+        setSessionId(response.session_id);
         router.push(`/test-chat?session=${response.session_id}`, {
           scroll: false,
         });
-        addLog(`🔗 Updated URL with session ID`);
       }
 
-      // Clear input
-      setMessage("");
+      // 2. Start streaming updates
+      addLog(
+        `📡 Connecting to SSE stream for message ${response.message_id}...`
+      );
 
-      // Reload messages to include the user message and pending assistant message
-      if (response.session_id) {
-        await loadSessionMessages(response.session_id, true); // Skip auto-resume since we're manually polling
-        addLog("📋 Refreshed message history");
-      }
+      let accumulatedContent = "";
 
-      // Start polling for updates
-      addLog("🔄 Starting polling with exponential backoff...");
-
-      const cancelPoll = await pollMessageStatus(
-        response.session_id,
+      const cancelStream = streamMessageUpdates(
         response.message_id,
-        (updatedMessage) => {
-          setCurrentMessage(updatedMessage);
-          addLog(`📊 Status update: ${updatedMessage.status}`);
-
-          // Update the message in the messages array in real-time
-          setMessages((prev) => {
-            const existingIndex = prev.findIndex(
-              (msg) => msg.id === updatedMessage.id
+        (event: StreamEvent) => {
+          // Handle 'content' (new) and 'chunk' (legacy) event types
+          if (event.type === "chunk" || event.type === "content") {
+            accumulatedContent += event.content;
+            updateAssistantMessage(
+              response.message_id,
+              accumulatedContent,
+              "streaming"
             );
-            if (existingIndex >= 0) {
-              // Update existing message
-              const updated = [...prev];
-              updated[existingIndex] = updatedMessage;
-              return updated;
-            } else {
-              // Add new message
-              return [...prev, updatedMessage];
+            addLog(`💬 Chunk: ${event.content.length} chars`);
+          } else if (event.type === "status") {
+            // Initial status or full update
+            if (event.content) {
+              accumulatedContent = event.content;
+              updateAssistantMessage(
+                response.message_id,
+                accumulatedContent,
+                event.status
+              );
             }
-          });
-
-          if (
-            updatedMessage.content &&
-            updatedMessage.content !== currentMessage?.content
-          ) {
-            addLog(
-              `💬 Content updated (${updatedMessage.content.length} chars)`
-            );
-          }
-        },
-        () => {
-          addLog("✅ Message completed!");
-          setIsSubmitting(false);
-          // Reload messages to show full history
-          if (response.session_id) {
-            loadSessionMessages(response.session_id);
+            addLog(`ℹ️ Status: ${event.status}`);
+          } else if (event.type === "tool_call") {
+            addLog(`🔧 Tool Call: ${event.tool}`);
+          } else if (event.type === "tool_result") {
+            addLog(`✅ Tool Result`);
+          } else if (event.type === "reasoning") {
+            addLog(`🧠 Reasoning: ${event.content.substring(0, 50)}...`);
+          } else if (event.type === "done") {
+            addLog("✅ Stream completed!");
+            setIsSubmitting(false);
+            cancelPollRef.current = null;
+            // Reload to get final consistent state
+            if (response.session_id) loadSessionMessages(response.session_id);
+          } else if (event.type === "error") {
+            addLog(`❌ Stream Error: ${event.message}`);
+            setError(event.message);
+            setIsSubmitting(false);
           }
         },
         (err) => {
-          addLog(`❌ Error: ${err.message}`);
+          addLog(`❌ Connection Error: ${err.message}`);
           setError(err.message);
           setIsSubmitting(false);
-        },
-        {
-          initialDelay: 1000,
-          maxDelay: 5000,
-          maxAttempts: 60,
         }
       );
 
-      cancelPollRef.current = cancelPoll;
+      cancelPollRef.current = cancelStream;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       addLog(`❌ Failed to send message: ${errorMsg}`);
@@ -323,8 +239,95 @@ function TestChatPageContent() {
     }
   };
 
+  const updateAssistantMessage = (
+    msgId: number,
+    content: string,
+    status: string
+  ) => {
+    setCurrentMessage((prev) => ({
+      id: msgId,
+      session_id: sessionId || 0,
+      role: "assistant",
+      content: content,
+      created_at: new Date().toISOString(),
+      status: status,
+      tool_calls: null,
+      reasoning: null,
+      patient_references: null,
+      logs: null,
+      token_usage: null,
+      error_message: null,
+      last_updated_at: new Date().toISOString(),
+    }));
+
+    setMessages((prev) => {
+      const existing = prev.find((m) => m.id === msgId);
+      if (existing) {
+        return prev.map((m) =>
+          m.id === msgId ? { ...m, content, status } : m
+        );
+      }
+      // Append if not exists (or if it was a placeholder)
+      // Actually sendChatMessage creates a placeholder in DB, but we might not have reloaded it yet.
+      // Let's just append or update the last one if it looks like a placeholder.
+      const lastMsg = prev[prev.length - 1];
+      if (
+        lastMsg &&
+        lastMsg.role === "assistant" &&
+        lastMsg.status === "pending"
+      ) {
+        return [
+          ...prev.slice(0, -1),
+          { ...lastMsg, id: msgId, content, status },
+        ];
+      }
+      return [
+        ...prev,
+        {
+          id: msgId,
+          session_id: sessionId || 0,
+          role: "assistant",
+          content,
+          created_at: new Date().toISOString(),
+          status,
+          tool_calls: null,
+          reasoning: null,
+          patient_references: null,
+          logs: null,
+          token_usage: null,
+          error_message: null,
+          last_updated_at: new Date().toISOString(),
+        },
+      ];
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setError(null);
+    setCurrentMessage(null);
+    setLogs([]);
+
+    // Clear input
+    const messageText = message.trim();
+    setMessage("");
+
+    try {
+      // Start TRUE streaming via Background Task + SSE
+      await startBackgroundStream(sessionId, messageText);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      addLog(`❌ Failed to start stream: ${errorMsg}`);
+      setError(errorMsg);
+      setIsSubmitting(false);
+    }
+  };
+
   const startNewConversation = () => {
-    // Cancel any ongoing polling
+    // Cancel any ongoing streaming
     if (cancelPollRef.current) {
       cancelPollRef.current();
     }
@@ -333,7 +336,6 @@ function TestChatPageContent() {
     setSessionId(null);
     setMessages([]);
     setCurrentMessage(null);
-    setTaskResponse(null);
     setError(null);
     setLogs([]);
     setIsSubmitting(false);
@@ -389,9 +391,10 @@ function TestChatPageContent() {
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Background Chat Test Page</h1>
+          <h1 className="text-3xl font-bold mb-2">⚡ SSE Streaming Chat</h1>
           <p className="text-muted-foreground">
-            Test the new task-based chat system with real-time status updates
+            Real-time streaming chat via Background Task + SSE - see responses
+            as they're generated!
             {sessionId && (
               <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
                 Session: {sessionId}
@@ -438,35 +441,6 @@ function TestChatPageContent() {
           </form>
         </CardContent>
       </Card>
-
-      {/* Task Response */}
-      {taskResponse && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Task Response (Immediate)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">Task ID:</span>
-              <code className="bg-muted px-2 py-1 rounded text-sm">
-                {taskResponse.task_id}
-              </code>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">Message ID:</span>
-              <code className="bg-muted px-2 py-1 rounded text-sm">
-                {taskResponse.message_id}
-              </code>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">Session ID:</span>
-              <code className="bg-muted px-2 py-1 rounded text-sm">
-                {taskResponse.session_id}
-              </code>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Message History */}
       {messages.length > 0 && (
@@ -709,6 +683,23 @@ function TestChatPageContent() {
         </CardContent>
       </Card>
 
+      {/* Streaming Indicator */}
+      {isSubmitting && (
+        <Card className="mt-6 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="font-semibold text-green-700 dark:text-green-300">
+                ⚡ Background Task Streaming Active
+              </span>
+              <span className="text-green-600 dark:text-green-400">
+                - Receiving real-time updates via SSE connection
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Instructions */}
       <Card className="mt-6 border-blue-200 dark:border-blue-800">
         <CardHeader>
@@ -726,11 +717,15 @@ function TestChatPageContent() {
               Watch the URL update with <code>?session=X</code> for persistence
             </li>
             <li>
-              See real-time streaming in Message History with animated cursor
-              (▊)
+              <strong>✨ TRUE STREAMING</strong> - Experience real-time response
+              streaming via SSE (Server-Sent Events)!
             </li>
             <li>
-              Observe content updating character by character as it streams
+              See content appearing character by character as it's generated by
+              the LLM
+            </li>
+            <li>
+              Watch live tool calls, reasoning, and token usage in the logs
             </li>
             <li>
               <strong>🔄 Reload test:</strong> While the message is still
@@ -739,12 +734,11 @@ function TestChatPageContent() {
             </li>
             <li>
               <strong>🎯 Navigation test:</strong> While streaming, navigate to
-              /agent, then come back - streaming resumes automatically!
+              /agent, then come back - resume from previous session!
             </li>
             <li>
               <strong>🔗 URL sharing test:</strong> Copy the URL with session
-              parameter and open in a new tab - if still streaming, it continues
-              there too!
+              parameter and open in a new tab - see full conversation history!
             </li>
             <li>
               <strong>🖼️ Image test:</strong> Ask for an image like "Show me a
@@ -753,9 +747,10 @@ function TestChatPageContent() {
             </li>
           </ul>
           <p className="mt-4">
-            <strong>Expected behavior:</strong> API returns immediately (&lt;
-            50ms), then polling starts with exponential backoff (1s → 1.5s →
-            2.25s → ... → 5s max).
+            <strong>Expected behavior:</strong> Real-time streaming via SSE
+            (Server-Sent Events). Content streams as soon as it's generated,
+            with no polling delays or refresh intervals. True live streaming
+            experience over SSE connection!
           </p>
         </CardContent>
       </Card>

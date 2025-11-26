@@ -4,6 +4,7 @@ Allows the agent to query patient information and medical records from the datab
 """
 
 import logging
+import re
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -43,10 +44,24 @@ def query_patient_info(query: str) -> str:
             patient = session.execute(stmt).scalar_one_or_none()
             logger.debug("Parsed patient query as id=%s", patient_id)
         except ValueError:
-            # Not an ID, search by name
-            stmt = select(Patient).where(Patient.name.ilike(f"%{query}%"))
-            patient = session.execute(stmt).scalars().first()
-            logger.debug("Patient query treated as name search")
+            # Not a direct ID, check if it contains an ID (e.g., "patient 24")
+            # Look for standalone digits
+            id_match = re.search(r'\b(\d+)\b', query)
+            if id_match:
+                try:
+                    patient_id = int(id_match.group(1))
+                    stmt = select(Patient).where(Patient.id == patient_id)
+                    patient = session.execute(stmt).scalar_one_or_none()
+                    if patient:
+                        logger.debug("Extracted patient ID %s from query '%s'", patient_id, query)
+                except Exception:
+                    pass
+            
+            if not patient:
+                # Search by name
+                stmt = select(Patient).where(Patient.name.ilike(f"%{query}%"))
+                patient = session.execute(stmt).scalars().first()
+                logger.debug("Patient query treated as name search")
             
         if not patient:
             logger.info("No patient matched query='%s'", query)

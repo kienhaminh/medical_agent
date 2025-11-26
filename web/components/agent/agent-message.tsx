@@ -17,14 +17,19 @@ export function AgentMessage({
   sessionId,
   tokenUsage,
 }: AgentMessageProps) {
-  // Show thinking box only while the assistant is actively responding
+  // Show thinking box only during active streaming
+  // Once streaming completes, hide the thinking box to keep the UI clean
   const shouldShowThinking = Boolean(isLatest && isLoading);
 
   return (
     <div className="flex gap-4">
       {/* Message Content */}
       <div className="flex-1 space-y-1">
-        {/* Agent Process (Collapsible) - Hide when answer starts unless we have data */}
+        {/* Agent Process Container (Thinking Box)
+            - Shows only during active streaming
+            - Automatically hides when streaming completes
+            - Displays reasoning, tool calls, logs, and progress
+        */}
         {shouldShowThinking && (
           <AgentProcessContainer
             reasoning={reasoning}
@@ -38,7 +43,11 @@ export function AgentMessage({
           />
         )}
 
-        {/* Answer (Always Visible) */}
+        {/* Answer Content
+            - Appears as content streams in
+            - Updates progressively during streaming
+            - Remains visible after streaming completes
+        */}
         {content && (
           <AnswerContent
             content={content}

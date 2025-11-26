@@ -56,5 +56,17 @@ class AgentConfig:
             print(f"Failed to initialize persistence: {e}")
     
     def get_config(self) -> dict:
-        """Get configuration dict for graph execution."""
-        return {"configurable": {"thread_id": self.user_id}} if self.checkpointer else {}
+        """Get configuration dict for graph execution.
+
+        Returns a config with recursion_limit to allow multiple tool calls.
+        Each tool call loop is ~2 steps (agent → tools → agent), so we set
+        recursion_limit to max_iterations * 3 to allow plenty of room.
+        """
+        config = {
+            "recursion_limit": self.max_iterations * 3,  # Allow multiple tool invocations
+        }
+
+        if self.checkpointer:
+            config["configurable"] = {"thread_id": self.user_id}
+
+        return config

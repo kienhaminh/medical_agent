@@ -10,6 +10,9 @@ from ..config.database import SubAgent, AsyncSessionLocal
 from ..tools.loader import load_custom_tools
 from .core_agents import CORE_AGENTS
 
+# Import builtin tools to trigger auto-registration
+from ..tools import builtin  # noqa: F401
+
 
 class AgentLoader:
     """Loads and manages sub-agent configurations from database."""

@@ -21,6 +21,7 @@ class KimiProvider(LangChainAdapter):
         temperature: float = 0.3,
         max_retries: int = 2,
         streaming: bool = True,
+        stream_usage: bool = True,  # Add explicit parameter
         **kwargs,
     ):
         """Initialize Kimi provider.
@@ -33,6 +34,7 @@ class KimiProvider(LangChainAdapter):
             temperature: Sampling temperature
             max_retries: Maximum number of retries
             streaming: Enable streaming responses
+            stream_usage: Enable usage tracking in streaming mode (default: True)
             **kwargs: Additional parameters
         """
         llm = ChatOpenAI(
@@ -43,7 +45,7 @@ class KimiProvider(LangChainAdapter):
             max_tokens=max_tokens,
             max_retries=max_retries,
             streaming=streaming,
-            stream_usage=True,  # Enable usage tracking in streaming mode
+            stream_usage=stream_usage,  # Use the parameter value
             **kwargs,
         )
         

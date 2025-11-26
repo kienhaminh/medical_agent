@@ -4,6 +4,11 @@ Creates default medical specialist agents and updates existing tools.
 """
 import asyncio
 from sqlalchemy import select, update
+from dotenv import load_dotenv
+
+# Load environment
+load_dotenv()
+
 from src.config.database import AsyncSessionLocal, SubAgent, Tool
 
 

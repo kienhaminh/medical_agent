@@ -57,47 +57,76 @@ class GraphBuilder:
         @tool
         async def delegate_to_specialist(specialist_name: str, query: str) -> str:
             """Delegate a specific medical query to a specialist.
-            
+
             Use this tool when you need to consult a medical specialist for a patient-related query.
             The specialist will execute independently and return a final report.
-            
+
             Args:
-                specialist_name: The name of the specialist (e.g., 'internist', 'cardiologist').
+                specialist_name: The name or role of the specialist.
                                Available specialists: {available_agents}
                 query: The specific query or task for the specialist.
-            
+
             Returns:
                 The specialist's final report.
             """
             logger.info(f"[DELEGATION] Delegating to {specialist_name} with query: {query}")
-            
+
+            # Map human-readable names to role IDs
+            # This allows LLM to use natural names like "internist" instead of "clinical_text"
+            name_to_role = {}
+            role_to_name = {}
+            for role, info in self.agent_loader.sub_agents.items():
+                agent_name = info.get("name", "").lower()
+                name_to_role[agent_name] = role
+                role_to_name[role] = info.get("name", role)
+
+            # Normalize specialist_name to lowercase for matching
+            specialist_name_lower = specialist_name.lower()
+
+            # Try to resolve to role ID
+            # 1. Check if it's already a role ID
+            if specialist_name in self.agent_loader.sub_agents:
+                resolved_role = specialist_name
+            # 2. Check if it matches a name
+            elif specialist_name_lower in name_to_role:
+                resolved_role = name_to_role[specialist_name_lower]
+                logger.info(f"[DELEGATION] Resolved '{specialist_name}' to role '{resolved_role}'")
+            else:
+                # Not found - provide helpful error
+                available = ", ".join([f"{role_to_name.get(r, r)} ({r})" for r in self.agent_loader.sub_agents.keys()])
+                return f"Specialist '{specialist_name}' not found. Available specialists: {available}"
+
             # Create a dummy message to pass to consult_specialists
             # The handler expects a list of messages, and we want to pass the specific query
             # We can construct a HumanMessage with the query
             from langchain_core.messages import HumanMessage
-            
+
             try:
                 responses = await self.specialist_handler.consult_specialists(
-                    specialists_needed=[specialist_name],
+                    specialists_needed=[resolved_role],
                     messages=[HumanMessage(content=query)],
-                    delegation_queries={specialist_name: query},
-                    synthesize_response=True 
+                    delegation_queries={resolved_role: query},
+                    synthesize_response=True
                 )
-                
+
                 # The response is a list of messages. We want the content of the last one (the report).
                 if responses:
                     final_response = responses[-1]
                     return final_response.content
                 return "Specialist did not return a response."
-                
+
             except Exception as e:
                 logger.error(f"Error in delegation: {e}")
                 return f"Error consulting specialist: {str(e)}"
 
-        # Update docstring with available agents
-        available_agents = list(self.agent_loader.sub_agents.keys())
+        # Update docstring with available agents - show both role and name
+        available_agents_list = []
+        for role, info in self.agent_loader.sub_agents.items():
+            agent_name = info.get("name", role)
+            available_agents_list.append(f"{agent_name} ({role})")
+
         delegate_to_specialist.description = delegate_to_specialist.description.format(
-            available_agents=", ".join(available_agents)
+            available_agents=", ".join(available_agents_list)
         )
 
         # 2. Prepare Tools

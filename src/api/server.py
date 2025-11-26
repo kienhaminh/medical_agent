@@ -10,24 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ..config.database import init_db
-from ..config.settings import load_config
-from ..utils.logging import SecureFormatter
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage
-import src.tools.builtin # Register builtin tools
-
-# Initialize logging from config
-import logging
-config = load_config()
-logging.basicConfig(
-    level=getattr(logging, config.logging.level.upper()),
-    format=config.logging.format,
-    handlers=[logging.StreamHandler()]
-)
-# Apply secure formatter to root logger
-root_logger = logging.getLogger()
-for handler in root_logger.handlers:
-    handler.setFormatter(SecureFormatter(config.logging.format))
+import src.tools.builtin  # Register builtin tools
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

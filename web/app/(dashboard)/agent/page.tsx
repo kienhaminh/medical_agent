@@ -19,8 +19,8 @@ import { MessageRole } from "@/types/enums";
 import {
   getSessionMessages,
   sendChatMessage,
-  pollMessageStatus,
-  type ChatMessage,
+  streamMessageUpdates,
+  type StreamEvent,
 } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -140,46 +140,80 @@ function AgentChatPageContent() {
           setCurrentActivity("thinking");
           setActivityDetails("Resuming processing...");
 
-          // Start polling for the in-progress message
-          const cancelPoll = await pollMessageStatus(
-            parseInt(currentSessionId),
+          // Start streaming for the in-progress message
+          const cancelStream = streamMessageUpdates(
             parseInt(inProgressMsg.id),
-            (updatedMessage: ChatMessage) => {
-              // Update the message in the messages array
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id === updatedMessage.id.toString()) {
-                    return {
-                      ...msg,
-                      content: updatedMessage.content,
-                      status: updatedMessage.status,
-                      toolCalls: updatedMessage.tool_calls
-                        ? JSON.parse(updatedMessage.tool_calls)
-                        : undefined,
-                      reasoning: updatedMessage.reasoning || undefined,
-                      logs: updatedMessage.logs
-                        ? JSON.parse(updatedMessage.logs)
-                        : undefined,
-                      patientReferences: updatedMessage.patient_references
-                        ? JSON.parse(updatedMessage.patient_references)
-                        : undefined,
-                    };
-                  }
-                  return msg;
-                })
-              );
-            },
-            () => {
-              // Completed
-              console.log("Resumed message completed!");
-              setIsLoading(false);
-              setCurrentActivity(null);
-              setActivityDetails("");
-              cancelPollRef.current = null;
+            (event: StreamEvent) => {
+              if (event.type === "chunk" || event.type === "content") {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === inProgressMsg.id
+                      ? {
+                          ...msg,
+                          content: msg.content + event.content,
+                          status: "streaming",
+                        }
+                      : msg
+                  )
+                );
+              } else if (event.type === "status") {
+                // Full update or status change
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id === inProgressMsg.id) {
+                      return {
+                        ...msg,
+                        status: event.status,
+                        content:
+                          event.content !== undefined
+                            ? event.content
+                            : msg.content,
+                        toolCalls: event.tool_calls
+                          ? event.tool_calls
+                          : msg.toolCalls,
+                        reasoning:
+                          event.reasoning !== undefined
+                            ? event.reasoning
+                            : msg.reasoning,
+                        logs: event.logs ? event.logs : msg.logs,
+                        patientReferences: event.patient_references
+                          ? event.patient_references
+                          : msg.patientReferences,
+                      };
+                    }
+                    return msg;
+                  })
+                );
+              } else if (event.type === "tool_call") {
+                // We might want to handle incremental tool calls if UI supports it
+                // For now, let's rely on status updates or logs for detailed tool info
+                // Or we can append to toolCalls if we have the full object
+              } else if (event.type === "done") {
+                console.log("Resumed message completed!");
+                setIsLoading(false);
+                setCurrentActivity(null);
+                setActivityDetails("");
+                cancelPollRef.current = null;
+
+                // Update message status to "completed" to hide streaming indicators
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === inProgressMsg.id
+                      ? { ...msg, status: "completed" }
+                      : msg
+                  )
+                );
+              } else if (event.type === "error") {
+                console.error("Streaming error:", event.message);
+                toast.error(event.message);
+                setIsLoading(false);
+                setCurrentActivity(null);
+                setActivityDetails("");
+                cancelPollRef.current = null;
+              }
             },
             (error: Error) => {
-              // Error
-              console.error("Polling error:", error);
+              console.error("Streaming connection error:", error);
               toast.error(error.message);
               setIsLoading(false);
               setCurrentActivity(null);
@@ -188,7 +222,7 @@ function AgentChatPageContent() {
             }
           );
 
-          cancelPollRef.current = cancelPoll;
+          cancelPollRef.current = cancelStream;
         }
       } catch (error) {
         console.error("Failed to load session:", error);
@@ -264,79 +298,141 @@ function AgentChatPageContent() {
 
       setActivityDetails("Processing in background...");
 
-      // Start polling for updates
-      const cancelPoll = await pollMessageStatus(
-        response.session_id,
+      // Start streaming for updates
+      const cancelStream = streamMessageUpdates(
         response.message_id,
-        (updatedMessage: ChatMessage) => {
-          // Update the message in real-time
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === updatedMessage.id.toString()) {
-                return {
-                  ...msg,
-                  content: updatedMessage.content,
-                  status: updatedMessage.status,
-                  toolCalls: updatedMessage.tool_calls
-                    ? JSON.parse(updatedMessage.tool_calls)
-                    : undefined,
-                  reasoning: updatedMessage.reasoning || undefined,
-                  logs: updatedMessage.logs
-                    ? JSON.parse(updatedMessage.logs)
-                    : undefined,
-                  patientReferences: updatedMessage.patient_references
-                    ? JSON.parse(updatedMessage.patient_references)
-                    : undefined,
-                };
-              }
-              return msg;
-            })
-          );
+        (event: StreamEvent) => {
+          if (event.type === "chunk" || event.type === "content") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? {
+                      ...msg,
+                      content: msg.content + event.content,
+                      status: "streaming",
+                    }
+                  : msg
+              )
+            );
+          } else if (event.type === "status") {
+            if (event.status === "streaming") {
+              setCurrentActivity("thinking");
+              setActivityDetails("Generating response...");
+            }
 
-          // Update activity based on status
-          if (updatedMessage.status === "streaming") {
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id === response.message_id.toString()) {
+                  return {
+                    ...msg,
+                    status: event.status,
+                    content:
+                      event.content !== undefined ? event.content : msg.content,
+                    toolCalls: event.tool_calls
+                      ? event.tool_calls
+                      : msg.toolCalls,
+                    reasoning:
+                      event.reasoning !== undefined
+                        ? event.reasoning
+                        : msg.reasoning,
+                    logs: event.logs ? event.logs : msg.logs,
+                    patientReferences: event.patient_references
+                      ? event.patient_references
+                      : msg.patientReferences,
+                    tokenUsage: event.usage ? event.usage : msg.tokenUsage,
+                  };
+                }
+                return msg;
+              })
+            );
+          } else if (event.type === "tool_call") {
+            setCurrentActivity("tool_calling");
+            setActivityDetails(`Using tool: ${event.tool}`);
+            // We could update toolCalls here if we want real-time tool visualization
+          } else if (event.type === "tool_result") {
+            setCurrentActivity("analyzing");
+            setActivityDetails("Processing tool result...");
+          } else if (event.type === "reasoning") {
             setCurrentActivity("thinking");
-            setActivityDetails("Generating response...");
-          } else if (updatedMessage.status === "pending") {
-            setCurrentActivity("thinking");
-            setActivityDetails("Processing...");
+            setActivityDetails("Reasoning...");
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? { ...msg, reasoning: (msg.reasoning || "") + event.content }
+                  : msg
+              )
+            );
+          } else if (event.type === "log") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? { ...msg, logs: [...(msg.logs || []), event.content] }
+                  : msg
+              )
+            );
+          } else if (event.type === "patient_references") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? { ...msg, patientReferences: event.patient_references }
+                  : msg
+              )
+            );
+          } else if (event.type === "usage") {
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? { ...msg, tokenUsage: event.usage }
+                  : msg
+              )
+            );
+          } else if (event.type === "done") {
+            console.log("Message completed!");
+            setIsLoading(false);
+            setCurrentActivity(null);
+            setActivityDetails("");
+            cancelPollRef.current = null;
+
+            // Update message status to "completed" to hide streaming indicators
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? { ...msg, status: "completed" }
+                  : msg
+              )
+            );
+          } else if (event.type === "error") {
+            console.error("Streaming error:", event.message);
+            toast.error(event.message);
+            setIsLoading(false);
+            setCurrentActivity(null);
+            setActivityDetails("");
+            cancelPollRef.current = null;
+
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === response.message_id.toString()
+                  ? {
+                      ...msg,
+                      content: msg.content + "\n\n⚠️ An error occurred.",
+                      status: "error",
+                    }
+                  : msg
+              )
+            );
           }
         },
-        () => {
-          // Completed
-          console.log("Message completed!");
-          setIsLoading(false);
-          setCurrentActivity(null);
-          setActivityDetails("");
-          cancelPollRef.current = null;
-        },
         (error: Error) => {
-          // Error
-          console.error("Polling error:", error);
+          console.error("Streaming connection error:", error);
           toast.error(error.message);
           setIsLoading(false);
           setCurrentActivity(null);
           setActivityDetails("");
           cancelPollRef.current = null;
-
-          // Update message with error
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === response.message_id.toString()
-                ? {
-                    ...msg,
-                    content:
-                      msg.content +
-                      "\n\n⚠️ An error occurred while processing your request.",
-                    status: "error",
-                  }
-                : msg
-            )
-          );
         }
       );
 
-      cancelPollRef.current = cancelPoll;
+      cancelPollRef.current = cancelStream;
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Failed to send message");

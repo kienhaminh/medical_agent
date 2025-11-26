@@ -6,11 +6,13 @@ from typing import Optional, List, Dict
 
 
 from . import celery_app
-from ..config.database import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
+from src.config.database import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
 from ..api.dependencies import get_or_create_agent
 import logging
 from sqlalchemy import select
 import src.tools.builtin  # Register builtin tools
+import redis.asyncio as redis
+import os
 
 logger = logging.getLogger(__name__)
 logger.info(f"Loaded builtin tools from {src.tools.builtin.__name__}")
@@ -43,23 +45,18 @@ def process_agent_message(
         patient_id: Optional patient ID for context
         record_id: Optional medical record ID for context
     """
-    # Create and set a new event loop for this task
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(
-            _process_message_async(
-                task_id=self.request.id,
-                session_id=session_id,
-                message_id=message_id,
-                user_id=user_id,
-                user_message=user_message,
-                patient_id=patient_id,
-                record_id=record_id,
-            )
+    # Use asyncio.run() which properly manages the event loop
+    return asyncio.run(
+        _process_message_async(
+            task_id=self.request.id,
+            session_id=session_id,
+            message_id=message_id,
+            user_id=user_id,
+            user_message=user_message,
+            patient_id=patient_id,
+            record_id=record_id,
         )
-    finally:
-        loop.close()
+    )
 
 
 async def _process_message_async(
@@ -72,6 +69,10 @@ async def _process_message_async(
     record_id: Optional[int] = None,
 ):
     """Async processing logic for agent message."""
+    
+    # Initialize Redis
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_client = redis.from_url(redis_url)
 
     # Initialize accumulators
     full_response = ""
@@ -110,6 +111,16 @@ async def _process_message_async(
             message.streaming_started_at = datetime.utcnow()
             message.last_updated_at = datetime.utcnow()
             await db.commit()
+            
+            # Publish start event
+            channel = f"chat:message:{message_id}"
+            start_event = {"type": "status", "status": "streaming"}
+            logger.info(f"Publishing start event to {channel}: {start_event}")
+            await redis_client.publish(
+                channel,
+                json.dumps(start_event)
+            )
+            logger.info(f"Start event published to {channel}")
 
             # 2. Build context message with patient/record info
             context_message = user_message
@@ -215,6 +226,20 @@ async def _process_message_async(
                 else:
                     # Fallback for string chunks
                     full_response = event
+                    # We don't publish full response updates here to avoid excessive traffic
+                    # But if it's a chunk, we should publish it. 
+                    # Assuming event is a chunk if it's a string and we are streaming.
+                    # However, LangGraph might yield full state. 
+                    # Let's assume for now we only publish structured events or if we can diff.
+                    pass
+
+                # Publish event to Redis
+                if isinstance(event, dict):
+                    channel = f"chat:message:{message_id}"
+                    event_json = json.dumps(event)
+                    logger.info(f"Publishing event to {channel}: {event['type']} - {event_json[:100]}...")
+                    await redis_client.publish(channel, event_json)
+                    logger.info(f"Event published successfully")
 
                 # 6. Incremental persistence logic
                 time_since_last_save = (datetime.utcnow() - last_save_time).total_seconds()
@@ -253,6 +278,15 @@ async def _process_message_async(
                 message.completed_at = datetime.utcnow()
                 message.last_updated_at = datetime.utcnow()
                 await db.commit()
+                
+            # Publish done event
+            done_event = {"type": "done"}
+            logger.info(f"Publishing done event to chat:message:{message_id}: {done_event}")
+            await redis_client.publish(
+                f"chat:message:{message_id}",
+                json.dumps(done_event)
+            )
+            logger.info(f"Done event published")
 
             return {
                 "message_id": message_id,
@@ -265,6 +299,10 @@ async def _process_message_async(
     except asyncio.CancelledError:
         # Task was cancelled - mark for saving
         save_interrupted = True
+        await redis_client.publish(
+            f"chat:message:{message_id}",
+            json.dumps({"type": "error", "message": "Task was cancelled"})
+        )
         return {
             "message_id": message_id,
             "status": "interrupted",
@@ -274,9 +312,14 @@ async def _process_message_async(
     except Exception as e:
         # Error occurred - mark for saving
         save_error = e
+        await redis_client.publish(
+            f"chat:message:{message_id}",
+            json.dumps({"type": "error", "message": str(e)})
+        )
         raise
 
     finally:
+        await redis_client.close()
         # Save error/interrupted state outside of main db context
         if save_interrupted or save_error:
             try:
