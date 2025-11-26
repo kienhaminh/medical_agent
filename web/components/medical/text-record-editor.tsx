@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +22,12 @@ interface TextRecordEditorProps {
   onSave: (record: MedicalRecord) => void;
 }
 
-export function TextRecordEditor({ patientId, open, onClose, onSave }: TextRecordEditorProps) {
+export function TextRecordEditor({
+  patientId,
+  open,
+  onClose,
+  onSave,
+}: TextRecordEditorProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [description, setDescription] = useState("");
@@ -59,9 +69,11 @@ export function TextRecordEditor({ patientId, open, onClose, onSave }: TextRecor
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[700px]">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">Add Clinical Note</DialogTitle>
+          <DialogTitle className="font-display text-2xl">
+            Add Clinical Note
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">

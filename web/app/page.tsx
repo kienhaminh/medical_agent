@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Activity, Brain, Eye, Lock, Zap, Sliders } from "lucide-react";
@@ -17,7 +18,10 @@ export default function Home() {
 
         {/* Geometric medical shapes */}
         <div className="absolute top-1/4 right-1/4 w-64 h-64 border border-cyan-500/20 rounded-full" />
-        <div className="absolute bottom-1/3 left-1/4 w-48 h-48 border-2 border-teal-500/10" style={{ transform: 'rotate(45deg)' }} />
+        <div
+          className="absolute bottom-1/3 left-1/4 w-48 h-48 border-2 border-teal-500/10"
+          style={{ transform: "rotate(45deg)" }}
+        />
 
         {/* Scanning line effect */}
         <div className="scan-line absolute inset-0" />
@@ -30,23 +34,28 @@ export default function Home() {
           <div className="container mx-auto px-6 lg:px-8">
             <div className="flex h-16 items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Activity className="w-6 h-6 text-cyan-500" />
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+                <div className="relative w-10 h-10 shrink-0">
+                  <Image
+                    src="/logo.png"
+                    alt="MediNexus Logo"
+                    width={40}
+                    height={40}
+                    className="object-contain"
+                    unoptimized
+                  />
                 </div>
                 <span className="font-display text-lg font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
                   MEDI-NEXUS
                 </span>
               </div>
-              <nav className="flex gap-8">
-                <Link href="/patient" className="text-sm text-muted-foreground hover:text-cyan-500 transition-colors font-medium">
-                  Patients
-                </Link>
-                <Link href="/agent" className="text-sm text-muted-foreground hover:text-cyan-500 transition-colors font-medium">
-                  AI Agent
-                </Link>
-                <Link href="/agent/tools" className="text-sm text-muted-foreground hover:text-cyan-500 transition-colors font-medium">
-                  Tools
+              <nav className="flex gap-8 items-center">
+                <Link href="/agent">
+                  <Button
+                    size="sm"
+                    className="bg-linear-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-xs font-semibold tracking-wider px-4 h-8 shadow-lg shadow-cyan-500/20 transition-all hover:shadow-cyan-500/30"
+                  >
+                    GO TO CHAT
+                  </Button>
                 </Link>
               </nav>
             </div>
@@ -60,24 +69,26 @@ export default function Home() {
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 backdrop-blur-sm medical-border-glow">
                 <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse" />
-                <span className="font-display text-xs tracking-widest text-cyan-500">AI-POWERED MEDICAL INTELLIGENCE</span>
+                <span className="font-display text-xs tracking-widest text-cyan-500">
+                  AI-POWERED MEDICAL INTELLIGENCE
+                </span>
               </div>
 
               {/* Main Headline */}
               <h1 className="font-display text-6xl lg:text-8xl font-bold tracking-tight leading-[1.05]">
-                <span className="block bg-gradient-to-br from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <span className="block bg-linear-to-r from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-700">
                   Medical Intelligence,
                 </span>
-                <span className="block mt-2 bg-gradient-to-r from-cyan-500 via-teal-500 to-cyan-600 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
+                <span className="block mt-2 bg-linear-to-r from-cyan-500 via-teal-500 to-cyan-600 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
                   Evolved
                 </span>
               </h1>
 
               {/* Subtitle */}
               <p className="font-body text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-                Multi-modal AI assistant for healthcare professionals.
-                Analyze patient records with vision AI, semantic search,
-                and dynamic tool orchestration.
+                Multi-modal AI assistant for healthcare professionals. Analyze
+                patient records with vision AI, semantic search, and dynamic
+                tool orchestration.
               </p>
 
               {/* CTA Buttons */}
@@ -96,25 +107,35 @@ export default function Home() {
                   className="secondary-button text-sm tracking-wider h-12 px-8"
                   asChild
                 >
-                  <Link href="#features">
-                    VIEW CAPABILITIES
-                  </Link>
+                  <Link href="#features">VIEW CAPABILITIES</Link>
                 </Button>
               </div>
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto pt-16 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700">
                 <div className="space-y-2">
-                  <div className="font-display text-4xl font-bold text-cyan-500">Multi-Modal</div>
-                  <div className="font-body text-sm text-muted-foreground">Text, Images & PDFs</div>
+                  <div className="font-display text-4xl font-bold text-cyan-500">
+                    Multi-Modal
+                  </div>
+                  <div className="font-body text-sm text-muted-foreground">
+                    Text, Images & PDFs
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="font-display text-4xl font-bold text-teal-500">100%</div>
-                  <div className="font-body text-sm text-muted-foreground">On-Premise</div>
+                  <div className="font-display text-4xl font-bold text-teal-500">
+                    100%
+                  </div>
+                  <div className="font-body text-sm text-muted-foreground">
+                    On-Premise
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="font-display text-4xl font-bold text-cyan-500">24/7</div>
-                  <div className="font-body text-sm text-muted-foreground">AI Consultation</div>
+                  <div className="font-display text-4xl font-bold text-cyan-500">
+                    24/7
+                  </div>
+                  <div className="font-body text-sm text-muted-foreground">
+                    AI Consultation
+                  </div>
                 </div>
               </div>
             </div>
@@ -125,10 +146,14 @@ export default function Home() {
             <div className="max-w-6xl mx-auto">
               <div className="text-center mb-16 space-y-4">
                 <h2 className="font-display text-4xl lg:text-5xl font-bold">
-                  Advanced <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">Medical Capabilities</span>
+                  Advanced{" "}
+                  <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                    Medical Capabilities
+                  </span>
                 </h2>
                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Built for modern healthcare with extensible AI tools and privacy-first architecture
+                  Built for modern healthcare with extensible AI tools and
+                  privacy-first architecture
                 </p>
               </div>
 
@@ -136,40 +161,46 @@ export default function Home() {
                 {[
                   {
                     title: "Multi-Modal Analysis",
-                    description: "Process text records, MRI/X-Ray images, and lab PDFs with specialized AI models for comprehensive patient insights.",
+                    description:
+                      "Process text records, MRI/X-Ray images, and lab PDFs with specialized AI models for comprehensive patient insights.",
                     icon: Brain,
-                    color: "cyan"
+                    color: "cyan",
                   },
                   {
                     title: "Semantic Medical History",
-                    description: "RAG-powered context retrieval across patient timeline. AI remembers and connects relevant medical history automatically.",
+                    description:
+                      "RAG-powered context retrieval across patient timeline. AI remembers and connects relevant medical history automatically.",
                     icon: Activity,
-                    color: "teal"
+                    color: "teal",
                   },
                   {
                     title: "Dynamic Tool Registry",
-                    description: "Enable or disable AI capabilities on demand through an intuitive UI. No code changes, instant updates.",
+                    description:
+                      "Enable or disable AI capabilities on demand through an intuitive UI. No code changes, instant updates.",
                     icon: Sliders,
-                    color: "purple"
+                    color: "purple",
                   },
                   {
                     title: "Vision AI Integration",
-                    description: "Automated anomaly detection in medical imaging. Supports MRI, X-Ray, and other diagnostic images.",
+                    description:
+                      "Automated anomaly detection in medical imaging. Supports MRI, X-Ray, and other diagnostic images.",
                     icon: Eye,
-                    color: "green"
+                    color: "green",
                   },
                   {
                     title: "Privacy-First Architecture",
-                    description: "100% on-premise processing. All patient data, images, and vectors stored locally. HIPAA-compliant design.",
+                    description:
+                      "100% on-premise processing. All patient data, images, and vectors stored locally. HIPAA-compliant design.",
                     icon: Lock,
-                    color: "cyan"
+                    color: "cyan",
                   },
                   {
                     title: "Real-Time Consultation",
-                    description: "Stream AI analysis as you review records. Context-aware suggestions based on current patient view.",
+                    description:
+                      "Stream AI analysis as you review records. Context-aware suggestions based on current patient view.",
                     icon: Zap,
-                    color: "teal"
-                  }
+                    color: "teal",
+                  },
                 ].map((feature, index) => {
                   const Icon = feature.icon;
                   return (
@@ -177,10 +208,12 @@ export default function Home() {
                       key={index}
                       className="record-card group"
                       style={{
-                        animationDelay: `${index * 100}ms`
+                        animationDelay: `${index * 100}ms`,
                       }}
                     >
-                      <div className={`inline-flex p-3 rounded-xl bg-${feature.color}-500/10 mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                      <div
+                        className={`inline-flex p-3 rounded-xl bg-${feature.color}-500/10 mb-4 group-hover:scale-110 transition-transform duration-300`}
+                      >
                         <Icon className={`w-6 h-6 text-${feature.color}-500`} />
                       </div>
                       <h3 className="font-display text-xl font-semibold mb-3">
@@ -201,10 +234,14 @@ export default function Home() {
             <div className="max-w-5xl mx-auto text-center space-y-12">
               <div className="space-y-4">
                 <h2 className="font-display text-4xl lg:text-5xl font-bold">
-                  Enterprise-Grade <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">Tech Stack</span>
+                  Enterprise-Grade{" "}
+                  <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                    Tech Stack
+                  </span>
                 </h2>
                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                  Built with modern technologies for reliability, scalability, and security
+                  Built with modern technologies for reliability, scalability,
+                  and security
                 </p>
               </div>
 
@@ -213,7 +250,7 @@ export default function Home() {
                   { name: "Next.js 16", desc: "App Router" },
                   { name: "Python 3.12", desc: "FastAPI" },
                   { name: "LangGraph", desc: "AI Orchestration" },
-                  { name: "PostgreSQL", desc: "pgvector" }
+                  { name: "PostgreSQL", desc: "pgvector" },
                 ].map((tech, index) => (
                   <div
                     key={index}
@@ -239,7 +276,11 @@ export default function Home() {
                   </Button>
                 </Link>
                 <p className="text-sm text-muted-foreground">
-                  Or <Link href="/agent" className="text-cyan-500 hover:underline">try the AI agent</Link> to see it in action
+                  Or{" "}
+                  <Link href="/agent" className="text-cyan-500 hover:underline">
+                    try the AI agent
+                  </Link>{" "}
+                  to see it in action
                 </p>
               </div>
             </div>
@@ -251,7 +292,16 @@ export default function Home() {
           <div className="container mx-auto px-6 lg:px-8">
             <div className="py-12 flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-cyan-500" />
+                <div className="relative w-8 h-8 shrink-0">
+                  <Image
+                    src="/logo.png"
+                    alt="MediNexus Logo"
+                    width={32}
+                    height={32}
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
                 <span className="font-display text-sm font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
                   MEDI-NEXUS
                 </span>
@@ -260,13 +310,22 @@ export default function Home() {
                 Medical Intelligence for Healthcare Professionals
               </div>
               <div className="flex gap-6">
-                <Link href="/patient" className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors">
+                <Link
+                  href="/patient"
+                  className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors"
+                >
                   Patients
                 </Link>
-                <Link href="/agent" className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors">
+                <Link
+                  href="/agent"
+                  className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors"
+                >
                   AI Agent
                 </Link>
-                <Link href="/agent/tools" className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors">
+                <Link
+                  href="/agent/tools"
+                  className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors"
+                >
                   Tools
                 </Link>
               </div>

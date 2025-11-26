@@ -13,7 +13,7 @@ from ..config.database import init_db
 from ..config.settings import load_config
 from ..utils.logging import SecureFormatter
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat
+from .routers import patients, agents, tools, chat, usage
 import src.tools.builtin # Register builtin tools
 
 # Initialize logging from config
@@ -61,6 +61,7 @@ app.include_router(patients.router)
 app.include_router(agents.router)
 app.include_router(tools.router)
 app.include_router(chat.router)
+app.include_router(usage.router)
 
 @app.get("/")
 async def root():
@@ -77,7 +78,7 @@ async def health():
     return {
         "status": "healthy",
         "provider": provider_name,
-        "model": llm_provider.model_name,
+        "model": llm_provider.model,
     }
 
 if __name__ == "__main__":

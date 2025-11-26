@@ -16,7 +16,12 @@ import type {
   PatientReference,
 } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
-import { getSessionMessages } from "@/lib/api";
+import {
+  getSessionMessages,
+  sendChatMessage,
+  pollMessageStatus,
+  type ChatMessage,
+} from "@/lib/api";
 import { toast } from "sonner";
 
 import "highlight.js/styles/github-dark.css";
@@ -36,10 +41,16 @@ interface Message {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  status?: string;
   toolCalls?: ToolCall[];
   reasoning?: string;
   logs?: LogItem[];
   patientReferences?: PatientReference[];
+  tokenUsage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 }
 
 function AgentChatPageContent() {
@@ -62,6 +73,9 @@ function AgentChatPageContent() {
   const [loadingSession, setLoadingSession] = useState(!!urlSessionId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Polling management
+  const cancelPollRef = useRef<(() => void) | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,15 +116,80 @@ function AgentChatPageContent() {
           role: msg.role as MessageRole,
           content: msg.content,
           timestamp: new Date(msg.created_at),
+          status: msg.status,
           toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : undefined,
           reasoning: msg.reasoning || undefined,
+          logs: msg.logs ? JSON.parse(msg.logs) : undefined,
           patientReferences: msg.patient_references
             ? JSON.parse(msg.patient_references)
             : undefined,
-          // TODO: Load logs from DB if we decide to persist them
         }));
 
         setMessages(convertedMessages);
+
+        // Check for any in-progress messages and resume polling
+        const inProgressMsg = convertedMessages.find(
+          (msg) =>
+            msg.role === MessageRole.ASSISTANT &&
+            (msg.status === "streaming" || msg.status === "pending")
+        );
+
+        if (inProgressMsg) {
+          console.log("Resuming streaming for message", inProgressMsg.id);
+          setIsLoading(true);
+          setCurrentActivity("thinking");
+          setActivityDetails("Resuming processing...");
+
+          // Start polling for the in-progress message
+          const cancelPoll = await pollMessageStatus(
+            parseInt(currentSessionId),
+            parseInt(inProgressMsg.id),
+            (updatedMessage: ChatMessage) => {
+              // Update the message in the messages array
+              setMessages((prev) =>
+                prev.map((msg) => {
+                  if (msg.id === updatedMessage.id.toString()) {
+                    return {
+                      ...msg,
+                      content: updatedMessage.content,
+                      status: updatedMessage.status,
+                      toolCalls: updatedMessage.tool_calls
+                        ? JSON.parse(updatedMessage.tool_calls)
+                        : undefined,
+                      reasoning: updatedMessage.reasoning || undefined,
+                      logs: updatedMessage.logs
+                        ? JSON.parse(updatedMessage.logs)
+                        : undefined,
+                      patientReferences: updatedMessage.patient_references
+                        ? JSON.parse(updatedMessage.patient_references)
+                        : undefined,
+                    };
+                  }
+                  return msg;
+                })
+              );
+            },
+            () => {
+              // Completed
+              console.log("Resumed message completed!");
+              setIsLoading(false);
+              setCurrentActivity(null);
+              setActivityDetails("");
+              cancelPollRef.current = null;
+            },
+            (error: Error) => {
+              // Error
+              console.error("Polling error:", error);
+              toast.error(error.message);
+              setIsLoading(false);
+              setCurrentActivity(null);
+              setActivityDetails("");
+              cancelPollRef.current = null;
+            }
+          );
+
+          cancelPollRef.current = cancelPoll;
+        }
       } catch (error) {
         console.error("Failed to load session:", error);
         toast.error("Failed to load chat session");
@@ -126,6 +205,12 @@ function AgentChatPageContent() {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
+    // Cancel any ongoing polling
+    if (cancelPollRef.current) {
+      cancelPollRef.current();
+      cancelPollRef.current = null;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: MessageRole.USER,
@@ -138,259 +223,123 @@ function AgentChatPageContent() {
     setInput("");
     setIsLoading(true);
     setCurrentActivity("thinking");
-    setActivityDetails("Preparing to process your request");
-
-    const assistantMessageId = (Date.now() + 1).toString();
-    const assistantMessage: Message = {
-      id: assistantMessageId,
-      role: MessageRole.ASSISTANT,
-      content: "",
-      timestamp: new Date(),
-      toolCalls: [],
-      reasoning: "",
-      logs: [],
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
+    setActivityDetails("Submitting your request...");
 
     try {
       const activeSessionId = currentSessionIdRef.current || currentSessionId;
 
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userInput,
-          stream: true,
-          session_id: activeSessionId ? parseInt(activeSessionId) : undefined,
-        }),
+      // Send message using background processing
+      const response = await sendChatMessage({
+        message: userInput,
+        session_id: activeSessionId ? parseInt(activeSessionId) : undefined,
       });
 
-      if (!response.ok) throw new Error("API request failed");
+      console.log("Received response:", response);
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("Response body is not readable");
+      // Update session if new
+      if (!currentSessionIdRef.current && response.session_id) {
+        const newSessionId = response.session_id.toString();
+        currentSessionIdRef.current = newSessionId;
+        isCreatingSessionRef.current = true;
+        setCurrentSessionId(newSessionId);
 
-      let accumulatedContent = "";
-      let wordBuffer: string[] = [];
-      let isProcessing = false;
+        const url = new URL(window.location.href);
+        url.searchParams.set("session", newSessionId);
+        router.replace(url.toString(), { scroll: false });
+      }
 
-      const displayWords = async () => {
-        if (isProcessing) return;
-        isProcessing = true;
-
-        while (wordBuffer.length > 0) {
-          const word = wordBuffer.shift();
-          if (word !== undefined) {
-            accumulatedContent += word;
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: accumulatedContent }
-                  : msg
-              )
-            );
-            await new Promise((resolve) => setTimeout(resolve, 30));
-          }
-        }
-        isProcessing = false;
+      // Add placeholder assistant message
+      const assistantMessage: Message = {
+        id: response.message_id.toString(),
+        role: MessageRole.ASSISTANT,
+        content: "",
+        timestamp: new Date(),
+        status: response.status,
+        toolCalls: [],
+        reasoning: "",
+        logs: [],
       };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          await displayWords();
-          break;
-        }
+      setMessages((prev) => [...prev, assistantMessage]);
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+      setActivityDetails("Processing in background...");
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.error) throw new Error(parsed.error);
-
-              // Handle iteration events (autonomous ReAct loop)
-              if (parsed.iteration) {
-                const phase = parsed.phase;
-                const iteration = parsed.iteration;
-
-                if (phase === "thinking") {
-                  setCurrentActivity("thinking");
-                  setActivityDetails(
-                    `Step ${iteration}: Planning next actions`
-                  );
-                } else if (phase === "acting") {
-                  setCurrentActivity("tool_calling");
-                  const toolCount = parsed.tool_count || 0;
-                  setActivityDetails(
-                    `Step ${iteration}: Running ${toolCount} tool${
-                      toolCount > 1 ? "s" : ""
-                    }`
-                  );
-                } else if (phase === "observing") {
-                  setCurrentActivity("analyzing");
-                  setActivityDetails(`Step ${iteration}: Reviewing results`);
-                } else if (phase === "answering") {
-                  setCurrentActivity("thinking");
-                  setActivityDetails(`Step ${iteration}: Preparing answer`);
-                }
+      // Start polling for updates
+      const cancelPoll = await pollMessageStatus(
+        response.session_id,
+        response.message_id,
+        (updatedMessage: ChatMessage) => {
+          // Update the message in real-time
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === updatedMessage.id.toString()) {
+                return {
+                  ...msg,
+                  content: updatedMessage.content,
+                  status: updatedMessage.status,
+                  toolCalls: updatedMessage.tool_calls
+                    ? JSON.parse(updatedMessage.tool_calls)
+                    : undefined,
+                  reasoning: updatedMessage.reasoning || undefined,
+                  logs: updatedMessage.logs
+                    ? JSON.parse(updatedMessage.logs)
+                    : undefined,
+                  patientReferences: updatedMessage.patient_references
+                    ? JSON.parse(updatedMessage.patient_references)
+                    : undefined,
+                };
               }
+              return msg;
+            })
+          );
 
-              if (parsed.chunk) {
-                // Match non-whitespace sequences OR whitespace sequences to preserve all characters
-                const words = parsed.chunk.match(/(\S+|\s+)/g) || [];
-                wordBuffer.push(...words);
-                setCurrentActivity(null); // Stop progress once we get first chunk
-                displayWords();
-              }
-
-              if (parsed.tool_call) {
-                const toolCallData = parsed.tool_call;
-                setCurrentActivity("tool_calling");
-                setActivityDetails(`Using ${toolCallData.tool}`);
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === assistantMessageId) {
-                      const existingTools = msg.toolCalls || [];
-                      // Check if already exists (unlikely with this stream logic but good safety)
-                      if (
-                        !existingTools.find((t) => t.id === toolCallData.id)
-                      ) {
-                        return {
-                          ...msg,
-                          toolCalls: [
-                            ...existingTools,
-                            {
-                              id: toolCallData.id,
-                              tool: toolCallData.tool,
-                              args: toolCallData.args,
-                            },
-                          ],
-                        };
-                      }
-                    }
-                    return msg;
-                  })
-                );
-              }
-
-              if (parsed.tool_result) {
-                const toolResultData = parsed.tool_result;
-                setCurrentActivity("analyzing");
-                setActivityDetails("Processing results");
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === assistantMessageId && msg.toolCalls) {
-                      return {
-                        ...msg,
-                        toolCalls: msg.toolCalls.map((t) =>
-                          t.id === toolResultData.id
-                            ? { ...t, result: toolResultData.result }
-                            : t
-                        ),
-                      };
-                    }
-                    return msg;
-                  })
-                );
-              }
-
-              if (parsed.reasoning) {
-                setCurrentActivity("thinking");
-                setActivityDetails("Formulating response");
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? {
-                          ...msg,
-                          reasoning: (msg.reasoning || "") + parsed.reasoning,
-                        }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.log) {
-                const logItem = parsed.log;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, logs: [...(msg.logs || []), logItem] }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.session_id) {
-                const newSessionId = parsed.session_id.toString();
-                console.log("Received session_id from backend:", newSessionId);
-                // Update local state and URL if it's a new session
-                if (!currentSessionIdRef.current) {
-                  console.log("Setting currentSessionId to:", newSessionId);
-                  currentSessionIdRef.current = newSessionId; // Immediate update
-                  isCreatingSessionRef.current = true;
-                  setCurrentSessionId(newSessionId);
-
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("session", newSessionId);
-                  router.replace(url.toString(), { scroll: false });
-                } else {
-                  console.log(
-                    "currentSessionId already set:",
-                    currentSessionIdRef.current
-                  );
-                }
-              }
-
-              if (parsed.patient_references) {
-                console.log(
-                  "Received patient_references:",
-                  parsed.patient_references
-                );
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, patientReferences: parsed.patient_references }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.done) break;
-            } catch (parseError) {
-              // Ignore parse errors
-            }
+          // Update activity based on status
+          if (updatedMessage.status === "streaming") {
+            setCurrentActivity("thinking");
+            setActivityDetails("Generating response...");
+          } else if (updatedMessage.status === "pending") {
+            setCurrentActivity("thinking");
+            setActivityDetails("Processing...");
           }
-        }
-      }
+        },
+        () => {
+          // Completed
+          console.log("Message completed!");
+          setIsLoading(false);
+          setCurrentActivity(null);
+          setActivityDetails("");
+          cancelPollRef.current = null;
+        },
+        (error: Error) => {
+          // Error
+          console.error("Polling error:", error);
+          toast.error(error.message);
+          setIsLoading(false);
+          setCurrentActivity(null);
+          setActivityDetails("");
+          cancelPollRef.current = null;
 
-      if (
-        !accumulatedContent &&
-        !messages.find((m) => m.id === assistantMessageId)?.toolCalls?.length
-      ) {
-        // If we have tool calls but no content yet, that's fine.
-        // But if we have neither, it might be an error or just empty response.
-      }
+          // Update message with error
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === response.message_id.toString()
+                ? {
+                    ...msg,
+                    content:
+                      msg.content +
+                      "\n\n⚠️ An error occurred while processing your request.",
+                    status: "error",
+                  }
+                : msg
+            )
+          );
+        }
+      );
+
+      cancelPollRef.current = cancelPoll;
     } catch (error) {
       console.error("Chat error:", error);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                content:
-                  msg.content +
-                  "\n\n⚠️ Connection error. Please check if the backend server is running and try again.",
-              }
-            : msg
-        )
-      );
-    } finally {
+      toast.error("Failed to send message");
       setIsLoading(false);
       setCurrentActivity(null);
       setActivityDetails("");
@@ -405,11 +354,20 @@ function AgentChatPageContent() {
   };
 
   const handleNewChat = () => {
+    // Cancel any ongoing polling
+    if (cancelPollRef.current) {
+      cancelPollRef.current();
+      cancelPollRef.current = null;
+    }
+
     setMessages([]);
     setCurrentSessionId(null);
     currentSessionIdRef.current = null;
     isCreatingSessionRef.current = false;
     setInput("");
+    setIsLoading(false);
+    setCurrentActivity(null);
+    setActivityDetails("");
     router.replace("/agent", { scroll: false });
   };
 
@@ -513,7 +471,7 @@ function AgentChatPageContent() {
 
       {/* Messages Area */}
       <ScrollArea className="flex-1 relative z-10 min-h-0">
-        <div className="container mx-auto px-6 py-8 max-w-5xl">
+        <div className="container mx-auto px-6 py-8 max-w-4xl">
           {loadingSession ? (
             <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
               <div className="space-y-4 text-center">
@@ -583,34 +541,55 @@ function AgentChatPageContent() {
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   {message.role === MessageRole.USER ? (
-                    <UserMessage
-                      content={message.content}
-                      timestamp={message.timestamp}
-                    />
+                    <UserMessage content={message.content} />
                   ) : (
-                    <AgentMessage
-                      content={message.content}
-                      reasoning={message.reasoning}
-                      toolCalls={message.toolCalls}
-                      logs={message.logs}
-                      timestamp={message.timestamp}
-                      isLoading={isLoading}
-                      isLatest={
-                        message.id === messages[messages.length - 1]?.id
-                      }
-                      currentActivity={
-                        message.id === messages[messages.length - 1]?.id
-                          ? currentActivity
-                          : null
-                      }
-                      activityDetails={
-                        message.id === messages[messages.length - 1]?.id
-                          ? activityDetails
-                          : undefined
-                      }
-                      patientReferences={message.patientReferences}
-                      sessionId={currentSessionId || undefined}
-                    />
+                    <div className="space-y-2">
+                      {/* Status indicator for background processing */}
+                      {(message.status === "streaming" ||
+                        message.status === "pending") && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+                            <span>
+                              {message.status === "streaming"
+                                ? "Streaming response"
+                                : "Processing in background"}
+                            </span>
+                          </div>
+                          {message.content && (
+                            <span className="animate-pulse">▊</span>
+                          )}
+                        </div>
+                      )}
+
+                      <AgentMessage
+                        content={message.content}
+                        reasoning={message.reasoning}
+                        toolCalls={message.toolCalls}
+                        logs={message.logs}
+                        timestamp={message.timestamp}
+                        isLoading={
+                          isLoading &&
+                          message.id === messages[messages.length - 1]?.id
+                        }
+                        isLatest={
+                          message.id === messages[messages.length - 1]?.id
+                        }
+                        currentActivity={
+                          message.id === messages[messages.length - 1]?.id
+                            ? currentActivity
+                            : null
+                        }
+                        activityDetails={
+                          message.id === messages[messages.length - 1]?.id
+                            ? activityDetails
+                            : undefined
+                        }
+                        patientReferences={message.patientReferences}
+                        sessionId={currentSessionId || undefined}
+                        tokenUsage={message.tokenUsage}
+                      />
+                    </div>
                   )}
                 </div>
               ))}
@@ -623,7 +602,7 @@ function AgentChatPageContent() {
 
       {/* Input Area */}
       <div className="relative z-10 border-t border-border/50 bg-card/30 backdrop-blur-xl">
-        <div className="container mx-auto px-6 py-5 max-w-5xl">
+        <div className="container mx-auto px-6 py-5 max-w-4xl">
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="relative">
               <Textarea

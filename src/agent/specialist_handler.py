@@ -173,7 +173,7 @@ class SpecialistHandler:
     async def consult_specialists(
         self,
         specialists_needed: List[str],
-        user_query: HumanMessage,
+        messages: List[BaseMessage],
         delegation_queries: dict = None,
         synthesize_response: bool = True
     ) -> List[BaseMessage]:
@@ -183,7 +183,7 @@ class SpecialistHandler:
         
         Args:
             specialists_needed: List of specialist roles to consult
-            user_query: The user's query message (fallback)
+            messages: The full conversation history
             delegation_queries: Optional dict mapping specialist role to specific query
             
         Returns:
@@ -282,17 +282,20 @@ class SpecialistHandler:
                     logger.debug("No tools to bind for %s", specialist_role)
                 
                 # Determine which query to use for this specialist
-                # Use delegation query if provided, otherwise use original user query
-                specialist_query = user_query
+                # Use delegation query if provided, otherwise use original messages
+                input_messages = messages
+                
                 if specialist_role in delegation_queries:
                     # Create a new HumanMessage with the delegation-specific query
                     from langchain_core.messages import HumanMessage
                     specialist_query = HumanMessage(content=delegation_queries[specialist_role])
+                    # Create a new list with the delegation query appended
+                    input_messages = messages + [specialist_query]
                 
                 # 1. First LLM Call (async)
                 logger.debug("Starting first LLM call for %s", specialist_role)
                 response = await agent_llm.ainvoke(
-                    [specialist_prompt, specialist_query]
+                    [specialist_prompt] + input_messages
                 )
                 logger.debug(
                     "First LLM response received for %s (tool_calls=%s)",
@@ -373,7 +376,7 @@ class SpecialistHandler:
                         # 3. Second LLM Call with Tool Outputs (async)
                         logger.debug("Starting second LLM call with tool outputs for %s", specialist_role)
                         response = await agent_llm.ainvoke(
-                            [specialist_prompt, specialist_query, response] + tool_outputs
+                            [specialist_prompt] + input_messages + [response] + tool_outputs
                         )
                         logger.debug("Second LLM response received for %s", specialist_role)
                     else:

@@ -16,5 +16,52 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: ai-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  celery_worker:
+    build: .
+    container_name: ai-agent-celery-worker
+    command: python3 -m celery -A src.tasks worker --loglevel=info --concurrency=2
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/medinexus
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  flower:
+    build: .
+    container_name: ai-agent-flower
+    command: python3 -m celery -A src.tasks flower --port=5555
+    depends_on:
+      - redis
+      - celery_worker
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    working_dir: /app
+
 volumes:
   postgres_data:
+  redis_data:

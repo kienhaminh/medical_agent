@@ -3,7 +3,20 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, Users, MessageSquare, Settings, Sliders, Home, ChevronDown, ChevronRight, History, BarChart3, PanelLeftClose, PanelLeft } from "lucide-react";
+import Image from "next/image";
+import {
+  Users,
+  MessageSquare,
+  Settings,
+  Sliders,
+  Home,
+  ChevronDown,
+  ChevronRight,
+  History,
+  BarChart3,
+  PanelLeftClose,
+  PanelLeft,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -28,7 +41,7 @@ const navigation: NavItem[] = [
       { name: "Chat", href: "/agent", icon: MessageSquare },
       { name: "History", href: "/agent/history", icon: History },
       { name: "Settings", href: "/agent/settings", icon: Settings },
-      { name: "Usage", href: "/agent/configuration", icon: BarChart3 },
+      { name: "Usage", href: "/agent/usage", icon: BarChart3 },
     ],
   },
 ];
@@ -41,13 +54,17 @@ export function Sidebar() {
 
   const toggleExpand = (itemName: string) => {
     setExpandedItems((prev) =>
-      prev.includes(itemName) ? prev.filter((name) => name !== itemName) : [...prev, itemName]
+      prev.includes(itemName)
+        ? prev.filter((name) => name !== itemName)
+        : [...prev, itemName]
     );
   };
 
   const isItemActive = (item: NavItem) => {
     if (item.subItems) {
-      return item.subItems.some((sub) => pathname === sub.href || pathname?.startsWith(sub.href + "/"));
+      return item.subItems.some(
+        (sub) => pathname === sub.href || pathname?.startsWith(sub.href + "/")
+      );
     }
     return pathname === item.href || pathname?.startsWith(item.href + "/");
   };
@@ -62,27 +79,47 @@ export function Sidebar() {
   };
 
   return (
-    <div className={cn(
-      "flex h-screen flex-col border-r border-border bg-card/30 backdrop-blur-xl transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      className={cn(
+        "flex h-screen flex-col border-r border-border bg-card/30 backdrop-blur-xl transition-all duration-300",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-border px-3 justify-between">
         {!isCollapsed && (
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => router.push("/")}>
-            <div className="relative">
-              <Activity className="w-6 h-6 text-cyan-500" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+          <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => router.push("/")}
+          >
+            <div className="relative w-10 h-10 shrink-0">
+              <Image
+                src="/logo.png"
+                alt="MediNexus Logo"
+                width={40}
+                height={40}
+                className="object-contain"
+                unoptimized
+              />
             </div>
-            <span className="font-display text-lg font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+            <span className="font-display text-lg font-bold tracking-wider bg-linear-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
               MEDI-NEXUS
             </span>
           </div>
         )}
         {isCollapsed && (
-          <div className="relative mx-auto cursor-pointer" onClick={() => router.push("/")}>
-            <Activity className="w-6 h-6 text-cyan-500" />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+          <div
+            className="relative mx-auto cursor-pointer w-10 h-10"
+            onClick={() => router.push("/")}
+          >
+            <Image
+              src="/logo.png"
+              alt="MediNexus Logo"
+              width={40}
+              height={40}
+              className="object-contain"
+              unoptimized
+            />
           </div>
         )}
         <Button
@@ -117,7 +154,7 @@ export function Sidebar() {
                       className={cn(
                         "flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                         isActive
-                          ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
+                          ? "bg-linear-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                       title={item.name}
@@ -131,7 +168,7 @@ export function Sidebar() {
                         className={cn(
                           "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                           isActive
-                            ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
+                            ? "bg-linear-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
@@ -159,7 +196,7 @@ export function Sidebar() {
                                 className={cn(
                                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                                   isSubActive
-                                    ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500 medical-border-glow"
+                                    ? "bg-linear-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500 medical-border-glow"
                                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
                               >
@@ -180,7 +217,7 @@ export function Sidebar() {
                     "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-all",
                     isCollapsed ? "justify-center" : "gap-3",
                     isActive
-                      ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500 medical-border-glow"
+                      ? "bg-linear-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500 medical-border-glow"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                   title={isCollapsed ? item.name : undefined}

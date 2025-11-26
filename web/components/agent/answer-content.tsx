@@ -14,6 +14,18 @@ export function AnswerContent({
   patientReferences,
   sessionId,
 }: AnswerContentProps) {
+  // Preprocess content to convert standalone image URLs to markdown images
+  const processedContent = React.useMemo(() => {
+    // Regular expression to match image URLs (not already in markdown syntax)
+    const imageUrlRegex = /(?<!\]\()https?:\/\/[^\s<>"]+\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?[^\s<>"]*)?(?!\))/gi;
+
+    return content.replace(imageUrlRegex, (url) => {
+      // Check if URL is already part of markdown image syntax by looking at context
+      // This is a simple check - if preceded by ]( then it's already markdown
+      return `![Image](${url})`;
+    });
+  }, [content]);
+
   // Create a map of patient names to their info for quick lookup
   const patientMap = React.useMemo(() => {
     console.log("AnswerContent - patientReferences:", patientReferences);
@@ -138,6 +150,22 @@ export function AnswerContent({
               {children}
             </a>
           ),
+          img: ({ node, alt, src, ...props }: any) => (
+            <span className="block my-4">
+              <img
+                src={src}
+                alt={alt || "Image"}
+                className="max-w-full h-auto rounded-lg border border-cyan-500/20 shadow-lg"
+                loading="lazy"
+                {...props}
+              />
+              {alt && alt !== "Image" && (
+                <span className="block text-xs text-muted-foreground mt-2 italic text-center">
+                  {alt}
+                </span>
+              )}
+            </span>
+          ),
           // Custom text renderer to handle patient links
           p: ({ children, ...props }: any) => {
             const processChildren = (child: any): any => {
@@ -189,7 +217,7 @@ export function AnswerContent({
           },
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
       {isLoading && isLatest && (
         <span className="inline-block w-2 h-4 ml-1 bg-cyan-500 animate-pulse" />

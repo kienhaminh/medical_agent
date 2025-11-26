@@ -258,10 +258,19 @@ async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
 
     return [
         ToolResponse(
+            id=tool.id,
             name=tool.name,
             symbol=tool.symbol,
             description=tool.description,
             tool_type=tool.tool_type,
+            code=tool.code,
+            api_endpoint=tool.api_endpoint,
+            api_request_payload=tool.api_request_payload,
+            api_request_example=tool.api_request_example,
+            api_response_payload=tool.api_response_payload,
+            api_response_example=tool.api_response_example,
+            enabled=tool.enabled,
+            test_passed=tool.test_passed,
             scope=tool.scope,
             assigned_agent_id=tool.assigned_agent_id
         ) for tool in tools
@@ -295,10 +304,10 @@ async def assign_tool_to_agent(agent_id: int, request: AssignToolRequest, db: As
         tool_name=tool.name
     )
 
-@router.delete("/api/agents/{agent_id}/tools/{tool_name}")
-async def unassign_tool_from_agent(agent_id: int, tool_name: str, db: AsyncSession = Depends(get_db)):
+@router.delete("/api/agents/{agent_id}/tools/{tool_id}")
+async def unassign_tool_from_agent(agent_id: int, tool_id: int, db: AsyncSession = Depends(get_db)):
     """Remove a tool assignment from an agent."""
-    result = await db.execute(select(Tool).where(Tool.name == tool_name))
+    result = await db.execute(select(Tool).where(Tool.id == tool_id))
     tool = result.scalar_one_or_none()
     
     if not tool:
@@ -307,6 +316,7 @@ async def unassign_tool_from_agent(agent_id: int, tool_name: str, db: AsyncSessi
     if tool.assigned_agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Tool is not assigned to this agent")
 
+    tool_name = tool.name
     tool.assigned_agent_id = None
     await db.commit()
     return {"status": "ok", "message": f"Tool '{tool_name}' unassigned from agent"}
@@ -393,10 +403,19 @@ async def get_all_assignments(db: AsyncSession = Depends(get_db)):
                 updated_at=agent.updated_at.isoformat()
             ),
             "tool": ToolResponse(
+                id=tool.id,
                 name=tool.name,
                 symbol=tool.symbol,
                 description=tool.description,
                 tool_type=tool.tool_type,
+                code=tool.code,
+                api_endpoint=tool.api_endpoint,
+                api_request_payload=tool.api_request_payload,
+                api_request_example=tool.api_request_example,
+                api_response_payload=tool.api_response_payload,
+                api_response_example=tool.api_response_example,
+                enabled=tool.enabled,
+                test_passed=tool.test_passed,
                 scope=tool.scope,
                 assigned_agent_id=tool.assigned_agent_id
             ),

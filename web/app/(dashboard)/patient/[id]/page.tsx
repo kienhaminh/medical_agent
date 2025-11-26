@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { getPatient, getSessionMessages, type MedicalRecord } from "@/lib/api";
+import {
+  getPatient,
+  getSessionMessages,
+  regenerateHealthSummary,
+  deleteImagingRecord,
+  type MedicalRecord,
+  type Imaging,
+  type ImageGroup,
+} from "@/lib/api";
 import { getMockPatientById, type PatientWithDetails } from "@/lib/mock-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecordUpload } from "@/components/medical/record-upload";
@@ -13,7 +21,18 @@ import { PatientHeader } from "@/components/patient/patient-header";
 import { PatientImagingTab } from "@/components/medical/patient-imaging-tab";
 import { AiAssistantPanel } from "@/components/patient/ai-assistant-panel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Clock } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Clock, Loader2 } from "lucide-react";
 import { MessageRole } from "@/types/enums";
 import type { Message, AgentActivity } from "@/types/agent-ui";
 
@@ -38,9 +57,20 @@ export default function PatientDetailPage() {
 
   const sessionIdRef = useRef<string | null>(sessionId);
 
+  // Health summary regeneration
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
   // Modals
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [viewerRecord, setViewerRecord] = useState<MedicalRecord | null>(null);
+  const [uploadDefaultGroupId, setUploadDefaultGroupId] = useState<
+    string | undefined
+  >(undefined);
+  const [viewerRecord, setViewerRecord] = useState<
+    MedicalRecord | Imaging | null
+  >(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Imaging | null>(null);
+  const [isDeletingImaging, setIsDeletingImaging] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -93,20 +123,17 @@ export default function PatientDetailPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !patient || isLoading) return;
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || !patient || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: MessageRole.USER,
-      content: input.trim(),
+      content: content.trim(),
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const userInput = input.trim();
-    setInput("");
     setIsLoading(true);
     setCurrentActivity("thinking");
     setActivityDetails("Preparing to process your request");
@@ -129,7 +156,7 @@ export default function PatientDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: userInput,
+          message: content.trim(),
           patient_id: patient.id,
           stream: true,
           session_id: sessionIdRef.current
@@ -145,7 +172,7 @@ export default function PatientDetailPage() {
       if (!reader) throw new Error("Response body is not readable");
 
       let accumulatedContent = "";
-      let wordBuffer: string[] = [];
+      const wordBuffer: string[] = [];
       let isProcessing = false;
 
       const displayWords = async () => {
@@ -307,7 +334,7 @@ export default function PatientDetailPage() {
               }
 
               if (parsed.done) break;
-            } catch (parseError) {
+            } catch {
               // Ignore parse errors
             }
           }
@@ -334,13 +361,113 @@ export default function PatientDetailPage() {
     }
   };
 
-  const handleUploadComplete = (record: MedicalRecord) => {
-    if (patient) {
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    const content = input;
+    setInput("");
+    await sendMessage(content);
+  };
+
+  const handleUploadComplete = (record: MedicalRecord | Imaging) => {
+    setPatient((current) => {
+      if (!current) return current;
+
+      if ("image_type" in record) {
+        // It's an Imaging record
+        return {
+          ...current,
+          imaging: [record as Imaging, ...(current.imaging || [])],
+        };
+      }
+
+      return {
+        ...current,
+        records: [record as MedicalRecord, ...(current.records || [])],
+      };
+    });
+  };
+
+  const handleImageGroupCreated = (group: ImageGroup) => {
+    setPatient((current) => {
+      if (!current) return current;
+      const existingGroups = current.image_groups || [];
+      if (existingGroups.some((g) => g.id === group.id)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        image_groups: [group, ...existingGroups],
+      };
+    });
+  };
+
+  const handleRegenerateHealthSummary = async () => {
+    if (!patient || isRegenerating) return;
+
+    setIsRegenerating(true);
+    try {
+      const response = await regenerateHealthSummary(patient.id);
       setPatient({
         ...patient,
-        records: [record, ...(patient.records || [])],
+        health_summary: response.health_summary,
+        health_summary_updated_at: response.health_summary_updated_at,
       });
+    } catch (error) {
+      console.error("Failed to regenerate health summary:", error);
+    } finally {
+      setIsRegenerating(false);
     }
+  };
+
+  const handleDeleteImaging = (record: Imaging) => {
+    setPendingDelete(record);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteImaging = async () => {
+    if (!patient || !pendingDelete) return;
+    setIsDeletingImaging(true);
+    try {
+      await deleteImagingRecord(patient.id, pendingDelete.id);
+      setPatient({
+        ...patient,
+        imaging: (patient.imaging || []).filter(
+          (img) => img.id !== pendingDelete.id
+        ),
+      });
+      setViewerRecord((current) =>
+        current && "image_type" in current && current.id === pendingDelete.id
+          ? null
+          : current
+      );
+      setDeleteDialogOpen(false);
+      setPendingDelete(null);
+    } catch (error) {
+      console.error("Failed to delete imaging record:", error);
+    } finally {
+      setIsDeletingImaging(false);
+    }
+  };
+
+  const handleAnalyzeGroup = ({
+    groupName,
+    images,
+  }: {
+    groupId: string;
+    groupName: string;
+    images: Imaging[];
+  }) => {
+    if (!images.length) return;
+    setAiOpen(true);
+    const summaryList = images
+      .slice(0, 5)
+      .map((img) => `${img.title} (${img.image_type})`)
+      .join(", ");
+    const moreIndicator = images.length > 5 ? "..." : "";
+    const message = `Analyze the imaging group "${groupName}" containing ${images.length} images: ${summaryList}${moreIndicator}`;
+    sendMessage(message);
   };
 
   if (!patient) {
@@ -353,8 +480,7 @@ export default function PatientDetailPage() {
     );
   }
 
-  const imageRecords =
-    patient.records?.filter((r) => r.record_type === "image") || [];
+  const imageRecords = patient.imaging || [];
 
   return (
     <div className="h-screen bg-background flex">
@@ -378,7 +504,7 @@ export default function PatientDetailPage() {
             onValueChange={setActiveTab}
             className="flex flex-col h-full"
           >
-            <TabsList className="grid w-full grid-cols-4 mb-6 flex-shrink-0">
+            <TabsList className="grid w-full grid-cols-4 mb-6 shrink-0">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="records">Medical Records</TabsTrigger>
               <TabsTrigger value="imaging">Imaging</TabsTrigger>
@@ -388,7 +514,12 @@ export default function PatientDetailPage() {
             <ScrollArea className="flex-1 min-h-0 pr-1">
               {/* Overview Tab */}
               <TabsContent value="overview" className="mt-0">
-                <HealthOverview patient={patient} />
+                <HealthOverview
+                  patient={patient}
+                  onRegenerateClick={handleRegenerateHealthSummary}
+                  isRegenerating={isRegenerating}
+                  healthSummaryUpdatedAt={patient.health_summary_updated_at}
+                />
               </TabsContent>
 
               {/* Medical Records Tab */}
@@ -409,8 +540,11 @@ export default function PatientDetailPage() {
               <TabsContent value="imaging" className="mt-0">
                 <PatientImagingTab
                   imageRecords={imageRecords}
+                  imageGroups={patient.image_groups}
                   setUploadOpen={setUploadOpen}
+                  setUploadDefaultGroupId={setUploadDefaultGroupId}
                   setViewerRecord={setViewerRecord}
+                  onAnalyzeGroup={handleAnalyzeGroup}
                 />
               </TabsContent>
 
@@ -460,19 +594,60 @@ export default function PatientDetailPage() {
       <RecordUpload
         patientId={patient.id}
         open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
+        onClose={() => {
+          setUploadOpen(false);
+          setUploadDefaultGroupId(undefined);
+        }}
         onUploadComplete={handleUploadComplete}
+        defaultGroupId={uploadDefaultGroupId}
+        onGroupCreated={handleImageGroupCreated}
       />
 
       <RecordViewer
         record={viewerRecord}
         open={!!viewerRecord}
         onClose={() => setViewerRecord(null)}
-        onAnalyze={(record) => {
-          setAiOpen(true);
-          setInput(`Analyze the ${record.title}`);
-        }}
+        onDeleteImaging={handleDeleteImaging}
       />
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete imaging record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove{" "}
+              <span className="font-medium">
+                {pendingDelete?.title ?? "this image"}
+              </span>{" "}
+              from the patient&apos;s imaging history. This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingImaging}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteImaging}
+                disabled={isDeletingImaging}
+              >
+                {isDeletingImaging && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Delete
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

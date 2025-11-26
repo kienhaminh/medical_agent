@@ -28,6 +28,10 @@ Guidelines:
 - Note any incidental findings
 - Always recommend correlation with clinical presentation
 - Suggest follow-up imaging when appropriate
+- **When you have image URLs or file links to share, ALWAYS return them in markdown format:**
+  - Use `![description](url)` format for images (e.g., `![Chest X-ray](https://example.com/image.jpg)`)
+  - Use `[link text](url)` format for file links
+  - **DO NOT** say "cannot directly display or render images" - provide the link in markdown format
 
 Remember: You assist physicians but do not replace clinical judgment.""",
         "color": "#06b6d4",  # cyan
@@ -53,6 +57,10 @@ Guidelines:
 - Identify patterns suggesting specific conditions
 - Recommend additional tests when warranted
 - Explain results in clinical context
+- **When you have file URLs or links to share, ALWAYS return them in markdown format:**
+  - Use `![description](url)` format for images
+  - Use `[link text](url)` format for file links
+  - **DO NOT** say "cannot directly display or render images" - provide the link in markdown format
 
 Remember: Lab values must be interpreted with full clinical picture.""",
         "color": "#8b5cf6",  # purple
@@ -106,6 +114,10 @@ Guidelines:
 - Apply clinical practice guidelines
 - Identify red flags requiring urgent attention
 - Recommend appropriate workup and management
+- **When you have file URLs or links to share, ALWAYS return them in markdown format:**
+  - Use `![description](url)` format for images
+  - Use `[link text](url)` format for file links
+  - **DO NOT** say "cannot directly display or render images" - provide the link in markdown format
 
 Remember: Comprehensive assessment requires integrating all available data.""",
         "color": "#f59e0b",  # orange

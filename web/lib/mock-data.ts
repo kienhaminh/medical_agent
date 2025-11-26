@@ -1,4 +1,10 @@
-import type { Patient, MedicalRecord, PatientVisit } from "./api";
+import type {
+  Patient,
+  MedicalRecord,
+  PatientVisit,
+  Imaging,
+  ImageGroup,
+} from "./api";
 
 export interface PatientWithDetails extends Patient {
   medical_history?: string;
@@ -6,7 +12,10 @@ export interface PatientWithDetails extends Patient {
   current_medications?: string;
   family_history?: string;
   health_summary?: string;
+  health_summary_updated_at?: string;
   records?: MedicalRecord[];
+  imaging?: Imaging[];
+  image_groups?: ImageGroup[];
   visits?: PatientVisit[];
 }
 
@@ -18,13 +27,15 @@ export const mockPatients: PatientWithDetails[] = [
     gender: "Female",
     created_at: "2024-01-10T08:00:00Z",
     medical_history: `Patient diagnosed with Type 2 Diabetes Mellitus in 2015, well-controlled with oral hypoglycemics. History of hypertension since 2012, managed with ACE inhibitors. Previous appendectomy in 2005 without complications. Regular exercise routine, non-smoker, occasional alcohol consumption (social drinker). Last HbA1c: 6.8% (January 2024). Blood pressure consistently 125/80 mmHg on current medication regimen.`,
-    allergies: "Penicillin (anaphylaxis), Latex (contact dermatitis), Shellfish (urticaria)",
+    allergies:
+      "Penicillin (anaphylaxis), Latex (contact dermatitis), Shellfish (urticaria)",
     current_medications: `• Metformin 1000mg twice daily (Diabetes management)
 • Lisinopril 20mg once daily (Hypertension)
 • Atorvastatin 40mg at bedtime (Cholesterol)
 • Aspirin 81mg once daily (Cardiovascular prophylaxis)
 • Vitamin D3 2000 IU daily (Supplementation)`,
-    family_history: "Father: Coronary artery disease (MI at age 62), Type 2 Diabetes. Mother: Breast cancer (diagnosed age 58, in remission), Hypertension. Sister: Hypothyroidism. Maternal grandmother: Alzheimer's disease.",
+    family_history:
+      "Father: Coronary artery disease (MI at age 62), Type 2 Diabetes. Mother: Breast cancer (diagnosed age 58, in remission), Hypertension. Sister: Hypothyroidism. Maternal grandmother: Alzheimer's disease.",
     health_summary: `**Overall Health Status: Stable with Managed Chronic Conditions**
 
 Sarah Johnson is a 46-year-old female with well-controlled Type 2 Diabetes Mellitus and hypertension. Current treatment regimen is effective with recent HbA1c of 6.8% (target <7%) and blood pressure averaging 125/80 mmHg.
@@ -54,8 +65,10 @@ Continue current medication regimen with excellent adherence. Maintain diet and 
         visit_date: "2024-01-10T14:00:00Z",
         visit_type: "follow-up",
         chief_complaint: "Routine diabetes management follow-up",
-        diagnosis: "Type 2 Diabetes Mellitus, well-controlled; Essential Hypertension, stable",
-        treatment_plan: "Continue current medications. Repeat HbA1c in 3 months. Continue home glucose monitoring.",
+        diagnosis:
+          "Type 2 Diabetes Mellitus, well-controlled; Essential Hypertension, stable",
+        treatment_plan:
+          "Continue current medications. Repeat HbA1c in 3 months. Continue home glucose monitoring.",
         notes: `Patient reports improved glucose control since last visit. Blood sugar readings at home averaging 110-125 mg/dL fasting. Denies symptoms of hypoglycemia. Adherence to medication excellent. Diet modifications ongoing with reduced carbohydrate intake.
 
 PHYSICAL EXAM:
@@ -101,8 +114,10 @@ PLAN:
         visit_date: "2023-10-15T10:00:00Z",
         visit_type: "routine",
         chief_complaint: "Annual physical examination",
-        diagnosis: "Type 2 Diabetes Mellitus; Essential Hypertension; Hyperlipidemia",
-        treatment_plan: "Continue current medications. Order comprehensive metabolic panel and lipid panel. Chest X-ray for baseline.",
+        diagnosis:
+          "Type 2 Diabetes Mellitus; Essential Hypertension; Hyperlipidemia",
+        treatment_plan:
+          "Continue current medications. Order comprehensive metabolic panel and lipid panel. Chest X-ray for baseline.",
         notes: `Annual wellness visit for comprehensive health assessment.
 
 REVIEW OF SYSTEMS: Patient denies chest pain, shortness of breath, palpitations. No polyuria or polydipsia. Reports good energy levels. Sleep quality good. Stress level moderate.
@@ -156,7 +171,8 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         visit_id: 1002,
         record_type: "image",
         title: "Chest X-Ray - Annual Physical",
-        description: "Routine chest radiograph. Clear lung fields, normal cardiac silhouette. No acute cardiopulmonary abnormalities detected.",
+        description:
+          "Routine chest radiograph. Clear lung fields, normal cardiac silhouette. No acute cardiopulmonary abnormalities detected.",
         file_url: "/mock/chest-xray-sarah.jpg",
         file_type: "xray",
         created_at: "2023-10-15T10:30:00Z",
@@ -168,7 +184,8 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         visit_id: 1001,
         record_type: "pdf",
         title: "Comprehensive Metabolic Panel",
-        description: "Fasting blood glucose: 118 mg/dL. HbA1c: 6.8%. Lipid panel: Total cholesterol 185, LDL 110, HDL 62, Triglycerides 95. Kidney function normal (Creatinine 0.9, eGFR >90).",
+        description:
+          "Fasting blood glucose: 118 mg/dL. HbA1c: 6.8%. Lipid panel: Total cholesterol 185, LDL 110, HDL 62, Triglycerides 95. Kidney function normal (Creatinine 0.9, eGFR >90).",
         file_url: "/mock/lab-report-sarah-cmp.pdf",
         file_type: "lab_report",
         created_at: "2024-01-14T08:15:00Z",
@@ -188,14 +205,16 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
 • Ibuprofen 400mg PRN (Pain management, max 3x/day)
 • Multivitamin daily
 • Glucosamine/Chondroitin supplement (Joint health)`,
-    family_history: "Father: Healthy, age 68. Mother: Osteoarthritis, age 65. Brother: No significant medical history. Paternal grandfather: Prostate cancer (age 72). No family history of cardiovascular disease or diabetes.",
+    family_history:
+      "Father: Healthy, age 68. Mother: Osteoarthritis, age 65. Brother: No significant medical history. Paternal grandfather: Prostate cancer (age 72). No family history of cardiovascular disease or diabetes.",
     records: [
       {
         id: 201,
         patient_id: 2,
         record_type: "image",
         title: "Lumbar Spine MRI",
-        description: "MRI L-spine without contrast. Mild degenerative disc disease at L4-L5 with small disc bulge, no significant canal stenosis. No nerve root compression. Age-appropriate changes.",
+        description:
+          "MRI L-spine without contrast. Mild degenerative disc disease at L4-L5 with small disc bulge, no significant canal stenosis. No nerve root compression. Age-appropriate changes.",
         file_url: "/mock/mri-spine-michael.jpg",
         file_type: "mri",
         created_at: "2024-02-18T16:45:00Z",
@@ -206,7 +225,8 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         patient_id: 2,
         record_type: "image",
         title: "Right Knee X-Ray - Post-ACL Follow-up",
-        description: "AP and lateral views of right knee. Well-positioned ACL reconstruction hardware. Joint space preserved. No evidence of hardware loosening or complications.",
+        description:
+          "AP and lateral views of right knee. Well-positioned ACL reconstruction hardware. Joint space preserved. No evidence of hardware loosening or complications.",
         file_url: "/mock/knee-xray-michael.jpg",
         file_type: "xray",
         created_at: "2024-02-10T11:20:00Z",
@@ -217,7 +237,8 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         patient_id: 2,
         record_type: "pdf",
         title: "Sports Physical Examination",
-        description: "Annual sports physical. Cardiovascular exam normal, EKG normal sinus rhythm. Pulmonary function test normal. Cleared for continued athletic activity.",
+        description:
+          "Annual sports physical. Cardiovascular exam normal, EKG normal sinus rhythm. Pulmonary function test normal. Cleared for continued athletic activity.",
         file_url: "/mock/sports-physical-michael.pdf",
         file_type: "lab_report",
         created_at: "2024-02-05T10:00:00Z",
@@ -255,14 +276,16 @@ PLAN: Continue physical therapy 2x/week for 4 more weeks. Progress core strength
 • Lorazepam 0.5mg PRN anxiety (max 2x/week)
 • Prenatal vitamin daily (general health)
 • Iron supplement 325mg daily (mild anemia)`,
-    family_history: "Mother: Thyroid disorder (Hashimoto's thyroiditis), Depression. Father: Healthy. Sister: Postpartum depression. Maternal aunt: Autoimmune disorder (Lupus). Grandmother: Breast cancer (age 70, survived).",
+    family_history:
+      "Mother: Thyroid disorder (Hashimoto's thyroiditis), Depression. Father: Healthy. Sister: Postpartum depression. Maternal aunt: Autoimmune disorder (Lupus). Grandmother: Breast cancer (age 70, survived).",
     records: [
       {
         id: 301,
         patient_id: 3,
         record_type: "pdf",
         title: "Thyroid Function Panel",
-        description: "TSH: 2.1 mIU/L (normal), Free T4: 1.3 ng/dL (normal). Thyroid function well-controlled on current levothyroxine dose. Anti-TPO antibodies elevated (consistent with Hashimoto's).",
+        description:
+          "TSH: 2.1 mIU/L (normal), Free T4: 1.3 ng/dL (normal). Thyroid function well-controlled on current levothyroxine dose. Anti-TPO antibodies elevated (consistent with Hashimoto's).",
         file_url: "/mock/thyroid-panel-emily.pdf",
         file_type: "lab_report",
         created_at: "2024-03-05T09:00:00Z",
@@ -273,7 +296,8 @@ PLAN: Continue physical therapy 2x/week for 4 more weeks. Progress core strength
         patient_id: 3,
         record_type: "pdf",
         title: "Complete Blood Count",
-        description: "CBC with differential. Hemoglobin 11.8 g/dL (mild anemia), MCV 82 fL. Iron studies: Serum iron 45 mcg/dL, Ferritin 18 ng/mL (low). Consistent with iron deficiency anemia.",
+        description:
+          "CBC with differential. Hemoglobin 11.8 g/dL (mild anemia), MCV 82 fL. Iron studies: Serum iron 45 mcg/dL, Ferritin 18 ng/mL (low). Consistent with iron deficiency anemia.",
         file_url: "/mock/cbc-emily.pdf",
         file_type: "lab_report",
         created_at: "2024-03-05T09:00:00Z",
@@ -318,7 +342,8 @@ PLAN:
     gender: "Male",
     created_at: "2023-11-15T10:00:00Z",
     medical_history: `58-year-old male with history of coronary artery disease. Stent placement in LAD (2020) with excellent recovery. Risk factors include hyperlipidemia, former smoker (quit 2021, 30 pack-year history). Mild COPD from smoking history. Prediabetes (HbA1c 6.0%). Benign prostatic hyperplasia causing mild urinary symptoms. Chronic kidney disease stage 2 (eGFR 75). Osteoarthritis in both knees. Regular cardiology follow-up. Cardiac rehab completed. Currently stable.`,
-    allergies: "Statins (myalgias - tried multiple, same reaction), Aspirin (gastritis)",
+    allergies:
+      "Statins (myalgias - tried multiple, same reaction), Aspirin (gastritis)",
     current_medications: `• Clopidogrel 75mg daily (Antiplatelet, post-stent)
 • Metoprolol succinate 50mg daily (Beta-blocker, cardiac)
 • Ezetimibe 10mg daily (Cholesterol, statin alternative)
@@ -327,14 +352,16 @@ PLAN:
 • Albuterol/Ipratropium inhaler PRN (COPD)
 • Glucosamine 1500mg daily (Osteoarthritis)
 • Omeprazole 20mg daily (GERD)`,
-    family_history: "Father: MI at age 55 (deceased age 67, second MI). Mother: Stroke at age 72, Dementia (age 80, deceased). Brother: CABG at age 60. Sister: Diabetes type 2. Strong family history of cardiovascular disease.",
+    family_history:
+      "Father: MI at age 55 (deceased age 67, second MI). Mother: Stroke at age 72, Dementia (age 80, deceased). Brother: CABG at age 60. Sister: Diabetes type 2. Strong family history of cardiovascular disease.",
     records: [
       {
         id: 401,
         patient_id: 4,
         record_type: "image",
         title: "Cardiac CT Angiography",
-        description: "CTA coronary arteries. LAD stent patent with no in-stent restenosis. Mild diffuse coronary calcification. RCA and LCx with minimal disease (<30% stenosis). Left ventricular function normal.",
+        description:
+          "CTA coronary arteries. LAD stent patent with no in-stent restenosis. Mild diffuse coronary calcification. RCA and LCx with minimal disease (<30% stenosis). Left ventricular function normal.",
         file_url: "/mock/cardiac-cta-robert.jpg",
         file_type: "mri",
         created_at: "2024-01-20T15:00:00Z",
@@ -345,7 +372,8 @@ PLAN:
         patient_id: 4,
         record_type: "pdf",
         title: "Cardiac Stress Test Results",
-        description: "Exercise stress test. Functional capacity 8.5 METs. No chest pain or significant ST changes during exercise. Heart rate response appropriate. Blood pressure response normal. Negative for ischemia.",
+        description:
+          "Exercise stress test. Functional capacity 8.5 METs. No chest pain or significant ST changes during exercise. Heart rate response appropriate. Blood pressure response normal. Negative for ischemia.",
         file_url: "/mock/stress-test-robert.pdf",
         file_type: "lab_report",
         created_at: "2024-01-18T10:30:00Z",
@@ -356,7 +384,8 @@ PLAN:
         patient_id: 4,
         record_type: "pdf",
         title: "Lipid Panel & HbA1c",
-        description: "Total cholesterol: 165, LDL: 95, HDL: 48, Triglycerides: 110. HbA1c: 6.0% (prediabetic range). BNP: 45 pg/mL (normal). eGFR: 75 mL/min/1.73m² (CKD stage 2).",
+        description:
+          "Total cholesterol: 165, LDL: 95, HDL: 48, Triglycerides: 110. HbA1c: 6.0% (prediabetic range). BNP: 45 pg/mL (normal). eGFR: 75 mL/min/1.73m² (CKD stage 2).",
         file_url: "/mock/lipid-panel-robert.pdf",
         file_type: "lab_report",
         created_at: "2024-01-15T08:00:00Z",
@@ -413,14 +442,16 @@ PLAN:
 • Combination oral contraceptive daily
 • Vitamin D3 5000 IU daily
 • Magnesium glycinate 400mg at bedtime (Migraine prevention)`,
-    family_history: "Mother: Migraines, Anxiety. Father: ADHD. Maternal grandmother: Depression. No significant family history of cardiovascular disease, cancer, or diabetes.",
+    family_history:
+      "Mother: Migraines, Anxiety. Father: ADHD. Maternal grandmother: Depression. No significant family history of cardiovascular disease, cancer, or diabetes.",
     records: [
       {
         id: 501,
         patient_id: 5,
         record_type: "image",
         title: "Brain MRI with and without contrast",
-        description: "MRI brain for migraine workup. No acute intracranial abnormality. No mass, hemorrhage, or infarction. Ventricular system normal. No evidence of demyelinating disease. Normal brain parenchyma for age.",
+        description:
+          "MRI brain for migraine workup. No acute intracranial abnormality. No mass, hemorrhage, or infarction. Ventricular system normal. No evidence of demyelinating disease. Normal brain parenchyma for age.",
         file_url: "/mock/brain-mri-jennifer.jpg",
         file_type: "mri",
         created_at: "2024-02-25T11:00:00Z",
@@ -431,7 +462,8 @@ PLAN:
         patient_id: 5,
         record_type: "pdf",
         title: "Vitamin D & Basic Metabolic Panel",
-        description: "Vitamin D 25-OH: 18 ng/mL (deficient, <20). Calcium: 9.2 mg/dL (normal). Basic metabolic panel: all values within normal limits. Thyroid function (TSH): 2.5 mIU/L (normal).",
+        description:
+          "Vitamin D 25-OH: 18 ng/mL (deficient, <20). Calcium: 9.2 mg/dL (normal). Basic metabolic panel: all values within normal limits. Thyroid function (TSH): 2.5 mIU/L (normal).",
         file_url: "/mock/vitamin-d-jennifer.pdf",
         file_type: "lab_report",
         created_at: "2024-02-20T09:30:00Z",
@@ -483,5 +515,14 @@ export function getMockPatientById(id: number): PatientWithDetails | undefined {
 
 // Helper function to get all mock patients (basic info only)
 export function getAllMockPatients(): Patient[] {
-  return mockPatients.map(({ medical_history, allergies, current_medications, family_history, records, ...patient }) => patient);
+  return mockPatients.map(
+    ({
+      medical_history,
+      allergies,
+      current_medications,
+      family_history,
+      records,
+      ...patient
+    }) => patient
+  );
 }

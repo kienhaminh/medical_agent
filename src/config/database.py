@@ -12,12 +12,14 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 ASYNC_DATABASE_URL = DATABASE_URL.replace("+psycopg2", "+asyncpg") if "+psycopg2" in DATABASE_URL else DATABASE_URL
 
 # Async Engine
+# Use NullPool to avoid sharing connections across event loops in Celery workers
+from sqlalchemy.pool import NullPool
+
 engine = create_async_engine(
-    ASYNC_DATABASE_URL, 
+    ASYNC_DATABASE_URL,
     echo=False,
+    poolclass=NullPool,  # Don't pool connections to avoid event loop conflicts in Celery
     pool_pre_ping=True,  # Verify connections before using them
-    pool_size=5,
-    max_overflow=10
 )
 
 # Session Factory
@@ -39,7 +41,13 @@ class Patient(Base):
     gender: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     
+    # AI-generated health summary
+    health_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    health_summary_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    
     records: Mapped[List["MedicalRecord"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
+    imaging: Mapped[List["Imaging"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
+    image_groups: Mapped[List["ImageGroup"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
 
 class MedicalRecord(Base):
     __tablename__ = "medical_records"
@@ -53,6 +61,33 @@ class MedicalRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="records")
+
+class Imaging(Base):
+    __tablename__ = "imaging"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"))
+    title: Mapped[str] = mapped_column(String(200))
+    image_type: Mapped[str] = mapped_column(String(50)) # x-ray, t1, t1ce, t2, flair
+    original_url: Mapped[str] = mapped_column(Text)
+    preview_url: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    patient: Mapped["Patient"] = relationship(back_populates="imaging")
+
+    group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("image_groups.id"), nullable=True)
+    group: Mapped[Optional["ImageGroup"]] = relationship(back_populates="images")
+
+class ImageGroup(Base):
+    __tablename__ = "image_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"))
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    patient: Mapped["Patient"] = relationship(back_populates="image_groups")
+    images: Mapped[List["Imaging"]] = relationship(back_populates="group")
 
 # --- Dependency ---
 
@@ -95,16 +130,21 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=sync_engine)
 class Tool(Base):
     __tablename__ = "tools"
 
-    name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
     symbol: Mapped[str] = mapped_column(String(100), unique=True)  # snake_case identifier
     description: Mapped[str] = mapped_column(Text)
     tool_type: Mapped[str] = mapped_column(String(20), default="function")  # 'function' or 'api'
     code: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # For function type
     api_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # For api type
     api_request_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON schema for request
+    api_request_example: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON example for request
     api_response_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON schema for response
+    api_response_example: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON example for response
     scope: Mapped[str] = mapped_column(String(20), default="global")  # 'global' or 'assignable'
     assigned_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sub_agents.id"), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    test_passed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     agent: Mapped[Optional["SubAgent"]] = relationship(back_populates="tools")
@@ -168,6 +208,16 @@ class ChatMessage(Base):
     reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Agent's reasoning
     patient_references: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string of patient references
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+    # Background task execution fields
+    status: Mapped[str] = mapped_column(String(20), default="completed")  # 'pending', 'streaming', 'completed', 'error', 'interrupted'
+    task_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Celery task ID
+    logs: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array of LogItem[]
+    streaming_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    token_usage: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string of TokenUsage
+    last_updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
     # Relationships
     session: Mapped["ChatSession"] = relationship(back_populates="messages")

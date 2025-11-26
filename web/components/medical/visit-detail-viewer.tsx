@@ -1,6 +1,11 @@
 "use client";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -58,18 +63,32 @@ export function VisitDetailViewer({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-6xl max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <DialogTitle className="font-display text-2xl mb-2">
-                {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
+                {visit.visit_type.charAt(0).toUpperCase() +
+                  visit.visit_type.slice(1)}{" "}
+                Visit
               </DialogTitle>
               <div className="flex items-center gap-3 flex-wrap">
-                <Badge variant="secondary" className={visitTypeColors[visit.visit_type as keyof typeof visitTypeColors] || "medical-badge-text"}>
+                <Badge
+                  variant="secondary"
+                  className={
+                    visitTypeColors[
+                      visit.visit_type as keyof typeof visitTypeColors
+                    ] || "medical-badge-text"
+                  }
+                >
                   {visit.visit_type}
                 </Badge>
-                <Badge variant="secondary" className={statusColors[visit.status as keyof typeof statusColors]}>
+                <Badge
+                  variant="secondary"
+                  className={
+                    statusColors[visit.status as keyof typeof statusColors]
+                  }
+                >
                   {visit.status}
                 </Badge>
                 <span className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -116,7 +135,9 @@ export function VisitDetailViewer({
                         <Thermometer className="w-3.5 h-3.5" />
                         Temperature
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.temperature}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.temperature}
+                      </p>
                     </div>
                   )}
                   {visit.vital_signs.blood_pressure && (
@@ -125,7 +146,9 @@ export function VisitDetailViewer({
                         <Heart className="w-3.5 h-3.5" />
                         Blood Pressure
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.blood_pressure}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.blood_pressure}
+                      </p>
                     </div>
                   )}
                   {visit.vital_signs.heart_rate && (
@@ -134,7 +157,9 @@ export function VisitDetailViewer({
                         <Activity className="w-3.5 h-3.5" />
                         Heart Rate
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.heart_rate}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.heart_rate}
+                      </p>
                     </div>
                   )}
                   {visit.vital_signs.respiratory_rate && (
@@ -143,7 +168,9 @@ export function VisitDetailViewer({
                         <Wind className="w-3.5 h-3.5" />
                         Respiratory Rate
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.respiratory_rate}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.respiratory_rate}
+                      </p>
                     </div>
                   )}
                   {visit.vital_signs.oxygen_saturation && (
@@ -152,7 +179,9 @@ export function VisitDetailViewer({
                         <Droplets className="w-3.5 h-3.5" />
                         O₂ Saturation
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.oxygen_saturation}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.oxygen_saturation}
+                      </p>
                     </div>
                   )}
                   {visit.vital_signs.weight && (
@@ -161,7 +190,9 @@ export function VisitDetailViewer({
                         <Weight className="w-3.5 h-3.5" />
                         Weight
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.weight}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.weight}
+                      </p>
                     </div>
                   )}
                   {visit.vital_signs.height && (
@@ -170,7 +201,9 @@ export function VisitDetailViewer({
                         <Ruler className="w-3.5 h-3.5" />
                         Height
                       </div>
-                      <p className="text-sm font-medium">{visit.vital_signs.height}</p>
+                      <p className="text-sm font-medium">
+                        {visit.vital_signs.height}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -179,7 +212,9 @@ export function VisitDetailViewer({
 
             {/* Diagnosis */}
             <div className="space-y-2">
-              <h3 className="font-display font-semibold text-sm text-muted-foreground">Diagnosis</h3>
+              <h3 className="font-display font-semibold text-sm text-muted-foreground">
+                Diagnosis
+              </h3>
               <Card className="p-4 bg-card/50 border-border/50">
                 <p className="text-sm leading-relaxed">{visit.diagnosis}</p>
               </Card>
@@ -187,9 +222,13 @@ export function VisitDetailViewer({
 
             {/* Treatment Plan */}
             <div className="space-y-2">
-              <h3 className="font-display font-semibold text-sm text-muted-foreground">Treatment Plan</h3>
+              <h3 className="font-display font-semibold text-sm text-muted-foreground">
+                Treatment Plan
+              </h3>
               <Card className="p-4 bg-card/50 border-border/50">
-                <p className="text-sm leading-relaxed">{visit.treatment_plan}</p>
+                <p className="text-sm leading-relaxed">
+                  {visit.treatment_plan}
+                </p>
               </Card>
             </div>
 
@@ -201,9 +240,7 @@ export function VisitDetailViewer({
               </h3>
               <Card className="p-4 bg-card/50 border-border/50">
                 <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap">
-                  <ReactMarkdown>
-                    {visit.notes}
-                  </ReactMarkdown>
+                  <ReactMarkdown>{visit.notes}</ReactMarkdown>
                 </div>
               </Card>
             </div>
@@ -247,7 +284,9 @@ export function VisitDetailViewer({
                                 {record.file_type || record.record_type}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(record.created_at).toLocaleDateString()}
+                                {new Date(
+                                  record.created_at
+                                ).toLocaleDateString()}
                               </span>
                             </div>
                           </div>

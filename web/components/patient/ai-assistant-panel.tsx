@@ -190,10 +190,7 @@ export function AiAssistantPanel({
           {messages.map((message, index) => (
             <div key={message.id} style={{ animationDelay: `${index * 50}ms` }}>
               {message.role === MessageRole.USER ? (
-                <UserMessage
-                  content={message.content}
-                  timestamp={message.timestamp}
-                />
+                <UserMessage content={message.content} />
               ) : (
                 <AgentMessage
                   content={message.content}

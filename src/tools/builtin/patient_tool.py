@@ -8,19 +8,24 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.config.database import SessionLocal, Patient, MedicalRecord
+from src.config.database import SessionLocal, Patient, MedicalRecord, Imaging
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
 def query_patient_info(query: str) -> str:
-    """Query patient information and medical records.
-    
-    Use this tool when you need to find information about a patient or their medical history.
-    You can search by Patient ID (integer) or Name (string).
-    
+    """Query patient information, medical records, and medical imaging.
+
+    Use this tool when you need to find information about a patient, their medical history,
+    or their medical imaging (X-rays, MRIs, CT scans, etc.). You can search by Patient ID
+    (integer) or Name (string).
+
     Args:
         query: The search query. Can be a Patient ID (e.g., "1") or a Name (e.g., "John Doe").
+
+    Returns:
+        A formatted string containing patient demographics, recent medical records (up to 5),
+        and recent medical imaging (up to 10).
     """
     # IMPORTANT: Use synchronous engine for synchronous tools
     # We cannot use the async engine/session here because this function is called synchronously by LangChain
@@ -56,6 +61,16 @@ def query_patient_info(query: str) -> str:
         )
         records = session.execute(stmt).scalars().all()
         logger.debug("Fetched %d recent records for patient_id=%s", len(records), patient.id)
+
+        # Get recent imaging
+        imaging_stmt = (
+            select(Imaging)
+            .where(Imaging.patient_id == patient.id)
+            .order_by(Imaging.created_at.desc())
+            .limit(10)
+        )
+        imaging_records = session.execute(imaging_stmt).scalars().all()
+        logger.debug("Fetched %d imaging records for patient_id=%s", len(imaging_records), patient.id)
         
         # Format response
         response = [
@@ -82,12 +97,21 @@ def query_patient_info(query: str) -> str:
                         title = first_line[len("Title: "):]
                     else:
                         title = first_line[:30] + "..." if len(first_line) > 30 else first_line
-                
+
                 created_str = r.created_at.strftime("%Y-%m-%d")
                 response.append(f"  - [{created_str}] {r.record_type.upper()}: {title}")
-                
+
+        # Add medical imaging section
+        response.append("\nMedical Imaging:")
+        if not imaging_records:
+            response.append("  No imaging records found.")
+        else:
+            for img in imaging_records:
+                created_str = img.created_at.strftime("%Y-%m-%d")
+                response.append(f"  - [{created_str}] {img.image_type.upper()}: {img.title}")
+
         result = "\n".join(response)
-        logger.info("Patient tool returning summary for patient_id=%s", patient.id)
+        logger.info("Patient tool returning summary for patient_id=%s with %d imaging records", patient.id, len(imaging_records))
         return result
         
     except Exception as e:

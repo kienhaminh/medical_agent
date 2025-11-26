@@ -6,7 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   FileText,
@@ -28,10 +33,14 @@ interface MedicalRecordsListProps {
 }
 
 export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
-  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(
+    null
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
-  const [filterType, setFilterType] = useState<"all" | "registration" | "encounter" | "labs">("all");
+  const [filterType, setFilterType] = useState<
+    "all" | "registration" | "encounter" | "labs"
+  >("all");
 
   // Filter text records only
   const textRecords = records.filter((r) => r.record_type === "text");
@@ -47,8 +56,12 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
     // Type filter
     const matchesType =
       filterType === "all" ||
-      (filterType === "registration" && record.title?.includes("Registration")) ||
-      (filterType === "encounter" && record.title?.includes("-") && !record.title?.includes("Registration") && !record.title?.includes("Routine")) ||
+      (filterType === "registration" &&
+        record.title?.includes("Registration")) ||
+      (filterType === "encounter" &&
+        record.title?.includes("-") &&
+        !record.title?.includes("Registration") &&
+        !record.title?.includes("Routine")) ||
       (filterType === "labs" && record.title?.includes("Routine"));
 
     return matchesSearch && matchesType;
@@ -71,20 +84,29 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
 
     if (summary.includes("registration")) {
       return (
-        <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30">
+        <Badge
+          variant="secondary"
+          className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30"
+        >
           Registration
         </Badge>
       );
     }
     if (summary.includes("routine") || summary.includes("laboratory")) {
       return (
-        <Badge variant="secondary" className="bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30">
+        <Badge
+          variant="secondary"
+          className="bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30"
+        >
           Lab Results
         </Badge>
       );
     }
     return (
-      <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30">
+      <Badge
+        variant="secondary"
+        className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30"
+      >
         Clinical Note
       </Badge>
     );
@@ -112,7 +134,9 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               variant={filterType === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("all")}
-              className={filterType === "all" ? "primary-button" : "secondary-button"}
+              className={
+                filterType === "all" ? "primary-button" : "secondary-button"
+              }
             >
               All
             </Button>
@@ -120,7 +144,11 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               variant={filterType === "registration" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("registration")}
-              className={filterType === "registration" ? "primary-button" : "secondary-button"}
+              className={
+                filterType === "registration"
+                  ? "primary-button"
+                  : "secondary-button"
+              }
             >
               Registration
             </Button>
@@ -128,7 +156,11 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               variant={filterType === "encounter" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("encounter")}
-              className={filterType === "encounter" ? "primary-button" : "secondary-button"}
+              className={
+                filterType === "encounter"
+                  ? "primary-button"
+                  : "secondary-button"
+              }
             >
               Encounters
             </Button>
@@ -136,7 +168,9 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               variant={filterType === "labs" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("labs")}
-              className={filterType === "labs" ? "primary-button" : "secondary-button"}
+              className={
+                filterType === "labs" ? "primary-button" : "secondary-button"
+              }
             >
               Labs
             </Button>
@@ -200,7 +234,9 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
                 <FileText className="w-12 h-12 text-muted-foreground" />
               </div>
               <div>
-                <h3 className="font-display text-xl font-semibold mb-2">No records found</h3>
+                <h3 className="font-display text-xl font-semibold mb-2">
+                  No records found
+                </h3>
                 <p className="text-muted-foreground text-sm max-w-sm mx-auto">
                   {searchQuery || filterType !== "all"
                     ? "Try adjusting your search or filters"
@@ -210,7 +246,13 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
             </div>
           </div>
         ) : (
-          <div className={viewMode === "grid" ? "grid grid-cols-1 lg:grid-cols-2 gap-4" : "space-y-3"}>
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 lg:grid-cols-2 gap-4"
+                : "space-y-3"
+            }
+          >
             {filteredRecords.map((record) => (
               <button
                 key={record.id}
@@ -261,14 +303,19 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {new Date(record.created_at).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
+                            {new Date(record.created_at).toLocaleDateString(
+                              "en-US",
+                              {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }
+                            )}
                           </span>
                           {record.content && (
-                            <span className="truncate max-w-md">{record.content.substring(0, 100)}...</span>
+                            <span className="truncate max-w-md">
+                              {record.content.substring(0, 100)}...
+                            </span>
                           )}
                         </div>
                       </div>
@@ -284,8 +331,11 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
       </div>
 
       {/* Detail Dialog */}
-      <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] p-0">
+      <Dialog
+        open={!!selectedRecord}
+        onOpenChange={() => setSelectedRecord(null)}
+      >
+        <DialogContent className="max-w-7xl max-h-[90vh] p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500/10 to-teal-500/10">
@@ -297,12 +347,15 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
                 </DialogTitle>
                 {selectedRecord && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    {new Date(selectedRecord.created_at).toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {new Date(selectedRecord.created_at).toLocaleDateString(
+                      "en-US",
+                      {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
                   </p>
                 )}
               </div>
@@ -310,7 +363,9 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
           </DialogHeader>
 
           <ScrollArea className="max-h-[calc(90vh-120px)] px-6 py-4">
-            {selectedRecord?.content && <ClinicalNoteViewer content={selectedRecord.content} />}
+            {selectedRecord?.content && (
+              <ClinicalNoteViewer content={selectedRecord.content} />
+            )}
           </ScrollArea>
         </DialogContent>
       </Dialog>

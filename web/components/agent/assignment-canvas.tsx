@@ -14,16 +14,13 @@ import {
   Connection,
   MiniMap,
   Panel,
+  ConnectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { SubAgent } from "@/types/agent";
-import { Tool } from "@/lib/api";
 import { AgentNode } from "./canvas/agent-node";
 import { ToolNode } from "./canvas/tool-node";
 import { MainAgentNode } from "./canvas/main-agent-node";
 import { CustomEdge } from "./canvas/custom-edge";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { AssignmentCanvasProps } from "@/types/agent-ui";
 
 const nodeTypes = {
@@ -74,7 +71,7 @@ export function AssignmentCanvas({
         );
 
         return {
-          id: `tool-${tool.name}`,
+          id: `tool-${tool.id}`,
           type: "tool" as const,
           position: {
             x: 850,
@@ -87,10 +84,10 @@ export function AssignmentCanvas({
       // Unassigned tools go at the bottom
       const unassignedTools = tools.filter((t) => !t.assigned_agent_id);
       const unassignedIndex = unassignedTools.findIndex(
-        (t) => t.name === tool.name
+        (t) => t.id === tool.id
       );
       return {
-        id: `tool-${tool.name}`,
+        id: `tool-${tool.id}`,
         type: "tool" as const,
         position: {
           x: 850,
@@ -120,14 +117,15 @@ export function AssignmentCanvas({
     ...tools
       .filter((tool) => tool.assigned_agent_id)
       .map((tool) => ({
-        id: `edge-${tool.name}-${tool.assigned_agent_id}`,
+        id: `edge-${tool.id}-${tool.assigned_agent_id}`,
         source: `agent-${tool.assigned_agent_id}`,
-        target: `tool-${tool.name}`,
+        target: `tool-${tool.id}`,
         animated: true,
         style: { stroke: "#10b981", strokeWidth: 2 },
         type: "custom",
         data: {
           agentId: tool.assigned_agent_id,
+          toolId: tool.id,
           toolName: tool.name,
         },
       })),
@@ -139,17 +137,17 @@ export function AssignmentCanvas({
 
   // Handler for edge deletion - stable function that doesn't depend on edges
   const handleEdgeDelete = useCallback(
-    async (edgeId: string, agentId: number, toolName: string) => {
+    async (edgeId: string, agentId: number, toolId: number) => {
       // Only allow deletion of tool assignment edges (not delegation edges)
       if (edgeId.startsWith("delegation-")) return;
 
       try {
-        await onUnassign(toolName, agentId);
+        await onUnassign(toolId, agentId);
 
         // Update the tool node data immediately
         setNodes((nds) =>
           nds.map((node) => {
-            if (node.id === `tool-${toolName}`) {
+            if (node.id === `tool-${toolId}`) {
               return {
                 ...node,
                 data: {
@@ -193,6 +191,7 @@ export function AssignmentCanvas({
       if (!connection.source || !connection.target) return;
 
       let agentId: number;
+      let toolId: number;
       let toolName: string;
 
       // Allow connections from agents to tools OR from tools to agents
@@ -202,18 +201,23 @@ export function AssignmentCanvas({
       ) {
         // Agent → Tool
         agentId = parseInt(connection.source.replace("agent-", ""));
-        toolName = connection.target.replace("tool-", "");
+        toolId = parseInt(connection.target.replace("tool-", ""));
       } else if (
         connection.source.startsWith("tool-") &&
         connection.target.startsWith("agent-")
       ) {
         // Tool → Agent (reverse direction)
         agentId = parseInt(connection.target.replace("agent-", ""));
-        toolName = connection.source.replace("tool-", "");
+        toolId = parseInt(connection.source.replace("tool-", ""));
       } else {
         // Invalid connection
         return;
       }
+
+      // Find tool to get its name (assignTool still uses tool_name)
+      const tool = tools.find((t) => t.id === toolId);
+      if (!tool) return;
+      toolName = tool.name;
 
       try {
         await onAssign(toolName, agentId);
@@ -221,7 +225,7 @@ export function AssignmentCanvas({
         // Update the tool node data immediately
         setNodes((nds) =>
           nds.map((node) => {
-            if (node.id === `tool-${toolName}`) {
+            if (node.id === `tool-${toolId}`) {
               return {
                 ...node,
                 data: {
@@ -243,6 +247,7 @@ export function AssignmentCanvas({
               type: "custom",
               data: {
                 agentId,
+                toolId,
                 toolName,
                 onDelete: handleEdgeDelete,
               },
@@ -254,7 +259,7 @@ export function AssignmentCanvas({
         console.error("Failed to assign tool:", error);
       }
     },
-    [onAssign, setNodes, setEdges, handleEdgeDelete]
+    [onAssign, setNodes, setEdges, handleEdgeDelete, tools]
   );
 
   return (
@@ -285,7 +290,7 @@ export function AssignmentCanvas({
         edgeTypes={edgeTypes}
         fitView
         className="bg-background"
-        connectionMode="loose"
+        connectionMode={ConnectionMode.Loose}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         <Controls
@@ -299,6 +304,10 @@ export function AssignmentCanvas({
           nodeColor={(node) => {
             if (node.type === "mainAgent") return "#06b6d4";
             if (node.type === "agent") return "#8b5cf6";
+            if (node.type === "tool") {
+              const toolData = node.data as any;
+              if (toolData?.enabled === false) return "#ef4444";
+            }
             return "#10b981";
           }}
           maskColor="rgba(0, 0, 0, 0.6)"
@@ -308,7 +317,8 @@ export function AssignmentCanvas({
           className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-lg p-3 text-sm"
         >
           <p className="text-muted-foreground">
-            <strong>Tip:</strong> Drag between agents and tools to create assignments. Hover over connections to disconnect.
+            <strong>Tip:</strong> Drag between agents and tools to create
+            assignments. Hover over connections to disconnect.
           </p>
         </Panel>
       </ReactFlow>

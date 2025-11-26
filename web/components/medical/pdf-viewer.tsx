@@ -12,18 +12,27 @@ interface PdfViewerProps {
   onAnalyze?: (record: MedicalRecord) => void;
 }
 
-export function PdfViewer({ record, open, onClose, onAnalyze }: PdfViewerProps) {
+export function PdfViewer({
+  record,
+  open,
+  onClose,
+  onAnalyze,
+}: PdfViewerProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl h-[90vh] p-0">
+      <DialogContent className="max-w-7xl h-[90vh] p-0">
         <DialogTitle className="sr-only">{record.title}</DialogTitle>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div>
-              <h2 className="font-display text-lg font-semibold">{record.title}</h2>
+              <h2 className="font-display text-lg font-semibold">
+                {record.title}
+              </h2>
               {record.description && (
-                <p className="text-sm text-muted-foreground mt-1">{record.description}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {record.description}
+                </p>
               )}
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>
@@ -33,16 +42,14 @@ export function PdfViewer({ record, open, onClose, onAnalyze }: PdfViewerProps) 
 
           {/* Toolbar */}
           <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-border bg-card/30">
-            <div className="text-sm text-muted-foreground">
-              PDF Lab Report
-            </div>
+            <div className="text-sm text-muted-foreground">PDF Lab Report</div>
 
             <div className="flex items-center gap-2">
               {record.file_url && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(record.file_url, '_blank')}
+                  onClick={() => window.open(record.file_url, "_blank")}
                   className="secondary-button"
                 >
                   <Download className="w-4 h-4 mr-2" />

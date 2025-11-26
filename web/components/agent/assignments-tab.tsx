@@ -36,8 +36,8 @@ export function AssignmentsTab() {
     await loadData();
   }
 
-  async function handleUnassign(toolName: string, agentId: number) {
-    await unassignTool(agentId, toolName);
+  async function handleUnassign(toolId: number, agentId: number) {
+    await unassignTool(agentId, toolId);
     await loadData();
   }
 

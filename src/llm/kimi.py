@@ -43,6 +43,7 @@ class KimiProvider(LangChainAdapter):
             max_tokens=max_tokens,
             max_retries=max_retries,
             streaming=streaming,
+            stream_usage=True,  # Enable usage tracking in streaming mode
             **kwargs,
         )
         
@@ -253,20 +254,43 @@ class KimiProvider(LangChainAdapter):
         stream_params.update(kwargs)
         
         stream = client.chat.completions.create(**stream_params)
-        
+
+        # Track usage from chunks
+        total_usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0
+        }
+
         for chunk in stream:
             delta = chunk.choices[0].delta
-            
+
             # Handle reasoning content
             if hasattr(delta, "reasoning_content") and delta.reasoning_content:
                 yield {
-                    "type": "reasoning", 
+                    "type": "reasoning",
                     "content": delta.reasoning_content
                 }
-                
+
             # Handle standard content
             if delta.content:
                 yield {
                     "type": "content",
                     "content": delta.content
                 }
+
+            # Capture usage information from the chunk (usually in the last chunk)
+            if hasattr(chunk, "usage") and chunk.usage:
+                if hasattr(chunk.usage, "prompt_tokens"):
+                    total_usage["prompt_tokens"] = chunk.usage.prompt_tokens
+                if hasattr(chunk.usage, "completion_tokens"):
+                    total_usage["completion_tokens"] = chunk.usage.completion_tokens
+                if hasattr(chunk.usage, "total_tokens"):
+                    total_usage["total_tokens"] = chunk.usage.total_tokens
+
+        # Emit usage at the end of the stream if we captured any
+        if total_usage["total_tokens"] > 0:
+            yield {
+                "type": "usage",
+                "usage": total_usage
+            }

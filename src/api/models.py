@@ -20,6 +20,45 @@ class PatientDetailResponse(BaseModel):
     gender: str
     created_at: str
     records: list
+    imaging: Optional[list] = []
+    image_groups: Optional[list] = []
+    health_summary: Optional[str] = None
+    health_summary_updated_at: Optional[str] = None
+
+class ImagingResponse(BaseModel):
+    id: int
+    patient_id: int
+    title: str
+    image_type: str
+    original_url: str
+    preview_url: str
+    group_id: Optional[int] = None
+    created_at: str
+
+class ImageGroupResponse(BaseModel):
+    id: int
+    patient_id: int
+    name: str
+    created_at: str
+
+class ImageGroupCreate(BaseModel):
+    name: str
+
+class ImagingCreate(BaseModel):
+    title: str
+    image_type: str
+    preview_url: str
+    origin_url: str
+    group_id: Optional[int] = None
+
+
+
+class HealthSummaryResponse(BaseModel):
+    """Health summary generation response."""
+    patient_id: int
+    health_summary: str
+    health_summary_updated_at: str
+    status: str = "success"
 
 class ToolCreate(BaseModel):
     """Create tool request."""
@@ -30,7 +69,11 @@ class ToolCreate(BaseModel):
     code: Optional[str] = None  # For function type
     api_endpoint: Optional[str] = None  # For api type
     api_request_payload: Optional[str] = None  # JSON schema for request
+    api_request_example: Optional[str] = None  # JSON example for request
     api_response_payload: Optional[str] = None  # JSON schema for response
+    api_response_example: Optional[str] = None  # JSON example for response
+    enabled: bool = False
+    test_passed: bool = False
     scope: str = "assignable"  # Default to assignable for custom tools
 
 class ToolUpdate(BaseModel):
@@ -40,7 +83,25 @@ class ToolUpdate(BaseModel):
     code: Optional[str] = None
     api_endpoint: Optional[str] = None
     api_request_payload: Optional[str] = None
+    api_request_example: Optional[str] = None
     api_response_payload: Optional[str] = None
+    api_response_example: Optional[str] = None
+    enabled: Optional[bool] = None
+    test_passed: Optional[bool] = None
+
+class ToolTestRequest(BaseModel):
+    """Test tool request."""
+    tool_type: str = "function"  # 'function' or 'api'
+    code: Optional[str] = None  # For function type
+    api_endpoint: Optional[str] = None  # For api type
+    api_request_payload: Optional[str] = None  # JSON schema for request
+    arguments: dict = {}  # Input arguments for the tool
+
+class ToolTestResponse(BaseModel):
+    """Test tool response."""
+    result: Optional[str] = None
+    error: Optional[str] = None
+    status: str = "success"  # 'success' or 'error'
 
 class ChatRequest(BaseModel):
     """Chat request model."""
@@ -135,6 +196,7 @@ class AgentToolAssignmentResponse(BaseModel):
 
 class ToolResponse(BaseModel):
     """Tool response model."""
+    id: int
     name: str
     symbol: str
     description: str
@@ -142,7 +204,11 @@ class ToolResponse(BaseModel):
     code: Optional[str] = None
     api_endpoint: Optional[str] = None
     api_request_payload: Optional[str] = None
+    api_request_example: Optional[str] = None
     api_response_payload: Optional[str] = None
+    api_response_example: Optional[str] = None
+    enabled: bool
+    test_passed: bool
     scope: str
     assigned_agent_id: Optional[int] = None
 
@@ -168,8 +234,33 @@ class ChatMessageResponse(BaseModel):
     reasoning: Optional[str] = None
     patient_references: Optional[str] = None
     created_at: str
+    # Background task fields
+    status: Optional[str] = "completed"  # 'pending', 'streaming', 'completed', 'error', 'interrupted'
+    task_id: Optional[str] = None
+    logs: Optional[str] = None
+    streaming_started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+    last_updated_at: Optional[str] = None
+    token_usage: Optional[str] = None  # JSON string of token usage
 
 class ChatSessionCreate(BaseModel):
     """Create chat session request."""
     title: str
     agent_id: Optional[int] = None
+
+class TaskStatusResponse(BaseModel):
+    """Task status response model."""
+    task_id: str
+    status: str  # 'PENDING', 'STARTED', 'SUCCESS', 'FAILURE', 'RETRY'
+    message_id: int
+    content_preview: Optional[str] = None
+    error: Optional[str] = None
+    result: Optional[dict] = None
+
+class ChatTaskResponse(BaseModel):
+    """Chat task dispatch response."""
+    task_id: str
+    message_id: int
+    session_id: int
+    status: str = "pending"

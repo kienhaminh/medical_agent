@@ -30,7 +30,7 @@ class ToolRegistry:
             cls._instance._tool_scopes = {}
         return cls._instance
 
-    def register(self, tool: Callable, scope: str = "global", symbol: Optional[str] = None) -> None:
+    def register(self, tool: Callable, scope: str = "global", symbol: Optional[str] = None, allow_overwrite: bool = False) -> None:
         """Register a tool function with optional scope and symbol.
 
         Args:
@@ -38,9 +38,10 @@ class ToolRegistry:
             scope: Tool scope - "global" (main agent only) or "assignable" (sub-agents only).
                    Defaults to "global".
             symbol: Unique identifier for the tool (snake_case). If not provided, uses tool.__name__.
+            allow_overwrite: If True, overwrites existing tool with same symbol.
 
         Raises:
-            ValueError: If tool symbol conflicts with existing tool or invalid scope
+            ValueError: If tool symbol conflicts with existing tool (and allow_overwrite is False) or invalid scope
         """
         if scope not in ("global", "assignable"):
             raise ValueError(f"Invalid scope '{scope}'. Must be 'global' or 'assignable'")
@@ -48,7 +49,7 @@ class ToolRegistry:
         # Use provided symbol or fallback to function name
         tool_symbol = symbol if symbol is not None else tool.__name__
         
-        if tool_symbol in self._tools:
+        if tool_symbol in self._tools and not allow_overwrite:
             raise ValueError(f"Tool with symbol '{tool_symbol}' already registered")
         
         self._tools[tool_symbol] = tool
