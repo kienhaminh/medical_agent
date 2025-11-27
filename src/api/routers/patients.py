@@ -1,19 +1,30 @@
 import os
 import shutil
 import uuid
+import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import redis.asyncio as redis
 
 from ...config.database import get_db, Patient, MedicalRecord, Imaging, ImageGroup
+from ...config.settings import load_config
 from ..models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
     RecordResponse, TextRecordCreate, HealthSummaryResponse,
     ImagingResponse, ImagingCreate, ImageGroupCreate, ImageGroupResponse
 )
 from ..dependencies import get_or_create_agent
+
+logger = logging.getLogger(__name__)
+
+# Load configuration
+config = load_config()
+
 
 router = APIRouter()
 
@@ -109,6 +120,7 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
             image_type=img.image_type,
             original_url=img.original_url,
             preview_url=img.preview_url,
+            group_id=img.group_id,
             created_at=img.created_at.isoformat()
         ) for img in imaging_records
     ]
@@ -133,7 +145,9 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
         imaging=formatted_imaging,
         image_groups=formatted_groups,
         health_summary=patient.health_summary,
-        health_summary_updated_at=patient.health_summary_updated_at.isoformat() if patient.health_summary_updated_at else None
+        health_summary_updated_at=patient.health_summary_updated_at.isoformat() if patient.health_summary_updated_at else None,
+        health_summary_status=patient.health_summary_status,
+        health_summary_task_id=patient.health_summary_task_id
     )
 
 @router.get("/api/patients/{patient_id}/records", response_model=list[RecordResponse])
@@ -471,99 +485,154 @@ async def delete_imaging_record(
 
 @router.post("/api/patients/{patient_id}/generate-summary", response_model=HealthSummaryResponse)
 async def generate_health_summary(patient_id: int, db: AsyncSession = Depends(get_db)):
-    """Generate AI health summary for a patient.
+    """Dispatch background task to generate AI health summary for a patient.
     
-    Synthesizes all patient information (demographics, medical records) 
-    into a comprehensive health overview using the AI agent.
+    Returns immediately with task_id and status. Client should poll or stream
+    for updates using the /api/patients/{patient_id}/summary-stream endpoint.
     """
-    # 1. Fetch patient
+    # Import task here to avoid circular imports
+    from ...tasks.agent_tasks import generate_patient_health_summary
+    
+    # 1. Verify patient exists
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = result.scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    # 2. Fetch all medical records
-    records_result = await db.execute(
-        select(MedicalRecord)
-        .where(MedicalRecord.patient_id == patient_id)
-        .order_by(MedicalRecord.created_at.desc())
+    # 2. Mark patient as pending and dispatch task
+    patient.health_summary_status = "pending"
+    await db.commit()
+    
+    # 3. Dispatch Celery task
+    task = generate_patient_health_summary.delay(patient_id=patient_id)
+    
+    # 4. Save task_id
+    patient.health_summary_task_id = task.id
+    await db.commit()
+    
+    return HealthSummaryResponse(
+        patient_id=patient.id,
+        health_summary=patient.health_summary or "",
+        health_summary_updated_at=patient.health_summary_updated_at.isoformat() if patient.health_summary_updated_at else None,
+        status=patient.health_summary_status or "pending",
+        task_id=task.id
     )
-    records = records_result.scalars().all()
+
+
+@router.get("/api/patients/{patient_id}/summary-stream")
+async def stream_health_summary_updates(patient_id: int, db: AsyncSession = Depends(get_db)):
+    """Stream health summary generation updates via Server-Sent Events.
     
-    # 3. Build context from patient data and records
-    context_parts = [
-        f"Patient Information:",
-        f"- Name: {patient.name}",
-        f"- Date of Birth: {patient.dob}",
-        f"- Gender: {patient.gender}",
-        f"- Patient ID: {patient.id}",
-        ""
-    ]
+    Uses Redis Pub/Sub for real-time updates from background task.
+    Falls back to DB check if generation is already completed.
     
-    if records:
-        context_parts.append(f"Medical Records ({len(records)} total):")
-        for i, record in enumerate(records, 1):
-            context_parts.append(f"\n--- Record {i} ({record.record_type.upper()}) ---")
-            context_parts.append(f"Date: {record.created_at.strftime('%Y-%m-%d')}")
-            if record.summary:
-                context_parts.append(f"Summary: {record.summary}")
-            if record.record_type == "text" and record.content:
-                # Truncate very long content
-                content = record.content[:2000] + "..." if len(record.content) > 2000 else record.content
-                context_parts.append(f"Content:\n{content}")
-            elif record.record_type in ["image", "pdf"]:
-                context_parts.append(f"File: {os.path.basename(record.content)}")
-    else:
-        context_parts.append("No medical records available.")
+    Args:
+        patient_id: Patient ID to stream updates for
+        
+    Returns:
+        StreamingResponse with SSE updates
+    """
+    import asyncio
+    logger.info(f"Starting health summary stream for patient {patient_id}")
     
-    patient_context = "\n".join(context_parts)
+    async def generate():
+        logger.info(f"Inside generate for patient {patient_id}")
+        try:
+            # Initialize Redis
+            redis_client = redis.from_url(config.redis_url)
+            pubsub = redis_client.pubsub()
+            
+            logger.info(f"Checking DB for patient {patient_id}")
+            # 1. Check initial state from DB
+            from src.config.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as local_db:
+                result = await local_db.execute(
+                    select(Patient).where(Patient.id == patient_id)
+                )
+                patient = result.scalar_one_or_none()
+                
+                if not patient:
+                    logger.error(f"Patient {patient_id} not found in DB")
+                    yield f"data: {json.dumps({'error': 'Patient not found'})}\n\n"
+                    return
+                
+                logger.info(f"Patient {patient_id} found with status: {patient.health_summary_status}")
+                
+                # If already completed/error, send final state and exit
+                if patient.health_summary_status in ['completed', 'error']:
+                    yield f"data: {json.dumps({'type': 'status', 'status': patient.health_summary_status, 'summary': patient.health_summary})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                    return
+                
+                # Check Redis for current partial progress
+                content_key = f"patient:health_summary:{patient_id}:content"
+                cached_content = await redis_client.get(content_key)
+                if cached_content:
+                    if isinstance(cached_content, bytes):
+                        cached_content = cached_content.decode('utf-8')
+                    logger.info(f"Found cached partial content for patient {patient_id}, length: {len(cached_content)}")
+                    yield f"data: {json.dumps({'type': 'status', 'status': patient.health_summary_status, 'summary': cached_content})}\n\n"
+                elif patient.health_summary:
+                    # Fallback to DB summary if no cached content (e.g. pending start)
+                    yield f"data: {json.dumps({'type': 'status', 'status': patient.health_summary_status, 'summary': patient.health_summary})}\n\n"
+            
+            # 2. Subscribe to Redis channel
+            channel = f"patient:health_summary:{patient_id}"
+            logger.info(f"Subscribing to Redis channel: {channel}")
+            await pubsub.subscribe(channel)
+            logger.info(f"Subscribed to {channel}")
+            
+            # Send test event
+            test_event = json.dumps({'type': 'status', 'status': 'connected'})
+            logger.info(f"Sending test event: {test_event}")
+            yield f"data: {test_event}\n\n"
+            
+            # 3. Stream events
+            logger.info(f"Starting event loop for patient {patient_id}")
+            event_count = 0
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                
+                if message:
+                    event_count += 1
+                    logger.info(f"Received Redis message #{event_count}: {message}")
+                    data = message['data']
+                    if isinstance(data, bytes):
+                        data = data.decode('utf-8')
+                    
+                    # Yield the raw event data
+                    logger.info(f"Yielding event #{event_count}: {data[:100]}...")
+                    yield f"data: {data}\n\n"
+                    
+                    # Check for completion signal
+                    try:
+                        parsed = json.loads(data)
+                        if parsed.get("type") in ["done", "error"]:
+                            logger.info(f"Stream completed for patient {patient_id} with type: {parsed.get('type')}")
+                            break
+                    except:
+                        pass
+                
+                await asyncio.sleep(0.01)
+        
+        except asyncio.CancelledError:
+            logger.info(f"Stream cancelled for patient {patient_id}")
+        except Exception as e:
+            logger.error(f"Stream error for patient {patient_id}: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        finally:
+            try:
+                await pubsub.unsubscribe()
+                await redis_client.aclose()
+            except:
+                pass
     
-    # 4. Create prompt for AI agent
-    prompt = f"""Based on the following patient information and medical records, generate a comprehensive AI Health Summary.
-
-{patient_context}
-
----
-
-Please generate a well-structured health summary in Markdown format that includes:
-1. **Overall Health Status** - A brief assessment of the patient's current health state
-2. **Key Health Indicators** - Important metrics and their status (if available from records)
-3. **Active Concerns** - Any ongoing health issues or concerns noted in records
-4. **Medical History Highlights** - Key points from the patient's medical history
-5. **Preventive Care Status** - Status of screenings and preventive measures (if mentioned)
-6. **Recommendations** - Suggested next steps or follow-up actions
-
-If there is limited information available, acknowledge this and provide what summary is possible based on available data.
-Be concise but thorough. Use bullet points and clear formatting."""
-
-    try:
-        # 5. Get agent and process message
-        agent = get_or_create_agent("health_summary_generator")
-        
-        # Process the message (non-streaming for simplicity)
-        response = await agent.process_message(
-            user_message=prompt,
-            stream=False,
-            chat_history=[]  # No history needed for one-off generation
-        )
-        
-        health_summary = response if isinstance(response, str) else str(response)
-        
-        # 6. Save to database
-        patient.health_summary = health_summary
-        patient.health_summary_updated_at = datetime.utcnow()
-        await db.commit()
-        await db.refresh(patient)
-        
-        return HealthSummaryResponse(
-            patient_id=patient.id,
-            health_summary=patient.health_summary,
-            health_summary_updated_at=patient.health_summary_updated_at.isoformat(),
-            status="success"
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to generate health summary: {str(e)}"
-        )
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )

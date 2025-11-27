@@ -20,6 +20,7 @@ export interface SubAgent {
   parent_template_id: number | null;
   created_at: string;
   updated_at: string;
+  tools?: string[] | null; // Tool symbols for core agents
 }
 
 export interface SubAgentCreate {

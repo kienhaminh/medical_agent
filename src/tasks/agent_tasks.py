@@ -1,18 +1,22 @@
 """Background tasks for agent message processing."""
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional, List, Dict
 
 
 from . import celery_app
 from src.config.database import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
+from src.config.settings import load_config
 from ..api.dependencies import get_or_create_agent
 import logging
 from sqlalchemy import select
 import src.tools.builtin  # Register builtin tools
 import redis.asyncio as redis
 import os
+
+# Load configuration
+config = load_config()
 
 logger = logging.getLogger(__name__)
 logger.info(f"Loaded builtin tools from {src.tools.builtin.__name__}")
@@ -71,8 +75,7 @@ async def _process_message_async(
     """Async processing logic for agent message."""
     
     # Initialize Redis
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    redis_client = redis.from_url(redis_url)
+    redis_client = redis.from_url(config.redis_url)
 
     # Initialize accumulators
     full_response = ""
@@ -319,7 +322,7 @@ async def _process_message_async(
         raise
 
     finally:
-        await redis_client.close()
+        await redis_client.aclose()
         # Save error/interrupted state outside of main db context
         if save_interrupted or save_error:
             try:
@@ -375,3 +378,245 @@ async def _update_message_content(
         message.token_usage = json.dumps(token_usage) if token_usage and token_usage.get("total_tokens", 0) > 0 else None
         message.last_updated_at = datetime.utcnow()
         await db.commit()
+
+
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    name="src.tasks.agent_tasks.generate_patient_health_summary"
+)
+def generate_patient_health_summary(
+    self,
+    patient_id: int,
+):
+    """Generate AI health summary for a patient in background.
+    
+    Args:
+        patient_id: Patient ID to generate summary for
+    """
+    return asyncio.run(
+        _generate_health_summary_async(
+            task_id=self.request.id,
+            patient_id=patient_id,
+        )
+    )
+
+
+async def _generate_health_summary_async(
+    task_id: str,
+    patient_id: int,
+):
+    """Async processing logic for health summary generation."""
+
+    # Initialize Redis
+    redis_client = redis.from_url(config.redis_url)
+
+    channel = f"patient:health_summary:{patient_id}"
+    summary_content = ""
+
+    # Persistence control for incremental saves
+    last_save_time = datetime.now(UTC)
+    chunk_count = 0
+    SAVE_INTERVAL_SECONDS = 5
+    SAVE_CHUNK_THRESHOLD = 20
+
+    save_error = None
+
+    try:
+        async with AsyncSessionLocal() as db:
+            # 1. Mark patient as generating and set task_id
+            result = await db.execute(
+                select(Patient).where(Patient.id == patient_id)
+            )
+            patient = result.scalar_one_or_none()
+            if not patient:
+                raise ValueError(f"Patient {patient_id} not found")
+
+            patient.health_summary_status = "generating"
+            patient.health_summary_task_id = task_id
+            await db.commit()
+
+            # Publish start event
+            start_event = {"type": "status", "status": "generating"}
+            logger.info(f"Publishing start event to {channel}: {start_event}")
+            await redis_client.publish(channel, json.dumps(start_event))
+
+            # 2. Fetch all medical records
+            records_result = await db.execute(
+                select(MedicalRecord)
+                .where(MedicalRecord.patient_id == patient_id)
+                .order_by(MedicalRecord.created_at.desc())
+            )
+            records = records_result.scalars().all()
+
+            # 3. Build context from patient data and records
+            context_parts = [
+                f"Patient Information:",
+                f"- Name: {patient.name}",
+                f"- Date of Birth: {patient.dob}",
+                f"- Gender: {patient.gender}",
+                f"- Patient ID: {patient.id}",
+                ""
+            ]
+
+            if records:
+                context_parts.append(f"Medical Records ({len(records)} total):")
+                for i, record in enumerate(records, 1):
+                    context_parts.append(f"\n--- Record {i} ({record.record_type.upper()}) ---")
+                    context_parts.append(f"Date: {record.created_at.strftime('%Y-%m-%d')}")
+                    if record.summary:
+                        context_parts.append(f"Summary: {record.summary}")
+                    if record.record_type == "text" and record.content:
+                        # Truncate very long content
+                        content = record.content[:2000] + "..." if len(record.content) > 2000 else record.content
+                        context_parts.append(f"Content:\n{content}")
+                    elif record.record_type in ["image", "pdf"]:
+                        import os as os_module
+                        context_parts.append(f"File: {os_module.path.basename(record.content)}")
+            else:
+                context_parts.append("No medical records available.")
+
+            patient_context = "\n".join(context_parts)
+
+            # 4. Create prompt for AI agent
+            prompt = f"""Based on the following patient information and medical records, generate a comprehensive AI Health Summary.
+
+{patient_context}
+
+---
+
+Please generate a well-structured health summary in Markdown format that includes:
+1. **Overall Health Status** - A brief assessment of the patient's current health state
+2. **Key Health Indicators** - Important metrics and their status (if available from records)
+3. **Active Concerns** - Any ongoing health issues or concerns noted in records
+4. **Medical History Highlights** - Key points from the patient's medical history
+5. **Preventive Care Status** - Status of screenings and preventive measures (if mentioned)
+6. **Recommendations** - Suggested next steps or follow-up actions
+
+If there is limited information available, acknowledge this and provide what summary is possible based on available data.
+Be concise but thorough. Use bullet points and clear formatting."""
+
+            # 5. Get agent and process message
+            agent = get_or_create_agent("health_summary_generator")
+
+            # Process the message with streaming
+            stream = await agent.process_message(
+                user_message=prompt,
+                stream=True,
+                chat_history=[]  # No history needed for one-off generation
+            )
+
+            # 6. Process streaming events with incremental persistence
+            async for event in stream:
+                if isinstance(event, dict):
+                    if event["type"] == "content":
+                        summary_content += event['content']
+                        chunk_count += 1
+
+                        # Cache accumulated content in Redis for resume support
+                        content_key = f"patient:health_summary:{patient_id}:content"
+                        await redis_client.set(content_key, summary_content, ex=3600)  # 1 hour expiry
+
+                        # Publish content chunks
+                        await redis_client.publish(channel, json.dumps({
+                            "type": "chunk",
+                            "content": event['content']
+                        }))
+
+                        # Incremental database save
+                        time_since_last_save = (datetime.now(UTC) - last_save_time).total_seconds()
+                        should_save = (
+                            time_since_last_save >= SAVE_INTERVAL_SECONDS or
+                            chunk_count >= SAVE_CHUNK_THRESHOLD
+                        )
+
+                        if should_save:
+                            try:
+                                # Use a fresh query to avoid stale data
+                                result = await db.execute(
+                                    select(Patient).where(Patient.id == patient_id)
+                                )
+                                patient = result.scalar_one_or_none()
+                                if patient:
+                                    patient.health_summary = summary_content
+                                    patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                                    await db.commit()
+                                    logger.info(f"Incremental save for patient {patient_id}: {len(summary_content)} chars")
+                                last_save_time = datetime.now(UTC)
+                                chunk_count = 0
+                            except Exception as save_ex:
+                                logger.error(f"Incremental save failed for patient {patient_id}: {save_ex}")
+                                # Continue streaming even if save fails
+
+                    # Forward other events (tool_calls, logs, etc.) if needed
+                    elif event["type"] in ["tool_call", "tool_result", "log"]:
+                        await redis_client.publish(channel, json.dumps(event))
+
+        # 7. Final save with completed status - use fresh DB session
+        logger.info(f"Stream completed for patient {patient_id}, performing final save...")
+        async with AsyncSessionLocal() as final_db:
+            result = await final_db.execute(
+                select(Patient).where(Patient.id == patient_id)
+            )
+            patient = result.scalar_one_or_none()
+            if patient:
+                patient.health_summary = summary_content
+                patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                patient.health_summary_status = "completed"
+                await final_db.commit()
+                logger.info(f"Final save successful for patient {patient_id}: {len(summary_content)} chars, status=completed")
+            else:
+                logger.error(f"Patient {patient_id} not found during final save!")
+
+        # Publish done event
+        done_event = {"type": "done"}
+        logger.info(f"Publishing done event to {channel}: {done_event}")
+        await redis_client.publish(channel, json.dumps(done_event))
+
+        # Clean up content cache
+        content_key = f"patient:health_summary:{patient_id}:content"
+        await redis_client.delete(content_key)
+
+        return {
+            "patient_id": patient_id,
+            "status": "completed",
+            "summary_length": len(summary_content),
+        }
+
+    except Exception as e:
+        logger.error(f"Error generating health summary for patient {patient_id}: {e}", exc_info=True)
+        save_error = e
+        # Update patient with error status BUT save accumulated content
+        try:
+            async with AsyncSessionLocal() as error_db:
+                result = await error_db.execute(
+                    select(Patient).where(Patient.id == patient_id)
+                )
+                patient = result.scalar_one_or_none()
+                if patient:
+                    # Save whatever content we accumulated before the error
+                    if summary_content:
+                        patient.health_summary = summary_content
+                        patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                        logger.info(f"Saved partial content on error for patient {patient_id}: {len(summary_content)} chars")
+                    patient.health_summary_status = "error"
+                    await error_db.commit()
+
+                # Clean up content cache on error too
+                try:
+                    content_key = f"patient:health_summary:{patient_id}:content"
+                    await redis_client.delete(content_key)
+                except:
+                    pass
+
+                # Publish error event
+                await redis_client.publish(channel, json.dumps({
+                    "type": "error",
+                    "message": str(e)
+                }))
+        except Exception as final_error:
+            logger.error(f"Failed to save error state for patient {patient_id}: {final_error}", exc_info=True)
+        raise
+
+    finally:
+        await redis_client.aclose()

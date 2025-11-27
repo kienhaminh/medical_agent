@@ -1,5 +1,6 @@
 from typing import Optional, List
 from pydantic import BaseModel
+from datetime import datetime
 
 class PatientCreate(BaseModel):
     name: str
@@ -24,6 +25,8 @@ class PatientDetailResponse(BaseModel):
     image_groups: Optional[list] = []
     health_summary: Optional[str] = None
     health_summary_updated_at: Optional[str] = None
+    health_summary_status: Optional[str] = None
+    health_summary_task_id: Optional[str] = None
 
 class ImagingResponse(BaseModel):
     id: int
@@ -56,9 +59,11 @@ class ImagingCreate(BaseModel):
 class HealthSummaryResponse(BaseModel):
     """Health summary generation response."""
     patient_id: int
-    health_summary: str
-    health_summary_updated_at: str
-    status: str = "success"
+    health_summary: Optional[str] = None
+    health_summary_updated_at: Optional[str] = None
+    status: str = "pending"  # 'pending' | 'generating' | 'completed' | 'error'
+    task_id: Optional[str] = None  # Celery task ID for async tracking
+
 
 class ToolCreate(BaseModel):
     """Create tool request."""
@@ -152,6 +157,7 @@ class SubAgentResponse(BaseModel):
     parent_template_id: Optional[int]
     created_at: str
     updated_at: str
+    tools: Optional[List[str]] = None  # Tool symbols for core agents
 
 class SubAgentCreate(BaseModel):
     """Create sub-agent request."""

@@ -70,6 +70,7 @@ class GraphBuilder:
                 The specialist's final report.
             """
             logger.info(f"[DELEGATION] Delegating to {specialist_name} with query: {query}")
+            print(f"\n[Main Agent] Delegating to {specialist_name} with query:\n{query}\n")
 
             # Map human-readable names to role IDs
             # This allows LLM to use natural names like "internist" instead of "clinical_text"
@@ -112,6 +113,7 @@ class GraphBuilder:
                 # The response is a list of messages. We want the content of the last one (the report).
                 if responses:
                     final_response = responses[-1]
+                    print(f"\n[Main Agent] Received response from {specialist_name}:\n{final_response.content[:500]}...\n")
                     return final_response.content
                 return "Specialist did not return a response."
 

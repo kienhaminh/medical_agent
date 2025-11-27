@@ -14,6 +14,7 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 
 from ..tools.registry import ToolRegistry
 from ..tools.executor import ToolExecutor
+from ..tools.base import ToolResult
 from ..prompt.templates import (
     format_specialist_report,
     format_specialist_error,
@@ -36,7 +37,7 @@ class SpecialistHandler:
         llm,
         tool_registry: ToolRegistry,
         max_concurrent_subagents: int = 5,
-        subagent_timeout: float = 30.0,
+        subagent_timeout: float = 120.0,
     ):
         """Initialize specialist handler.
         
@@ -330,13 +331,25 @@ class SpecialistHandler:
                             {"message": f"Running {tool_call['name']}", "level": "info"}
                         )
                         
-                        tool_result = tool_executor.execute(
-                            tool_call["name"], 
-                            tool_call["args"]
-                        )
+                        # Check tool type to decide execution strategy
+                        tool_type = self.tool_registry.get_tool_type(tool_call["name"])
+                        
+                        if tool_type == "api":
+                            # Run API calls in thread to avoid blocking event loop
+                            tool_result = await asyncio.to_thread(
+                                tool_executor.execute,
+                                tool_call["name"], 
+                                tool_call["args"]
+                            )
+                        else:
+                            # Run local functions directly
+                            tool_result = tool_executor.execute(
+                                tool_call["name"], 
+                                tool_call["args"]
+                            )
                         
                         # Check for patient info in tool result
-                        if tool_call["name"] == "query_patient_info" and tool_result.success:
+                        if tool_call["name"] == "query_patient_basic_info" and tool_result.success:
                             # Parse: "Patient Found: {name} (ID: {id})"
                             import re
                             match = re.search(r"Patient Found: (.+?) \(ID: (\d+)\)", str(tool_result.data))
@@ -407,6 +420,9 @@ class SpecialistHandler:
                     content=format_specialist_report(agent_info['name'], formatted_content)
                 )
                 
+                # Print response for debugging
+                print(f"\n\n=== SUB-AGENT RESPONSE ({specialist_role}) ===\n{tagged_response.content}\n============================================\n")
+
                 # Attach patient profile if found
                 if found_patient_profile:
                     tagged_response.additional_kwargs["patient_profile"] = found_patient_profile
@@ -419,9 +435,11 @@ class SpecialistHandler:
                     {"message": f"Error in {specialist_role}: {str(e)}", "level": "error"}
                 )
                 # Return error as SystemMessage to include in final response
-                return SystemMessage(
+                error_response = SystemMessage(
                     content=format_specialist_error(agent_info.get('name', specialist_role), str(e))
                 )
+                print(f"\n\n=== SUB-AGENT ERROR ({specialist_role}) ===\n{error_response.content}\n=========================================\n")
+                return error_response
         
         # FAN-OUT: Launch all specialist consultations concurrently
         # Use semaphore to limit concurrent executions

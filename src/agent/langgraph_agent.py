@@ -133,7 +133,9 @@ class LangGraphAgent:
         self,
         user_message: str,
         stream: bool = False,
-        chat_history: list = None
+        chat_history: list = None,
+        patient_id: int = None,
+        patient_name: str = None
     ) -> Union[str, AsyncGenerator[dict, None]]:
         """Process user message through unified agent.
 
@@ -141,11 +143,13 @@ class LangGraphAgent:
             user_message: User's input message
             stream: Whether to stream the response
             chat_history: Optional list of previous messages with 'role' and 'content' keys
+            patient_id: Optional patient ID for context
+            patient_name: Optional patient name for context
 
         Returns:
             Response string (non-streaming) or generator (streaming)
         """
-        logger.info("Processing user message: %s", user_message)
+        logger.info("Processing user message: %s (patient_id=%s)", user_message, patient_id)
 
         # Load sub-agents from database
         sub_agents = await self.agent_loader.load_enabled_agents()
@@ -197,17 +201,27 @@ class LangGraphAgent:
         # Add user message
         messages.append(HumanMessage(content=user_message))
 
+        # Build patient profile if provided
+        patient_profile = {}
+        if patient_id and patient_name:
+            patient_profile = {
+                "id": patient_id,
+                "name": patient_name
+            }
+            logger.info("Patient profile added: %s", patient_profile)
+
         initial_state = {
             "messages": messages,
-            "patient_profile": {},
+            "patient_profile": patient_profile,
             "steps_taken": 0,
             "final_report": None,
             "next_agents": []
         }
         logger.debug(
-            "Initial state prepared (history=%d, memories=%d)",
+            "Initial state prepared (history=%d, memories=%d, patient=%s)",
             len(messages),
             len(memories),
+            patient_id or "None",
         )
         
         config = self.config.get_config()

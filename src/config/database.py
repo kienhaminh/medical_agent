@@ -5,6 +5,10 @@ from sqlalchemy import String, Text, DateTime, ForeignKey, Boolean, func, Unique
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Database URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -44,6 +48,9 @@ class Patient(Base):
     # AI-generated health summary
     health_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     health_summary_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    health_summary_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # 'pending' | 'generating' | 'completed' | 'error'
+    health_summary_task_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # Celery task ID
+    embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True) # For semantic search
     
     records: Mapped[List["MedicalRecord"]] = relationship(back_populates="patient", cascade="all, delete-orphan")
     imaging: Mapped[List["Imaging"]] = relationship(back_populates="patient", cascade="all, delete-orphan")

@@ -620,30 +620,32 @@ export function ToolsTab() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-base">{tool.name}</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex flex-col gap-2 mt-0.5">
                       <Badge variant="secondary" className="text-xs font-mono">
                         {tool.symbol}
                       </Badge>
-                      <Badge
-                        variant="secondary"
-                        className={`text-xs ${
-                          tool.tool_type === "function"
-                            ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
-                            : "bg-purple-500/10 text-purple-500 border-purple-500/30"
-                        }`}
-                      >
-                        {tool.tool_type === "function" ? "Function" : "API"}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`text-xs ${
-                          tool.enabled
-                            ? "border-green-500/50 text-green-600 dark:text-green-400 bg-green-500/10"
-                            : "border-yellow-500/50 text-yellow-600 dark:text-yellow-400 bg-yellow-500/10"
-                        }`}
-                      >
-                        {tool.enabled ? "Enabled" : "Disabled"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${
+                            tool.tool_type === "function"
+                              ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
+                              : "bg-purple-500/10 text-purple-500 border-purple-500/30"
+                          }`}
+                        >
+                          {tool.tool_type === "function" ? "Function" : "API"}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            tool.enabled
+                              ? "border-green-500/50 text-green-600 dark:text-green-400 bg-green-500/10"
+                              : "border-yellow-500/50 text-yellow-600 dark:text-yellow-400 bg-yellow-500/10"
+                          }`}
+                        >
+                          {tool.enabled ? "Enabled" : "Disabled"}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -92,22 +92,12 @@ export interface PatientDetail extends Patient {
   family_history?: string;
   health_summary?: string; // AI-generated overview
   health_summary_updated_at?: string; // Last generation timestamp
+  health_summary_status?: "pending" | "generating" | "completed" | "error";
+  health_summary_task_id?: string;
   records?: MedicalRecord[];
   imaging?: Imaging[];
   image_groups?: ImageGroup[];
   visits?: PatientVisit[];
-}
-
-export interface HealthSummaryResponse {
-  patient_id: number;
-  health_summary: string;
-  health_summary_updated_at: string;
-  status: "success" | "error";
-}
-
-export interface UploadResponse {
-  success: boolean;
-  record: MedicalRecord;
 }
 
 export async function getPatients(): Promise<Patient[]> {
@@ -330,9 +320,22 @@ export async function deleteImagingRecord(
   if (!res.ok) throw new Error("Failed to delete imaging record");
 }
 
+export interface HealthSummaryResponse {
+  patient_id: number;
+  health_summary?: string;
+  health_summary_updated_at?: string;
+  status: "pending" | "generating" | "completed" | "error";
+  task_id?: string;
+}
+
+export interface UploadResponse {
+  success: boolean;
+  record: MedicalRecord;
+}
+
 /**
- * Regenerate AI health summary for a patient.
- * Synthesizes all patient data into a comprehensive health overview.
+ * Regenerate AI health summary for a patient (Background Task).
+ * Returns immediately with task_id. UI should stream updates.
  */
 export async function regenerateHealthSummary(
   patientId: number
@@ -349,6 +352,67 @@ export async function regenerateHealthSummary(
     throw new Error(error.detail || "Failed to generate health summary");
   }
   return res.json();
+}
+
+/**
+ * Stream health summary generation updates via Server-Sent Events.
+ */
+export function streamHealthSummaryUpdates(
+  patientId: number,
+  onChunk: (content: string) => void,
+  onStatus: (status: string) => void,
+  onError: (error: Error) => void,
+  onComplete: () => void
+): () => void {
+  const eventSource = new EventSource(
+    `${API_BASE_URL}/patients/${patientId}/summary-stream`
+  );
+
+  let accumulatedContent = "";
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "done") {
+        eventSource.close();
+        onComplete();
+        return;
+      }
+
+      if (data.error) {
+        eventSource.close();
+        onError(new Error(data.error));
+        return;
+      }
+
+      if (data.type === "status") {
+        onStatus(data.status);
+        if (data.summary) {
+          accumulatedContent = data.summary;
+          onChunk(data.summary);
+        }
+      } else if (data.type === "chunk") {
+        accumulatedContent += data.content;
+        onChunk(data.content);
+      } else if (data.type === "error") {
+        eventSource.close();
+        onError(new Error(data.message));
+      }
+    } catch (err) {
+      console.error("Error parsing SSE data:", err);
+    }
+  };
+
+  eventSource.onerror = (err) => {
+    eventSource.close();
+    onError(new Error("Stream connection error"));
+  };
+
+  // Return cleanup function
+  return () => {
+    eventSource.close();
+  };
 }
 
 // --- Agent API ---

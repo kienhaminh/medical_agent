@@ -8,6 +8,7 @@ from typing import AsyncGenerator, Optional
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from ..utils.enums import MessageRole
+from .patient_detector import PatientDetector
 
 logger = logging.getLogger(__name__)
 
@@ -101,14 +102,24 @@ class ResponseGenerator:
         logger.info("Streaming response via LangGraph")
         final_content = []
 
-        # Track patient profile and references at function scope
+        # Track patient profile and detector
         patient_profile = None
-        patient_refs_emitted = set()
+        patient_detector = PatientDetector()
+        all_detected_refs = []
 
         # Check for patient profile in initial state
         if "patient_profile" in initial_state and initial_state["patient_profile"]:
             patient_profile = initial_state["patient_profile"]
             logger.info("✅ Patient profile found in initial state: %s", patient_profile)
+
+            # Cache the context patient for faster detection
+            if "id" in patient_profile and "name" in patient_profile:
+                from ..config.database import Patient
+                patient_obj = Patient(
+                    id=patient_profile["id"],
+                    name=patient_profile["name"]
+                )
+                patient_detector._patient_cache[patient_obj.id] = patient_obj
 
         # Stream through the graph events
         async for event in self.graph.astream_events(initial_state, config=config, version="v2"):
@@ -162,28 +173,43 @@ class ResponseGenerator:
                                 "content": content
                             }
 
-                            # Check for patient name in content to generate references
-                            if patient_profile and "name" in patient_profile:
-                                p_name = patient_profile["name"]
-                                # Simple check: if name is in the total accumulated text
+                            # Detect patient references in accumulated text
+                            # Only check periodically to avoid performance issues
+                            if len(final_content) % 50 == 0 or len(content) > 100:
                                 current_full_text = "".join(final_content)
-                                if p_name in current_full_text and p_name not in patient_refs_emitted:
-                                    # Calculate indices
-                                    start_idx = current_full_text.find(p_name)
-                                    end_idx = start_idx + len(p_name)
+                                logger.info(f"🔍 Running patient detection (chunks={len(final_content)}, text_len={len(current_full_text)}, has_patient={patient_profile is not None})")
 
-                                    # Emit reference event
-                                    logger.info("✅ Emitting patient reference for '%s' at indices %d-%d", p_name, start_idx, end_idx)
+                                # Use enhanced patient detector
+                                context_patient_id = patient_profile.get("id") if patient_profile else None
+                                detected_refs = patient_detector.detect_in_text_sync(
+                                    text=current_full_text,
+                                    patient_id=context_patient_id,
+                                    patient_name=patient_profile.get("name") if patient_profile else None
+                                )
+                                logger.info(f"🔍 Detection result: {len(detected_refs)} references found")
+
+                                # Only emit new references (not already emitted)
+                                new_refs = []
+                                for ref in detected_refs:
+                                    # Check if this reference is new
+                                    is_new = True
+                                    for existing in all_detected_refs:
+                                        if (existing.patient_id == ref.patient_id and
+                                            existing.start_index == ref.start_index):
+                                            is_new = False
+                                            break
+
+                                    if is_new:
+                                        new_refs.append(ref)
+                                        all_detected_refs.append(ref)
+
+                                # Emit new references
+                                if new_refs:
+                                    logger.info(f"✅ Emitting {len(new_refs)} new patient reference(s)")
                                     yield {
                                         "type": "patient_references",
-                                        "patient_references": [{
-                                            "patient_id": patient_profile["id"],
-                                            "patient_name": p_name,
-                                            "start_index": start_idx,
-                                            "end_index": end_idx
-                                        }]
+                                        "patient_references": [ref.to_dict() for ref in new_refs]
                                     }
-                                    patient_refs_emitted.add(p_name)
             
             # Handle tool calls
             elif event_type == "on_tool_start":
@@ -212,16 +238,16 @@ class ResponseGenerator:
 
             # Handle token usage from model end events
             elif event_type == "on_chat_model_end":
-                logger.info("✅ on_chat_model_end event detected!")
+                # logger.info("✅ on_chat_model_end event detected!")
                 output = event.get("data", {}).get("output")
-                logger.info(f"Output type: {type(output)}")
-                logger.info(f"Output hasattr response_metadata: {hasattr(output, 'response_metadata') if output else False}")
+                # logger.info(f"Output type: {type(output)}")
+                # logger.info(f"Output hasattr response_metadata: {hasattr(output, 'response_metadata') if output else False}")
 
                 if output:
                     # Try to get usage from response_metadata (standard in LangChain)
                     usage = None
                     if hasattr(output, "response_metadata"):
-                        logger.info(f"response_metadata: {output.response_metadata}")
+                        # logger.info(f"response_metadata: {output.response_metadata}")
                         usage = output.response_metadata.get("token_usage") or output.response_metadata.get("usage")
 
                     # If not found, check if it's a dict (sometimes happens in raw outputs)
@@ -236,6 +262,42 @@ class ResponseGenerator:
                         }
                     else:
                         logger.warning("⚠️ No usage found in on_chat_model_end event")
+
+        # Final comprehensive patient detection after streaming completes
+        if final_content and patient_profile:
+            full_text = "".join(final_content)
+            context_patient_id = patient_profile.get("id") if patient_profile else None
+            logger.info(f"🎯 Final patient detection (text_len={len(full_text)}, patient_id={context_patient_id})")
+
+            # Do final comprehensive detection
+            final_refs = patient_detector.detect_in_text_sync(
+                text=full_text,
+                patient_id=context_patient_id,
+                patient_name=patient_profile.get("name") if patient_profile else None
+            )
+            logger.info(f"🎯 Final detection found {len(final_refs)} total references")
+
+            # Find any new references that weren't caught during streaming
+            new_final_refs = []
+            for ref in final_refs:
+                is_new = True
+                for existing in all_detected_refs:
+                    if (existing.patient_id == ref.patient_id and
+                        existing.start_index == ref.start_index):
+                        is_new = False
+                        break
+
+                if is_new:
+                    new_final_refs.append(ref)
+                    all_detected_refs.append(ref)
+
+            # Emit any remaining new references
+            if new_final_refs:
+                logger.info(f"✅ Emitting {len(new_final_refs)} final patient reference(s)")
+                yield {
+                    "type": "patient_references",
+                    "patient_references": [ref.to_dict() for ref in new_final_refs]
+                }
 
         # Store in memory after streaming completes
         if self.memory_manager and final_content:

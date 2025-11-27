@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { User, Calendar, ChevronLeft, Upload, Sparkles } from "lucide-react";
+import { User, Calendar, ChevronLeft, Sparkles } from "lucide-react";
 import type { PatientWithDetails } from "@/lib/mock-data";
 
 interface PatientHeaderProps {
@@ -12,7 +12,6 @@ interface PatientHeaderProps {
   sessionId: string | null;
   aiOpen: boolean;
   setAiOpen: (open: boolean) => void;
-  setUploadOpen: (open: boolean) => void;
 }
 
 export function PatientHeader({
@@ -20,7 +19,6 @@ export function PatientHeader({
   sessionId,
   aiOpen,
   setAiOpen,
-  setUploadOpen,
 }: PatientHeaderProps) {
   const router = useRouter();
 
@@ -81,14 +79,6 @@ export function PatientHeader({
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setUploadOpen(true)}
-              className="secondary-button"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload
-            </Button>
             <Button
               onClick={() => setAiOpen(!aiOpen)}
               className={aiOpen ? "secondary-button" : "primary-button"}

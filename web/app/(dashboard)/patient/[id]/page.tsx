@@ -4,8 +4,10 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   getPatient,
+  getPatientDetail,
   getSessionMessages,
   regenerateHealthSummary,
+  streamHealthSummaryUpdates,
   deleteImagingRecord,
   type MedicalRecord,
   type Imaging,
@@ -322,7 +324,7 @@ export default function PatientDetailPage() {
                   )
                 );
               }
-
+              console.log("patient_references", parsed.patient_references);
               if (parsed.patient_references) {
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -403,20 +405,129 @@ export default function PatientDetailPage() {
     });
   };
 
+  // Reusable streaming function
+  const startHealthSummaryStream = (
+    patientId: number,
+    initialContent: string = ""
+  ) => {
+    // Note: We don't check isRegenerating here because this function sets it,
+    // and we might call it when isRegenerating is false (initial load)
+
+    setIsRegenerating(true);
+    let summaryContent = initialContent;
+
+    const cleanupStream = streamHealthSummaryUpdates(
+      patientId,
+      // onChunk
+      (content) => {
+        summaryContent += content;
+        setPatient((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            health_summary: summaryContent,
+            health_summary_status: "generating",
+          };
+        });
+      },
+      // onStatus
+      (status) => {
+        setPatient((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            health_summary_status: status as
+              | "pending"
+              | "generating"
+              | "completed"
+              | "error",
+          };
+        });
+      },
+      // onError
+      (error) => {
+        console.error("Failed to stream health summary:", error);
+        setIsRegenerating(false);
+        setPatient((prev) => {
+          if (!prev) return prev;
+          return { ...prev, health_summary_status: "error" };
+        });
+      },
+      // onComplete
+      () => {
+        getPatientDetail(patientId)
+          .then((updatedPatient) => {
+            setPatient((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                health_summary: updatedPatient.health_summary,
+                health_summary_updated_at:
+                  updatedPatient.health_summary_updated_at,
+                health_summary_status: "completed",
+              };
+            });
+          })
+          .finally(() => {
+            setIsRegenerating(false);
+          });
+      }
+    );
+
+    return cleanupStream;
+  };
+
+  const streamCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (streamCleanupRef.current) {
+        streamCleanupRef.current();
+      }
+    };
+  }, []);
+
+  // Auto-resume streaming if status is generating/pending on load
+  useEffect(() => {
+    if (
+      patient &&
+      (patient.health_summary_status === "generating" ||
+        patient.health_summary_status === "pending") &&
+      !isRegenerating
+    ) {
+      if (streamCleanupRef.current) streamCleanupRef.current();
+      streamCleanupRef.current = startHealthSummaryStream(
+        patient.id,
+        patient.health_summary || ""
+      );
+    }
+  }, [patient?.id, patient?.health_summary_status]);
+
   const handleRegenerateHealthSummary = async () => {
     if (!patient || isRegenerating) return;
 
-    setIsRegenerating(true);
     try {
+      setIsRegenerating(true);
+      setPatient((prev) => (prev ? { ...prev, health_summary: "" } : null));
+
       const response = await regenerateHealthSummary(patient.id);
-      setPatient({
-        ...patient,
-        health_summary: response.health_summary,
-        health_summary_updated_at: response.health_summary_updated_at,
-      });
+
+      // Update patient with new status/task_id
+      setPatient((prev) =>
+        prev
+          ? {
+              ...prev,
+              health_summary_status: response.status,
+              health_summary_task_id: response.task_id,
+            }
+          : null
+      );
+
+      // Start streaming
+      if (streamCleanupRef.current) streamCleanupRef.current();
+      streamCleanupRef.current = startHealthSummaryStream(patient.id, "");
     } catch (error) {
-      console.error("Failed to regenerate health summary:", error);
-    } finally {
+      console.error("Failed to regenerate:", error);
       setIsRegenerating(false);
     }
   };
@@ -459,14 +570,14 @@ export default function PatientDetailPage() {
     groupName: string;
     images: Imaging[];
   }) => {
-    if (!images.length) return;
+    if (!images.length || !patient) return;
     setAiOpen(true);
     const summaryList = images
       .slice(0, 5)
       .map((img) => `${img.title} (${img.image_type})`)
       .join(", ");
     const moreIndicator = images.length > 5 ? "..." : "";
-    const message = `Analyze the imaging group "${groupName}" containing ${images.length} images: ${summaryList}${moreIndicator}`;
+    const message = `Patient: ${patient.name} (ID: ${patient.id})\n\nAnalyze the imaging group "${groupName}" containing ${images.length} images: ${summaryList}${moreIndicator}`;
     sendMessage(message);
   };
 
@@ -494,7 +605,6 @@ export default function PatientDetailPage() {
           sessionId={sessionId}
           aiOpen={aiOpen}
           setAiOpen={setAiOpen}
-          setUploadOpen={setUploadOpen}
         />
 
         {/* Tabs Content */}
@@ -539,12 +649,14 @@ export default function PatientDetailPage() {
               {/* Imaging Tab */}
               <TabsContent value="imaging" className="mt-0">
                 <PatientImagingTab
+                  patientId={patient.id}
                   imageRecords={imageRecords}
                   imageGroups={patient.image_groups}
                   setUploadOpen={setUploadOpen}
                   setUploadDefaultGroupId={setUploadDefaultGroupId}
                   setViewerRecord={setViewerRecord}
                   onAnalyzeGroup={handleAnalyzeGroup}
+                  onGroupCreated={handleImageGroupCreated}
                 />
               </TabsContent>
 

@@ -14,9 +14,21 @@ import {
   Sparkles,
 } from "lucide-react";
 import { FilterableList } from "@/components/medical/filterable-list";
-import type { Imaging, ImageGroup } from "@/lib/api";
+import { createImageGroup, type Imaging, type ImageGroup } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 interface PatientImagingTabProps {
+  patientId: number;
   imageRecords: Imaging[];
   imageGroups?: ImageGroup[];
   setUploadOpen: (open: boolean) => void;
@@ -27,45 +39,58 @@ interface PatientImagingTabProps {
     groupName: string;
     images: Imaging[];
   }) => void;
+  onGroupCreated?: (group: ImageGroup) => void;
 }
 
 export function PatientImagingTab({
+  patientId,
   imageRecords,
   imageGroups = [],
   setUploadOpen,
   setUploadDefaultGroupId,
   setViewerRecord,
   onAnalyzeGroup,
+  onGroupCreated,
 }: PatientImagingTabProps) {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+
+    setIsCreatingGroup(true);
+    try {
+      const newGroup = await createImageGroup(patientId, newGroupName);
+      if (onGroupCreated) {
+        onGroupCreated(newGroup);
+      }
+      setCreateGroupOpen(false);
+      setNewGroupName("");
+    } catch (error) {
+      console.error("Failed to create image group:", error);
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
 
   // Group images
   const groupedImages = imageRecords.reduce((acc, record) => {
-    const groupId = record.group_id || "ungrouped";
-    if (!acc[groupId]) acc[groupId] = [];
-    acc[groupId].push(record);
+    if (record.group_id) {
+      const groupId = record.group_id;
+      if (!acc[groupId]) acc[groupId] = [];
+      acc[groupId].push(record);
+    }
     return acc;
   }, {} as Record<string | number, Imaging[]>);
-
-  const ungroupedImages = groupedImages["ungrouped"] || [];
-
-  const handleAddImageToGroup = (e: React.MouseEvent, groupId: string) => {
-    e.stopPropagation();
-    if (setUploadDefaultGroupId) {
-      setUploadDefaultGroupId(groupId);
-      setUploadOpen(true);
-    }
-  };
 
   // If a group is active, show its images
   if (activeGroupId) {
     const activeGroup = imageGroups.find(
       (g) => g.id.toString() === activeGroupId
     );
-    const groupName =
-      activeGroupId === "ungrouped"
-        ? "Ungrouped Images"
-        : activeGroup?.name || "Unknown Group";
+    const groupName = activeGroup?.name || "Unknown Group";
     const groupImages = groupedImages[activeGroupId] || [];
 
     return (
@@ -102,7 +127,7 @@ export function PatientImagingTab({
             )}
             <Button
               onClick={() => {
-                if (activeGroupId !== "ungrouped" && setUploadDefaultGroupId) {
+                if (setUploadDefaultGroupId) {
                   setUploadDefaultGroupId(activeGroupId);
                 }
                 setUploadOpen(true);
@@ -125,11 +150,56 @@ export function PatientImagingTab({
     <div className="space-y-8">
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-display text-xl font-semibold">Medical Imaging</h2>
-        <Button onClick={() => setUploadOpen(true)} className="primary-button">
-          <ImageIcon className="w-4 h-4 mr-2" />
-          Upload Image
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setCreateGroupOpen(true)} variant="outline">
+            <Folder className="w-4 h-4 mr-2" />
+            Create Group
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={createGroupOpen} onOpenChange={setCreateGroupOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Image Group</DialogTitle>
+            <DialogDescription>
+              Create a new group to organize medical images.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Group Name</Label>
+              <Input
+                id="name"
+                placeholder="e.g., Brain MRI Series"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateGroup();
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateGroupOpen(false)}
+              disabled={isCreatingGroup}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateGroup}
+              disabled={isCreatingGroup || !newGroupName.trim()}
+            >
+              {isCreatingGroup && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Create Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Render Groups */}
@@ -145,14 +215,15 @@ export function PatientImagingTab({
               : null;
 
           // Get unique image types in the group
-          const uniqueTypes = [...new Set(groupImages.map(img => img.image_type).filter(Boolean))];
+          const uniqueTypes = [
+            ...new Set(
+              groupImages.map((img) => img.image_type).filter(Boolean)
+            ),
+          ];
           const hasMultipleTypes = uniqueTypes.length > 1;
 
           return (
-            <div
-              key={group.id}
-              className="group"
-            >
+            <div key={group.id} className="group">
               <Card
                 className="cursor-pointer overflow-hidden border border-border/50 hover:border-cyan-500/60 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
                 onClick={() => setActiveGroupId(group.id.toString())}
@@ -176,19 +247,6 @@ export function PatientImagingTab({
                     </div>
                   )}
 
-                  {/* Top right action button */}
-                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-8 bg-background/90 backdrop-blur-sm hover:bg-background shadow-md"
-                      onClick={(e) => handleAddImageToGroup(e, group.id.toString())}
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-
                   {/* Bottom content overlay */}
                   <div className="absolute bottom-0 left-0 right-0 p-4">
                     <div className="space-y-2">
@@ -204,7 +262,8 @@ export function PatientImagingTab({
                             <ImageIcon className="w-3.5 h-3.5 text-white" />
                           </div>
                           <span className="text-white/95 text-sm font-medium drop-shadow-sm">
-                            {groupImages.length} {groupImages.length === 1 ? "image" : "images"}
+                            {groupImages.length}{" "}
+                            {groupImages.length === 1 ? "image" : "images"}
                           </span>
                         </div>
 
@@ -215,9 +274,11 @@ export function PatientImagingTab({
                                 key={type}
                                 variant="secondary"
                                 className={`text-xs px-1.5 py-0.5 bg-white/20 backdrop-blur-sm text-white border-0 font-medium ${
-                                  type === "mri" ? "medical-badge-mri" :
-                                  type === "xray" ? "medical-badge-xray" :
-                                                          "bg-white/20"
+                                  type === "mri"
+                                    ? "medical-badge-mri"
+                                    : type === "xray"
+                                    ? "medical-badge-xray"
+                                    : "bg-white/20"
                                 }`}
                               >
                                 {type?.toUpperCase()}
@@ -246,19 +307,25 @@ export function PatientImagingTab({
                       {new Date(group.created_at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
-                        year: new Date(group.created_at).getFullYear() !== new Date().getFullYear() ? "numeric" : undefined
+                        year:
+                          new Date(group.created_at).getFullYear() !==
+                          new Date().getFullYear()
+                            ? "numeric"
+                            : undefined,
                       })}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {/* Last updated indicator */}
-                    {latestImage && new Date(latestImage.created_at) > new Date(group.created_at) && (
-                      <div className="text-xs text-muted-foreground/70 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-cyan-400" />
-                        <span>Updated</span>
-                      </div>
-                    )}
+                    {latestImage &&
+                      new Date(latestImage.created_at) >
+                        new Date(group.created_at) && (
+                        <div className="text-xs text-muted-foreground/70 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-cyan-400" />
+                          <span>Updated</span>
+                        </div>
+                      )}
 
                     {/* Image count indicator */}
                     <div className="text-xs font-medium text-muted-foreground/70">
@@ -275,13 +342,19 @@ export function PatientImagingTab({
                     <div className="flex items-center gap-2 text-muted-foreground/70">
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                       <span className="truncate">
-                        {uniqueTypes.length === 1 ? uniqueTypes[0]?.toUpperCase() : `${uniqueTypes.length} types`}
+                        {uniqueTypes.length === 1
+                          ? uniqueTypes[0]?.toUpperCase()
+                          : `${uniqueTypes.length} types`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 justify-end text-muted-foreground/70">
                       <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
                       <span className="truncate">
-                        {latestImage ? `Recent: ${new Date(latestImage.created_at).toLocaleDateString()}` : "Empty"}
+                        {latestImage
+                          ? `Recent: ${new Date(
+                              latestImage.created_at
+                            ).toLocaleDateString()}`
+                          : "Empty"}
                       </span>
                     </div>
                   </div>
@@ -290,78 +363,28 @@ export function PatientImagingTab({
             </div>
           );
         })}
-
-        {/* Ungrouped Images Card */}
-        {ungroupedImages.length > 0 && (
-          <Card
-            className="group cursor-pointer overflow-hidden border-2 border-dashed border-border/60 hover:border-cyan-500/60 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
-            onClick={() => setActiveGroupId("ungrouped")}
-          >
-            <div className="aspect-video bg-gradient-to-br from-orange-500/5 via-amber-500/5 to-yellow-500/5 relative flex items-center justify-center overflow-hidden">
-              <div className="grid grid-cols-2 gap-1 p-4 w-full h-full opacity-80">
-                {ungroupedImages.slice(0, 4).map((img, i) => (
-                  <img
-                    key={i}
-                    src={img.preview_url}
-                    className="w-full h-full object-cover rounded-md shadow-sm"
-                    alt=""
-                  />
-                ))}
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-orange-500/80 via-orange-600/60 to-transparent opacity-90" />
-
-              {/* Top right action button */}
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-8 bg-background/90 backdrop-blur-sm hover:bg-background shadow-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setUploadOpen(true);
-                  }}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  Add
-                </Button>
-              </div>
-
-              {/* Center content */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="p-3 rounded-full bg-white/20 backdrop-blur-sm inline-flex mb-3">
-                    <Folder className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="font-display font-semibold text-white text-xl drop-shadow-sm">
-                    Ungrouped Images
-                  </h3>
-                  <p className="text-white/90 text-sm mt-1 drop-shadow-sm">
-                    {ungroupedImages.length} {ungroupedImages.length === 1 ? "image" : "images"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 flex items-center justify-between bg-card/50 group-hover:bg-card/80 transition-colors border-t border-dashed border-border/60">
-              <div className="text-xs text-muted-foreground/90 flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-                <span className="font-medium">
-                  Needs organization
-                </span>
-              </div>
-
-              <div className="text-xs font-medium text-muted-foreground/70">
-                Click to view all
-              </div>
-            </div>
-          </Card>
-        )}
       </div>
 
-      {imageRecords.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          No imaging records found
+      {imageGroups.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-lg">
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <div className="p-3 rounded-full bg-muted/50">
+              <Folder className="w-8 h-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-semibold">No Image Groups</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Create an image group to start organizing and uploading medical
+              images.
+            </p>
+            <Button
+              onClick={() => setCreateGroupOpen(true)}
+              variant="outline"
+              className="mt-4"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create First Group
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -441,11 +464,11 @@ function ImagingList({
             <h3 className="font-display font-semibold mb-2 group-hover:text-cyan-500 transition-colors">
               {record.title}
             </h3>
-            <div className="relative w-full h-32 mb-3 bg-muted rounded-md overflow-hidden">
+            <div className="relative w-full h-64 mb-3 bg-muted rounded-md overflow-hidden">
               <img
                 src={record.preview_url}
                 alt={record.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             </div>
             <div className="mt-3 text-xs text-muted-foreground">

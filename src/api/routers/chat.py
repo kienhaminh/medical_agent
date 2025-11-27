@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -13,12 +13,16 @@ import redis.asyncio as redis
 logger = logging.getLogger(__name__)
 
 from src.config.database import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal
+from src.config.settings import load_config
 from ..models import (
     ChatRequest, ChatResponse, ChatSessionResponse, ChatMessageResponse,
     ChatTaskResponse, TaskStatusResponse
 )
 from ..dependencies import get_or_create_agent, memory_manager
 from ...tasks.agent_tasks import process_agent_message
+
+# Load configuration
+config = load_config()
 
 router = APIRouter()
 
@@ -63,8 +67,9 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
         # Get user-specific agent
         user_agent = get_or_create_agent(request.user_id)
-        
-        # Inject patient context if provided
+
+        # Fetch patient info if provided
+        patient = None
         context_message = request.message
         if request.patient_id:
             # Fetch patient info
@@ -126,6 +131,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                         user_message=context_message.strip(),
                         stream=True,
                         chat_history=chat_history,
+                        patient_id=patient.id if patient else None,
+                        patient_name=patient.name if patient else None
                     )
 
                     # Stream each chunk as Server-Sent Events (async iteration)
@@ -146,7 +153,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                         tc["result"] = event.get("result")
                                 
                                 logs_buffer.append({
-                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
                                     "type": "tool_result",
                                     "content": event
                                 })
@@ -155,7 +162,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                 yield f"data: {json.dumps({'reasoning': event['content']})}\n\n"
                             elif event["type"] == "log":
                                 logs_buffer.append({
-                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
                                     "type": "log",
                                     "content": event['content']
                                 })
@@ -227,6 +234,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                 user_message=context_message.strip(),
                 stream=False,
                 chat_history=chat_history,
+                patient_id=patient.id if patient else None,
+                patient_name=patient.name if patient else None
             )
             
             # 3. Save Assistant Message
@@ -391,12 +400,17 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
         logger.info(f"Inside generate for message {message_id}")
         try:
             # Initialize Redis
-            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-            redis_client = redis.from_url(redis_url)
+            redis_client = redis.from_url(config.redis_url)
             pubsub = redis_client.pubsub()
 
+            # 1. Subscribe to Redis channel FIRST to avoid missing events
+            channel = f"chat:message:{message_id}"
+            logger.info(f"Subscribing to Redis channel: {channel}")
+            await pubsub.subscribe(channel)
+            logger.info(f"Subscribed to {channel}")
+
             logger.info(f"Checking DB for message {message_id}")
-            # 1. Check initial state from DB
+            # 2. Check initial state from DB
             from src.config.database import AsyncSessionLocal
             async with AsyncSessionLocal() as local_db:
                 result = await local_db.execute(
@@ -406,6 +420,7 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
 
                 if not message:
                     logger.error(f"Message {message_id} not found in DB")
+                    await pubsub.unsubscribe()
                     yield f"data: {json.dumps({'error': 'Message not found'})}\n\n"
                     return
                 
@@ -413,6 +428,7 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
 
                 # If already completed/error, send final state and exit
                 if message.status in ['completed', 'error', 'interrupted']:
+                    await pubsub.unsubscribe()
                     yield f"data: {json.dumps({
                         'type': 'status',
                         'status': message.status,
@@ -435,12 +451,6 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
                         'content': message.content
                     })}\n\n"
 
-            # 2. Subscribe to Redis channel
-            channel = f"chat:message:{message_id}"
-            logger.info(f"Subscribing to Redis channel: {channel}")
-            await pubsub.subscribe(channel)
-            logger.info(f"Subscribed to {channel}")
-            
             # Send a test event to verify stream is working
             test_event = json.dumps({'type': 'status', 'status': 'connected'})
             logger.info(f"Sending test event: {test_event}")
@@ -483,7 +493,7 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
             logger.info(f"Cleaning up stream for message {message_id}")
             try:
                 await pubsub.unsubscribe()
-                await redis_client.close()
+                await redis_client.aclose()
             except Exception as e:
                 logger.error(f"Error during cleanup: {e}")
 

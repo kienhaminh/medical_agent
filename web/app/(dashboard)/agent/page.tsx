@@ -125,6 +125,8 @@ function AgentChatPageContent() {
             : undefined,
         }));
 
+        console.log("convertedMessages", convertedMessages);
+
         setMessages(convertedMessages);
 
         // Check for any in-progress messages and resume polling
@@ -640,24 +642,6 @@ function AgentChatPageContent() {
                     <UserMessage content={message.content} />
                   ) : (
                     <div className="space-y-2">
-                      {/* Status indicator for background processing */}
-                      {(message.status === "streaming" ||
-                        message.status === "pending") && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
-                            <span>
-                              {message.status === "streaming"
-                                ? "Streaming response"
-                                : "Processing in background"}
-                            </span>
-                          </div>
-                          {message.content && (
-                            <span className="animate-pulse">▊</span>
-                          )}
-                        </div>
-                      )}
-
                       <AgentMessage
                         content={message.content}
                         reasoning={message.reasoning}

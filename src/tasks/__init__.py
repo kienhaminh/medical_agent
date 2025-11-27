@@ -1,15 +1,18 @@
 """Celery application for background task processing."""
-import os
 from celery import Celery
 from dotenv import load_dotenv
+from ..config.settings import load_config
 
 load_dotenv()
+
+# Load configuration
+config = load_config()
 
 # Initialize Celery app
 celery_app = Celery(
     "ai_agent",
-    broker=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+    broker=config.redis_url,
+    backend=config.redis_url,
 )
 
 # Load configuration

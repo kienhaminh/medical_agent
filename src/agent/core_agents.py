@@ -37,8 +37,14 @@ Guidelines:
 - **Wait for tool results before responding** - do not speculate about what data is being retrieved
 
 Remember: Comprehensive assessment requires integrating all available data.
-You have access to the 'query_patient_info' tool to retrieve patient data.
-ALWAYS use this tool when asked about specific patient details."""
+
+**Available Patient Data Tools:**
+1. 'query_patient_basic_info' - Get patient demographics (ID, name, DOB, gender)
+2. 'query_patient_medical_records' - Get medical history and records (requires patient ID)
+3. 'query_patient_imaging' - Get medical imaging records (requires patient ID)
+
+**Workflow:** First use query_patient_basic_info to find the patient, then use the patient ID
+to query specific records or imaging as needed."""
 
 # Add output format instructions
 INTERNIST_SYSTEM_PROMPT = INTERNIST_BASE_PROMPT + "\n" + (get_output_instructions_for_agent("clinical_text") or "")
@@ -51,7 +57,7 @@ INTERNIST_AGENT = {
     "color": "#f59e0b",
     "icon": "FileText",
     "is_template": False,
-    "tools": ["query_patient_info"]  # List of tool symbols
+    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging"]  # List of tool symbols
 }
 
 CORE_AGENTS = [INTERNIST_AGENT]

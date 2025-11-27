@@ -13,6 +13,8 @@ export interface PatientWithDetails extends Patient {
   family_history?: string;
   health_summary?: string;
   health_summary_updated_at?: string;
+  health_summary_status?: "pending" | "generating" | "completed" | "error";
+  health_summary_task_id?: string;
   records?: MedicalRecord[];
   imaging?: Imaging[];
   image_groups?: ImageGroup[];
