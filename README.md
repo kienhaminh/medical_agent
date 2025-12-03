@@ -80,7 +80,7 @@ python scripts/db/seed/seed_mock_data.py  # Optional: seed test data
 
 ```bash
 source .venv/bin/activate  # Activate virtual environment
-python -m src.api
+python -m src.api.server
 # Backend: http://localhost:8000
 ```
 

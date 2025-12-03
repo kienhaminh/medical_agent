@@ -368,8 +368,9 @@ export function PatientImagingTab({
       {imageGroups.length === 0 && (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-lg">
           <div className="flex flex-col items-center justify-center space-y-3">
-            <div className="p-3 rounded-full bg-muted/50">
-              <Folder className="w-8 h-8 text-muted-foreground/50" />
+            <div className="p-3 rounded-full bg-muted/50 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <Folder className="w-8 h-8 text-muted-foreground/50 group-hover:text-cyan-500 transition-colors duration-300" />
             </div>
             <h3 className="text-lg font-semibold">No Image Groups</h3>
             <p className="text-sm text-muted-foreground max-w-sm">

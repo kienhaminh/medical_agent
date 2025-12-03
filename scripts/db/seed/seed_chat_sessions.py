@@ -90,9 +90,18 @@ async def seed_chat_sessions():
 
         created_count = 0
         for session_data in sessions_data:
-            # Create session
-            messages_data = session_data.pop("messages")
-            session = ChatSession(**session_data)
+            messages_data = session_data["messages"]
+
+            # Skip if session already exists (idempotent)
+            existing = await db.execute(
+                select(ChatSession).where(ChatSession.title == session_data["title"])
+            )
+            if existing.scalar_one_or_none():
+                print(f"  ⚠ Session '{session_data['title']}' already exists, skipping")
+                continue
+
+            payload = {k: v for k, v in session_data.items() if k != "messages"}
+            session = ChatSession(**payload)
             db.add(session)
             await db.flush()  # Get the session ID
 

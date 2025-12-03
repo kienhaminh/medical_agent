@@ -227,13 +227,19 @@
   }
 
   .medical-gradient-bg {
-    background: linear-gradient(135deg,
+    background: linear-gradient(
+      135deg,
       rgba(10, 14, 39, 0.95) 0%,
-      rgba(0, 184, 169, 0.05) 100%);
+      rgba(0, 184, 169, 0.05) 100%
+    );
   }
 
   .dot-matrix-bg {
-    background-image: radial-gradient(circle, rgba(0, 217, 255, 0.1) 1px, transparent 1px);
+    background-image: radial-gradient(
+      circle,
+      rgba(0, 217, 255, 0.1) 1px,
+      transparent 1px
+    );
     background-size: 20px 20px;
   }
 
@@ -243,16 +249,18 @@
   }
 
   .scan-line::before {
-    content: '';
+    content: "";
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 2px;
-    background: linear-gradient(90deg,
+    background: linear-gradient(
+      90deg,
       transparent,
       rgba(0, 217, 255, 0.7),
-      transparent);
+      transparent
+    );
     animation: scan 3s linear infinite;
   }
 
@@ -283,6 +291,19 @@
 
   .medical-badge-text {
     @apply bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300;
+  }
+
+  .medical-badge-ct {
+    @apply bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300;
+  }
+
+  .medical-badge-ultrasound {
+    @apply bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300;
+  }
+
+  .medical-badge-other,
+  .medical-badge-default {
+    @apply bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300;
   }
 
   .record-card {

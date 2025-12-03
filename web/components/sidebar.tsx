@@ -235,14 +235,16 @@ export function Sidebar() {
       <div className="border-t border-border p-4">
         {isCollapsed ? (
           <div className="flex justify-center" title="All systems operational">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
           </div>
         ) : (
           <div className="text-xs text-muted-foreground space-y-1">
             <p className="font-medium">System Status</p>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span>All systems operational</span>
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              <span className="text-emerald-500 font-medium">
+                All systems operational
+              </span>
             </div>
           </div>
         )}

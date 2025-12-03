@@ -3,6 +3,7 @@ Seed script for multi-agent system.
 Creates default medical specialist agents and updates existing tools.
 """
 import asyncio
+import re
 from sqlalchemy import select, update
 from dotenv import load_dotenv
 
@@ -162,6 +163,7 @@ async def update_existing_tools(session):
     # Get all tools
     result = await session.execute(select(Tool))
     tools = result.scalars().all()
+    reserved_symbols = {tool.symbol for tool in tools if tool.symbol}
 
     if not tools:
         print("  No existing tools found\n")
@@ -169,12 +171,26 @@ async def update_existing_tools(session):
 
     # Update each tool
     for tool in tools:
-        # Default all tools to global scope
-        if not hasattr(tool, 'scope') or tool.scope is None:
+        updates = {}
+        if not tool.scope:
+            updates["scope"] = "global"
+        if not getattr(tool, "tool_type", None):
+            updates["tool_type"] = "function"
+        if not getattr(tool, "symbol", None):
+            base = re.sub(r"[^a-z0-9]+", "_", tool.name.lower()).strip("_") or "tool"
+            candidate = base
+            suffix = 1
+            while candidate in reserved_symbols:
+                candidate = f"{base}_{suffix}"
+                suffix += 1
+            reserved_symbols.add(candidate)
+            updates["symbol"] = candidate
+
+        if updates:
             await session.execute(
                 update(Tool)
-                .where(Tool.name == tool.name)
-                .values(scope="global", category="general")
+                .where(Tool.id == tool.id)
+                .values(**updates)
             )
 
     await session.commit()
@@ -190,10 +206,10 @@ async def create_sample_assignments(session):
     # NOTE: Tools can only be assigned to one agent at a time now.
     # We will prioritize assignment based on order here.
     assignments = {
-        "Radiologist": [],  
-        "Pathologist": ["get_current_datetime"],  
-        "Pharmacist": [], # Can't share get_current_datetime anymore
-        "Internist": ["get_location_coordinates"], 
+        "Radiologist": ["query_patient_imaging"],
+        "Pathologist": ["query_patient_medical_records"],
+        "Pharmacist": [],
+        "Internist": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging"],
     }
 
     # Get all agents
@@ -207,11 +223,9 @@ async def create_sample_assignments(session):
 
         agent = agents_by_name[agent_name]
 
-        for tool_name in tool_names:
+        for tool_symbol in tool_names:
             # Check if tool exists
-            result = await session.execute(
-                select(Tool).where(Tool.name == tool_name)
-            )
+            result = await session.execute(select(Tool).where(Tool.symbol == tool_symbol))
             tool = result.scalar_one_or_none()
 
             if not tool:
@@ -220,13 +234,13 @@ async def create_sample_assignments(session):
             # Check if assignment already exists or tool is assigned to another agent
             if tool.assigned_agent_id:
                 if tool.assigned_agent_id != agent.id:
-                     print(f"  ⚠ Tool '{tool_name}' already assigned to agent ID {tool.assigned_agent_id}, skipping assignment to {agent_name}")
+                     print(f"  ⚠ Tool '{tool_symbol}' already assigned to agent ID {tool.assigned_agent_id}, skipping assignment to {agent_name}")
                 continue
 
             # Create assignment
             tool.assigned_agent_id = agent.id
             assignment_count += 1
-            print(f"  ✓ Assigned '{tool_name}' to {agent_name}")
+            print(f"  ✓ Assigned '{tool_symbol}' to {agent_name}")
 
     await session.commit()
     print(f"✓ Created {assignment_count} sample assignments\n")
