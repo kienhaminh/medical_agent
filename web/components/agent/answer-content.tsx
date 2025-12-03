@@ -14,87 +14,56 @@ export function AnswerContent({
   patientReferences,
   sessionId,
 }: AnswerContentProps) {
-  // Create a map of patient names to their info for quick lookup
-  const patientMap = React.useMemo(() => {
-    console.log("AnswerContent - patientReferences:", patientReferences);
-    if (!patientReferences || patientReferences.length === 0) {
-      return new Map();
-    }
+  // Preprocess content to convert standalone image URLs to markdown images
+  const processedContent = React.useMemo(() => {
+    // Regular expression to match image URLs (not already in markdown syntax)
+    const imageUrlRegex =
+      /(?<!\]\()https?:\/\/[^\s<>"]+\.(?:jpg|jpeg|png|gif|webp|svg|bmp|ico)(?:\?[^\s<>"]*)?(?!\))/gi;
 
-    const map = new Map();
-    patientReferences.forEach(ref => {
-      console.log("Adding to patientMap:", ref.patient_name, "ID:", ref.patient_id);
-      map.set(ref.patient_name, {
-        patientId: ref.patient_id,
-        patientName: ref.patient_name
-      });
+    return content.replace(imageUrlRegex, (url) => {
+      // Check if URL is already part of markdown image syntax by looking at context
+      // This is a simple check - if preceded by ]( then it's already markdown
+      return `![Image](${url})`;
     });
-    console.log("PatientMap created with", map.size, "entries");
-    return map;
-  }, [patientReferences]);
+  }, [content]);
 
-  // Function to render text with patient links
+  // Function to render text with patient links using provided indices
   const renderTextWithPatientLinks = (text: string) => {
-    if (patientMap.size === 0) {
+    if (!patientReferences || patientReferences.length === 0) {
       return text;
     }
 
-    // Find all patient name matches with their positions
-    const matches: Array<{
-      start: number;
-      end: number;
-      patientId: number;
-      patientName: string;
-    }> = [];
+    console.log("AnswerContent - patientReferences:", patientReferences);
 
-    patientMap.forEach((patientInfo, patientName) => {
-      // Escape special regex characters in patient name
-      const escapedName = patientName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\b${escapedName}\\b`, 'g');
-      let match;
-
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + patientName.length,
-          patientId: patientInfo.patientId,
-          patientName: patientInfo.patientName,
-        });
-      }
-    });
-
-    // If no matches found, return original text
-    if (matches.length === 0) {
-      return text;
-    }
-
-    // Sort matches by start position
-    matches.sort((a, b) => a.start - b.start);
+    // Sort references by start_index to process them in order
+    const sortedReferences = [...patientReferences].sort(
+      (a, b) => a.start_index - b.start_index
+    );
 
     // Build the parts array with text and PatientLink components
     const parts: (string | React.ReactElement)[] = [];
     let lastIndex = 0;
 
-    matches.forEach((match, idx) => {
-      // Add text before this match
-      if (match.start > lastIndex) {
-        parts.push(text.substring(lastIndex, match.start));
+    sortedReferences.forEach((ref, idx) => {
+      // Add text before this patient reference
+      if (ref.start_index > lastIndex) {
+        parts.push(text.substring(lastIndex, ref.start_index));
       }
 
       // Add PatientLink component
       parts.push(
         <PatientLink
-          key={`patient-${match.patientId}-${idx}`}
-          patientId={match.patientId}
-          patientName={match.patientName}
+          key={`patient-${ref.patient_id}-${idx}`}
+          patientId={ref.patient_id}
+          patientName={ref.patient_name}
           sessionId={sessionId}
         />
       );
 
-      lastIndex = match.end;
+      lastIndex = ref.end_index;
     });
 
-    // Add any remaining text
+    // Add any remaining text after the last patient reference
     if (lastIndex < text.length) {
       parts.push(text.substring(lastIndex));
     }
@@ -137,6 +106,22 @@ export function AnswerContent({
             >
               {children}
             </a>
+          ),
+          img: ({ node, alt, src, ...props }: any) => (
+            <span className="block my-4">
+              <img
+                src={src}
+                alt={alt || "Image"}
+                className="max-w-full h-auto rounded-lg border border-cyan-500/20 shadow-lg"
+                loading="lazy"
+                {...props}
+              />
+              {alt && alt !== "Image" && (
+                <span className="block text-xs text-muted-foreground mt-2 italic text-center">
+                  {alt}
+                </span>
+              )}
+            </span>
           ),
           // Custom text renderer to handle patient links
           p: ({ children, ...props }: any) => {
@@ -189,7 +174,7 @@ export function AnswerContent({
           },
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
       {isLoading && isLatest && (
         <span className="inline-block w-2 h-4 ml-1 bg-cyan-500 animate-pulse" />

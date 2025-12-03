@@ -84,12 +84,12 @@ async def load_custom_tools():
                         try:
                             scope = tool_record.scope or "global"  # Default to global if not set
                             symbol = tool_record.symbol  # Use the unique symbol from database
-                            registry.register(tool_func, scope=scope, symbol=symbol)
+                            # Allow overwriting to ensure updates are picked up
+                            registry.register(tool_func, scope=scope, symbol=symbol, allow_overwrite=True)
                             logger.info(f"Loaded custom tool: {tool_record.name} (symbol: {symbol}, scope: {scope})")
-                        except ValueError:
-                            # If already registered, maybe we want to update it?
-                            # For now, just log warning
-                            logger.warning(f"Tool {tool_record.name} (symbol: {tool_record.symbol}) already registered, skipping.")
+                        except ValueError as e:
+                            # Should not happen with allow_overwrite=True unless scope is invalid
+                            logger.warning(f"Failed to register tool {tool_record.name}: {e}")
                     else:
                         logger.warning(f"No callable found in code for tool: {tool_record.name}")
                         

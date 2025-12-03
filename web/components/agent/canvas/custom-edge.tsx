@@ -9,6 +9,12 @@ import {
 } from "@xyflow/react";
 import { X } from "lucide-react";
 
+interface CustomEdgeData extends Record<string, unknown> {
+  onDelete?: (id: string, agentId: number, toolId: number) => void;
+  agentId?: number;
+  toolId?: number;
+}
+
 export function CustomEdge({
   id,
   sourceX,
@@ -25,6 +31,8 @@ export function CustomEdge({
   const [showButton, setShowButton] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const edgeData = data as CustomEdgeData;
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -76,11 +84,11 @@ export function CustomEdge({
   const onEdgeClick = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation();
-      if (data?.onDelete && data?.agentId && data?.toolName) {
-        data.onDelete(id, data.agentId, data.toolName);
+      if (edgeData?.onDelete && edgeData?.agentId && edgeData?.toolId) {
+        edgeData.onDelete(id, edgeData.agentId, edgeData.toolId);
       }
     },
-    [id, data]
+    [id, edgeData]
   );
 
   return (
@@ -97,7 +105,7 @@ export function CustomEdge({
         className="react-flow__edge-interaction"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        style={{ cursor: 'pointer' }}
+        style={{ cursor: "pointer" }}
       />
 
       <EdgeLabelRenderer>

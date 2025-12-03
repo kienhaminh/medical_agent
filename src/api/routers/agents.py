@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
+from datetime import datetime
 
 from ...config.database import get_db, SubAgent, Tool
+from ...agent.core_agents import CORE_AGENTS
 from ..models import (
     SubAgentResponse, SubAgentCreate, SubAgentUpdate, ToggleRequest,
     ToolResponse, AssignToolRequest, AgentToolAssignmentResponse, BulkToolsRequest
@@ -12,13 +14,15 @@ router = APIRouter()
 
 @router.get("/api/agents", response_model=list[SubAgentResponse])
 async def list_agents(db: AsyncSession = Depends(get_db)):
-    """List all sub-agents."""
+    """List all sub-agents, including core agents."""
     result = await db.execute(
         select(SubAgent)
         .order_by(SubAgent.created_at.desc())
     )
     agents = result.scalars().all()
-    return [
+    
+    # Build response with database agents
+    agent_list = [
         SubAgentResponse(
             id=agent.id,
             name=agent.name,
@@ -31,9 +35,38 @@ async def list_agents(db: AsyncSession = Depends(get_db)):
             is_template=agent.is_template,
             parent_template_id=agent.parent_template_id,
             created_at=agent.created_at.isoformat(),
-            updated_at=agent.updated_at.isoformat()
+            updated_at=agent.updated_at.isoformat(),
+            tools=None  # Database agents don't have hardcoded tools
         ) for agent in agents
     ]
+    
+    # Add core agents with special negative IDs to distinguish from DB agents
+    # Use negative IDs starting from -1 to avoid conflicts
+    for idx, core_agent in enumerate(CORE_AGENTS):
+        # Check if a DB agent with the same role already exists
+        # If so, skip the core agent (DB agent takes precedence)
+        if any(agent.role == core_agent["role"] for agent in agents):
+            continue
+            
+        agent_list.append(
+            SubAgentResponse(
+                id=-(idx + 1),  # Negative IDs for core agents: -1, -2, etc.
+                name=core_agent["name"],
+                role=core_agent["role"],
+                description=core_agent["description"],
+                system_prompt=core_agent["system_prompt"],
+                enabled=True,  # Core agents are always enabled
+                color=core_agent["color"],
+                icon=core_agent["icon"],
+                is_template=core_agent.get("is_template", False),
+                parent_template_id=None,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+                tools=core_agent.get("tools", [])  # Include tool symbols for core agents
+            )
+        )
+    
+    return agent_list
 
 @router.post("/api/agents", response_model=SubAgentResponse)
 async def create_agent(agent_data: SubAgentCreate, db: AsyncSession = Depends(get_db)):
@@ -243,7 +276,48 @@ async def clone_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/api/agents/{agent_id}/tools", response_model=list[ToolResponse])
 async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
-    """Get all tools assigned to an agent."""
+    """Get all tools assigned to an agent (including core agents)."""
+    # Handle core agents (negative IDs)
+    if agent_id < 0:
+        # Find the core agent by matching the negative ID
+        # Core agents use negative IDs: -1, -2, etc. (mapped to CORE_AGENTS index)
+        core_agent_index = abs(agent_id) - 1
+        if core_agent_index >= len(CORE_AGENTS):
+            raise HTTPException(status_code=404, detail="Core agent not found")
+        
+        core_agent = CORE_AGENTS[core_agent_index]
+        tool_symbols = core_agent.get("tools", [])
+        
+        # Find tools in database by matching symbols
+        if not tool_symbols:
+            return []
+        
+        result = await db.execute(
+            select(Tool).where(Tool.symbol.in_(tool_symbols))
+        )
+        tools = result.scalars().all()
+        
+        return [
+            ToolResponse(
+                id=tool.id,
+                name=tool.name,
+                symbol=tool.symbol,
+                description=tool.description,
+                tool_type=tool.tool_type,
+                code=tool.code,
+                api_endpoint=tool.api_endpoint,
+                api_request_payload=tool.api_request_payload,
+                api_request_example=tool.api_request_example,
+                api_response_payload=tool.api_response_payload,
+                api_response_example=tool.api_response_example,
+                enabled=tool.enabled,
+                test_passed=tool.test_passed,
+                scope=tool.scope,
+                assigned_agent_id=agent_id  # Set to core agent ID for consistency
+            ) for tool in tools
+        ]
+    
+    # Handle regular database agents
     # Verify agent exists
     result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
     agent = result.scalar_one_or_none()
@@ -258,10 +332,19 @@ async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
 
     return [
         ToolResponse(
+            id=tool.id,
             name=tool.name,
             symbol=tool.symbol,
             description=tool.description,
             tool_type=tool.tool_type,
+            code=tool.code,
+            api_endpoint=tool.api_endpoint,
+            api_request_payload=tool.api_request_payload,
+            api_request_example=tool.api_request_example,
+            api_response_payload=tool.api_response_payload,
+            api_response_example=tool.api_response_example,
+            enabled=tool.enabled,
+            test_passed=tool.test_passed,
             scope=tool.scope,
             assigned_agent_id=tool.assigned_agent_id
         ) for tool in tools
@@ -295,10 +378,10 @@ async def assign_tool_to_agent(agent_id: int, request: AssignToolRequest, db: As
         tool_name=tool.name
     )
 
-@router.delete("/api/agents/{agent_id}/tools/{tool_name}")
-async def unassign_tool_from_agent(agent_id: int, tool_name: str, db: AsyncSession = Depends(get_db)):
+@router.delete("/api/agents/{agent_id}/tools/{tool_id}")
+async def unassign_tool_from_agent(agent_id: int, tool_id: int, db: AsyncSession = Depends(get_db)):
     """Remove a tool assignment from an agent."""
-    result = await db.execute(select(Tool).where(Tool.name == tool_name))
+    result = await db.execute(select(Tool).where(Tool.id == tool_id))
     tool = result.scalar_one_or_none()
     
     if not tool:
@@ -307,6 +390,7 @@ async def unassign_tool_from_agent(agent_id: int, tool_name: str, db: AsyncSessi
     if tool.assigned_agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Tool is not assigned to this agent")
 
+    tool_name = tool.name
     tool.assigned_agent_id = None
     await db.commit()
     return {"status": "ok", "message": f"Tool '{tool_name}' unassigned from agent"}
@@ -393,10 +477,19 @@ async def get_all_assignments(db: AsyncSession = Depends(get_db)):
                 updated_at=agent.updated_at.isoformat()
             ),
             "tool": ToolResponse(
+                id=tool.id,
                 name=tool.name,
                 symbol=tool.symbol,
                 description=tool.description,
                 tool_type=tool.tool_type,
+                code=tool.code,
+                api_endpoint=tool.api_endpoint,
+                api_request_payload=tool.api_request_payload,
+                api_request_example=tool.api_request_example,
+                api_response_payload=tool.api_response_payload,
+                api_response_example=tool.api_response_example,
+                enabled=tool.enabled,
+                test_passed=tool.test_passed,
                 scope=tool.scope,
                 assigned_agent_id=tool.assigned_agent_id
             ),

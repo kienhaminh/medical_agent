@@ -1,40 +1,46 @@
 # AI Agent
 
-A personal AI agent with web interface and CLI, powered by Kimi (Moonshot AI) with advanced reasoning capabilities.
+A personal AI agent with web interface and CLI, powered by OpenAI or Kimi (Moonshot AI) with advanced reasoning capabilities.
 
 ## Features
 
-- 🤖 **Advanced LLM** - Powered by Kimi K2 Thinking model with chain-of-thought reasoning
+- 🤖 **Advanced LLM** - Powered by OpenAI GPT-4o or Kimi K2 Thinking model with chain-of-thought reasoning
 - 💬 **Interactive Web Chat** - Modern Next.js interface with Shadcn/ui components
 - 🏥 **Medical Records Management** - PostgreSQL database with patient records and semantic search
-- 🧠 **Long-term Memory** - Mem0 + Neo4j for personalized, context-aware conversations
 - 🔧 **Dynamic Tool System** - Create and manage custom tools at runtime
 - 🎯 **LangGraph Agent** - Sophisticated multi-step reasoning and tool orchestration
 - 📊 **Vector Search** - pgvector integration for semantic similarity search
 - 💾 **Session Persistence** - Save and restore conversation history
-- 🎨 **Rich CLI Interface** - Beautiful terminal UI with colors and formatting
 - 🌐 **FastAPI Backend** - High-performance async REST API
 - 🔒 **Secure Configuration** - Environment-based API key management
-
-## Quick Start
 
 ### Prerequisites
 
 - Python 3.10 or higher
 - Node.js 18 or higher
-- Docker & Docker Compose (for PostgreSQL and Neo4j)
-- Kimi API key ([Get one here](https://platform.moonshot.cn/))
-- Optional: OpenAI API key (for memory embeddings)
+- Docker & Docker Compose (for PostgreSQL and Redis)
+- Kimi API key ([Get one here](https://platform.moonshot.ai/))
+- Optional: OpenAI API key (for memory embeddings, if using Kimi as main provider)
 
 ### Installation
 
-1. Clone the repository:
+1. **Clone the repository:**
+
 ```bash
 git clone <repository-url>
 cd ai-agent
 ```
 
-2. Set up Python backend:
+2. **Create `.env` file** with your API keys:
+
+```bash
+KIMI_API_KEY=your_kimi_api_key_here
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/medinexus
+REDIS_URL=redis://localhost:6379/0
+```
+
+3. **Set up Python backend:**
+
 ```bash
 # Create and activate virtual environment
 python -m venv .venv
@@ -45,13 +51,10 @@ poetry install
 
 # Or with pip
 pip install -e .
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env and add your KIMI_API_KEY
 ```
 
-3. Set up Next.js frontend:
+4. **Set up Next.js frontend:**
+
 ```bash
 cd web
 npm install
@@ -61,70 +64,52 @@ npm install
 
 #### Web Interface (Recommended):
 
-1. Start the databases (PostgreSQL + Neo4j):
+**Quick Start (3 terminals):**
+
+**Terminal 1 - Databases:**
+
 ```bash
-# From project root
 docker-compose up -d
-# PostgreSQL runs on localhost:5432
-# Neo4j runs on http://localhost:7474 (browser) and bolt://localhost:7687 (driver)
-```
-
-2. Initialize the database:
-```bash
 python scripts/db/init_db.py
+python scripts/db/seed/seed_mock_data.py  # Optional: seed test data
 ```
 
-3. Seed mock data (optional but recommended for testing):
+> **Guide Script:** `scripts/db/init_db.py` bootstraps the PostgreSQL schema (runs pgvector extension + tables) so brand-new databases are ready for migrations and seeding. Re-run it anytime you spin up a fresh database container.
+
+**Terminal 2 - Backend:**
+
 ```bash
-python scripts/db/seed/seed_mock_data.py
-# Or with custom options:
-python scripts/db/seed/seed_mock_data.py --patients 50 --clear
+source .venv/bin/activate  # Activate virtual environment
+python -m src.api.server
+# Backend: http://localhost:8000
 ```
 
-4. Start the Python backend:
-```bash
-python -m src.api
-# Backend runs on http://localhost:8000
-```
+**Terminal 3 - Frontend:**
 
-5. Start the Next.js frontend (in another terminal):
 ```bash
 cd web
 npm run dev
-# Frontend runs on http://localhost:3000
+# Frontend: http://localhost:3000
 ```
 
-6. Open http://localhost:3000 in your browser
-
-#### CLI Mode:
-
-```bash
-# Single message mode
-ai-agent chat "Hello, who are you?"
-
-# Interactive REPL mode
-ai-agent interactive
-
-# List sessions
-ai-agent sessions
-
-# Load previous session
-ai-agent load <session_id>
-```
+Open **http://localhost:3000** in your browser.
 
 ## Development
 
 ### Run tests:
+
 ```bash
 pytest
 ```
 
 ### Run with coverage:
+
 ```bash
 pytest --cov=src --cov-report=html
 ```
 
 ### Code formatting:
+
 ```bash
 # Format with Black
 black src/
@@ -132,6 +117,21 @@ black src/
 # Lint with Ruff
 ruff check src/
 ```
+
+### Background tasks (Celery worker + Flower)
+
+```bash
+# Start Celery worker (foreground)
+./start-celery-worker.sh
+
+# Run worker in background (optional)
+python3 -m celery -A src.tasks worker --loglevel=info --concurrency=2 --detach
+
+# Start Flower monitoring UI (optional, new terminal)
+python3 -m celery -A src.tasks flower --port=5555
+```
+
+Celery uses the same environment variables defined in `.env` (e.g., `DATABASE_URL`, `REDIS_URL`). The helper script assumes your virtual environment is active and runs from the project root.
 
 ## Project Structure
 
@@ -187,6 +187,7 @@ ai-agent/
 ## Configuration
 
 Configuration can be set via:
+
 1. Environment variables (`.env` for Python backend)
 2. YAML config files (`config/default.yaml`, `config/memory.yaml`)
 3. CLI flags
@@ -194,46 +195,20 @@ Configuration can be set via:
 ### Backend Environment Variables (.env):
 
 **LLM Configuration:**
-- `KIMI_API_KEY` - Your Kimi (Moonshot AI) API key (required)
-- `KIMI_MODEL` - Model name (default: kimi-k2-thinking)
-- `TEMPERATURE` - Sampling temperature (default: 0.3)
-- `SYSTEM_PROMPT` - Custom system prompt (optional)
+
+- `KIMI_API_KEY` - Your Kimi (Moonshot AI) API key (required if OPENAI_API_KEY not set, or use `MOONSHOT_API_KEY` as alternative)
 
 **Database Configuration:**
-- `DATABASE_URL` - PostgreSQL connection string (default: postgresql+asyncpg://postgres:postgres@localhost:5432/medinexus)
-- `NEO4J_URL` - Neo4j connection URL (default: neo4j://localhost:7687)
-- `NEO4J_USERNAME` - Neo4j username (default: neo4j)
-- `NEO4J_PASSWORD` - Neo4j password (default: password123)
 
-**Memory Configuration:**
-- `MEMORY_ENABLED` - Enable long-term memory (default: true)
-- `OPENAI_API_KEY` - OpenAI API key for embeddings (optional)
-- `EMBEDDING_MODEL` - Embedding model (default: text-embedding-3-small)
+- `DATABASE_URL` - PostgreSQL connection string (default: `postgresql+asyncpg://postgres:postgres@localhost:5432/medinexus`)
 
-**Feature Flags:**
-- `USE_LANGGRAPH` - Use LangGraph agent (default: false)
-- `LOG_LEVEL` - Logging level (default: INFO)
+**Redis Configuration:**
 
-See `.env.example` for all available options.
+- `REDIS_URL` - Redis connection URL for Celery tasks (default: `redis://localhost:6379/0`)
 
 ## Key Features
 
-### 1. Dynamic Tool Generation
-
-The agent can create new tools at runtime using the `create_new_tool` meta-tool:
-
-```python
-# Example: Ask the agent to create a tool
-"Create a tool that calculates the Fibonacci sequence"
-```
-
-The agent will:
-1. Generate Python code for the tool
-2. Store it in the database
-3. Register it for immediate use
-4. Use it to answer your questions
-
-### 2. Medical Records Management
+### 1. Medical Records Management
 
 Store and query patient medical records with semantic search:
 
@@ -257,48 +232,37 @@ curl -X POST http://localhost:8000/api/records \
 curl http://localhost:8000/api/records/search?query=respiratory+issues
 ```
 
-### 3. Long-term Memory System
-
-The agent remembers user preferences and context across sessions:
-
-- **Powered by Mem0 + Neo4j**: Production-ready memory framework with graph database
-- **Semantic retrieval**: Find relevant memories by meaning, not keywords
-- **User isolation**: Per-user memory with complete privacy
-- **GDPR compliant**: Right to erasure and data portability
-
-```bash
-# Chat with memory
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "My favorite color is blue", "user_id": "alice"}'
-
-# Get memory stats
-curl http://localhost:8000/api/memory/stats/alice
-
-# Export user data (GDPR)
-curl http://localhost:8000/api/memory/export/alice
-
-# Delete user data (GDPR)
-curl -X DELETE http://localhost:8000/api/memory/alice
-```
-
-### 4. LangGraph Agent
+### 2. LangGraph Agent
 
 Advanced agent architecture with:
+
 - Multi-step reasoning
 - Tool orchestration
 - State management
 - Conditional execution
 
-Enable with `USE_LANGGRAPH=true` in your `.env` file.
+### 3. Expendable Custom Agents
+
+- Create specialists via `POST /api/agents` or the dashboard (name, role, prompt, color/icon).
+- Each agent becomes a `SubAgent` row in Postgres and is reloaded automatically by `AgentLoader`.
+- LangGraph delegation lists only enabled agents, so you can disable/clone without code changes.
+- Core system agents remain immutable, while user-defined ones are safe to experiment with.
+
+### 4. Expendable Custom Tools
+
+- Define capabilities through `POST /api/tools`.
+- Tools register with the runtime `ToolRegistry`, making them callable immediately.
+- You can hot-reload, delete, or reassign tools per agent to keep experiments isolated.
 
 ## API Endpoints
 
 ### Chat
+
 - `POST /api/chat` - Send a message and get a streaming response
 - `POST /api/consult` - Medical consultation with tool use
 
 ### Patients & Records
+
 - `GET /api/patients` - List all patients
 - `POST /api/patients` - Create a new patient
 - `GET /api/patients/{id}` - Get patient details
@@ -306,36 +270,32 @@ Enable with `USE_LANGGRAPH=true` in your `.env` file.
 - `GET /api/records/search` - Semantic search for records
 
 ### Tools
+
 - `GET /api/tools` - List all available tools
 - `POST /api/tools` - Create a new custom tool
 - `DELETE /api/tools/{name}` - Delete a tool
 
-### Memory
-- `GET /api/memory/stats/{user_id}` - Get memory statistics
-- `GET /api/memory/export/{user_id}` - Export user data
-- `DELETE /api/memory/{user_id}` - Delete user data
-
 ## Tech Stack
 
 ### Backend:
-- **Python 3.10+** with FastAPI
-- **Kimi (Moonshot AI)** - Advanced LLM with reasoning capabilities
-- **LangChain** - Tool integration and agent orchestration
+
+- **Python 3.12+** with FastAPI
+- **OpenAI GPT-4o** or **Kimi (Moonshot AI)** - Advanced LLM with reasoning capabilities
 - **LangGraph** - Multi-step agent workflows
 - **PostgreSQL + pgvector** - Relational database with vector search
-- **Neo4j** - Graph database for memory
 - **Mem0** - Long-term memory framework
 - **SQLAlchemy** - Async ORM
-- **Pydantic** - Data validation
 
 ### Frontend:
-- **Next.js 15** with App Router
+
+- **Next.js 16** with App Router
 - **Tailwind CSS v4** for styling
 - **Shadcn/ui** for components
 - **TypeScript** for type safety
 - **React** for UI
 
 ### DevOps:
+
 - **Docker & Docker Compose** for database services
 - **Poetry** for Python dependency management
 - **pytest** for testing
@@ -359,8 +319,9 @@ Enable with `USE_LANGGRAPH=true` in your `.env` file.
        │              │
        ▼              ▼
 ┌─────────────┐  ┌──────────┐
-│  LangGraph  │  │   Kimi   │
-│    Agent    │  │   LLM    │
+│  LangGraph  │  │ OpenAI/  │
+│    Agent    │  │  Kimi    │
+│             │  │   LLM    │
 └──────┬──────┘  └──────────┘
        │
        ├──────────────┬──────────────┐
@@ -375,45 +336,3 @@ Enable with `USE_LANGGRAPH=true` in your `.env` file.
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Troubleshooting
-
-### Database Connection Issues
-```bash
-# Check if PostgreSQL is running
-docker ps
-
-# Restart the database
-docker-compose restart db
-
-# View logs
-docker-compose logs db
-```
-
-### Memory Issues
-```bash
-# Check Neo4j status
-docker-compose logs neo4j
-
-# Reset Neo4j data
-docker-compose down -v
-docker-compose up -d
-```
-
-### Tool Creation Failures
-- Ensure the generated code is valid Python
-- Check database connectivity
-- Review logs with `LOG_LEVEL=DEBUG`
-
-## Roadmap
-
-- [ ] Multi-modal support (images, PDFs)
-- [ ] Voice interface
-- [ ] Mobile app
-- [ ] Advanced medical AI features
-- [ ] Team collaboration
-- [ ] Plugin marketplace

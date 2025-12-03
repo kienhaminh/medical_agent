@@ -186,14 +186,11 @@ export function AiAssistantPanel({
           )
         )}
 
-        <div className="space-y-6">
+        <div className="space-y-6 max-h-[calc(100vh-250px)] overflow-y-auto">
           {messages.map((message, index) => (
             <div key={message.id} style={{ animationDelay: `${index * 50}ms` }}>
               {message.role === MessageRole.USER ? (
-                <UserMessage
-                  content={message.content}
-                  timestamp={message.timestamp}
-                />
+                <UserMessage content={message.content} />
               ) : (
                 <AgentMessage
                   content={message.content}

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SubAgent, Tool } from "@/types/agent";
+import { Tool } from "@/types/agent";
 import { getTools, getAgentTools, bulkUpdateAgentTools } from "@/lib/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -85,7 +85,7 @@ export function ToolAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Manage Tools - {agent.name}</DialogTitle>
           <DialogDescription>

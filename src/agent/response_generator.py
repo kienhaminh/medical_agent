@@ -8,6 +8,7 @@ from typing import AsyncGenerator, Optional
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from ..utils.enums import MessageRole
+from .patient_detector import PatientDetector
 
 logger = logging.getLogger(__name__)
 
@@ -101,19 +102,24 @@ class ResponseGenerator:
         logger.info("Streaming response via LangGraph")
         final_content = []
 
-        # State for filtering CONSULT commands
-        buffer = ""
-        checking_consult = True
-        is_consult = False
-
-        # Track patient profile and references at function scope
+        # Track patient profile and detector
         patient_profile = None
-        patient_refs_emitted = set()
+        patient_detector = PatientDetector()
+        all_detected_refs = []
 
         # Check for patient profile in initial state
         if "patient_profile" in initial_state and initial_state["patient_profile"]:
             patient_profile = initial_state["patient_profile"]
             logger.info("✅ Patient profile found in initial state: %s", patient_profile)
+
+            # Cache the context patient for faster detection
+            if "id" in patient_profile and "name" in patient_profile:
+                from ..config.database import Patient
+                patient_obj = Patient(
+                    id=patient_profile["id"],
+                    name=patient_profile["name"]
+                )
+                patient_detector._patient_cache[patient_obj.id] = patient_obj
 
         # Stream through the graph events
         async for event in self.graph.astream_events(initial_state, config=config, version="v2"):
@@ -136,111 +142,162 @@ class ResponseGenerator:
             # Handle streaming content from the main agent
             elif event_type == "on_chat_model_stream":
                 # Only yield content from nodes that generate final responses
-                # These nodes are: "direct_answer" and "synthesis"
+                # In new graph, "agent" node generates content OR tool calls
                 node = event.get("metadata", {}).get("langgraph_node")
-                if node in ["direct_answer", "synthesis"]:
+                if node == "agent":
                     data = event["data"]
                     if "chunk" in data:
                         chunk = data["chunk"]
-                        if hasattr(chunk, "content") and chunk.content:
-                            content = chunk.content
-                            
-                            # Filter out CONSULT commands
-                            if is_consult:
-                                continue
-                                
-                            if checking_consult:
-                                buffer += content
-                                # Check if buffer matches "CONSULT:" pattern
-                                # We allow leading whitespace
-                                stripped_buffer = buffer.lstrip()
-                                target = "CONSULT:"
-                                
-                                if len(stripped_buffer) >= len(target):
-                                    if stripped_buffer.upper().startswith(target):
-                                        is_consult = True
-                                        checking_consult = False
-                                        buffer = "" # Discard buffer
-                                    else:
-                                        # Not a command
-                                        checking_consult = False
-                                        # Flush buffer
-                                        final_content.append(buffer)
-                                        yield {
-                                            "type": "content",
-                                            "content": buffer
-                                        }
-                                        buffer = ""
-                                else:
-                                    # Buffer too short, check if it COULD be a command
-                                    current_upper = stripped_buffer.upper()
-                                    if not target.startswith(current_upper):
-                                        # Diverged
-                                        checking_consult = False
-                                        final_content.append(buffer)
-                                        yield {
-                                            "type": "content",
-                                            "content": buffer
-                                        }
-                                        buffer = ""
-                                    # Else: matches so far, keep buffering
-                            else:
-                                final_content.append(content)
+
+                        # Check for usage in chunk (for OpenAI-compatible APIs with stream_usage=True)
+                        if hasattr(chunk, "usage_metadata") and chunk.usage_metadata:
+                            usage_meta = chunk.usage_metadata
+                            logger.info("✅✅✅ Usage metadata found in stream chunk: %s", usage_meta)
+                            # Convert to standard format
+                            usage = {
+                                "prompt_tokens": getattr(usage_meta, "input_tokens", 0),
+                                "completion_tokens": getattr(usage_meta, "output_tokens", 0),
+                                "total_tokens": getattr(usage_meta, "total_tokens", 0)
+                            }
+                            if usage["total_tokens"] > 0:
                                 yield {
-                                    "type": "content",
-                                    "content": content
+                                    "type": "usage",
+                                    "usage": usage
                                 }
 
-                                # Check for patient name in content to generate references
-                                if patient_profile and "name" in patient_profile:
-                                    p_name = patient_profile["name"]
-                                    logger.debug("🔍 Checking for patient name '%s' in content", p_name)
+                        if hasattr(chunk, "content") and chunk.content:
+                            content = chunk.content
+                            final_content.append(content)
+                            yield {
+                                "type": "content",
+                                "content": content
+                            }
 
-                                    # Simple check: if name is in the total accumulated text
-                                    current_full_text = "".join(final_content)
-                                    if p_name in current_full_text and p_name not in patient_refs_emitted:
-                                        # Calculate indices
-                                        start_idx = current_full_text.find(p_name)
-                                        end_idx = start_idx + len(p_name)
+                            # Detect patient references in accumulated text
+                            # Only check periodically to avoid performance issues
+                            if len(final_content) % 50 == 0 or len(content) > 100:
+                                current_full_text = "".join(final_content)
+                                logger.info(f"🔍 Running patient detection (chunks={len(final_content)}, text_len={len(current_full_text)}, has_patient={patient_profile is not None})")
 
-                                        # Emit reference event
-                                        logger.info("✅ Emitting patient reference for '%s' at indices %d-%d", p_name, start_idx, end_idx)
-                                        yield {
-                                            "type": "patient_references",
-                                            "patient_references": [{
-                                                "patient_id": patient_profile["id"],
-                                                "patient_name": p_name,
-                                                "start_index": start_idx,
-                                                "end_index": end_idx
-                                            }]
-                                        }
-                                        patient_refs_emitted.add(p_name)
-                                    else:
-                                        logger.debug("❌ Patient name '%s' not found in text or already emitted (in_text=%s, already_emitted=%s)",
-                                                   p_name, p_name in current_full_text, p_name in patient_refs_emitted)
+                                # Use enhanced patient detector
+                                context_patient_id = patient_profile.get("id") if patient_profile else None
+                                detected_refs = patient_detector.detect_in_text_sync(
+                                    text=current_full_text,
+                                    patient_id=context_patient_id,
+                                    patient_name=patient_profile.get("name") if patient_profile else None
+                                )
+                                logger.info(f"🔍 Detection result: {len(detected_refs)} references found")
+
+                                # Only emit new references (not already emitted)
+                                new_refs = []
+                                for ref in detected_refs:
+                                    # Check if this reference is new
+                                    is_new = True
+                                    for existing in all_detected_refs:
+                                        if (existing.patient_id == ref.patient_id and
+                                            existing.start_index == ref.start_index):
+                                            is_new = False
+                                            break
+
+                                    if is_new:
+                                        new_refs.append(ref)
+                                        all_detected_refs.append(ref)
+
+                                # Emit new references
+                                if new_refs:
+                                    logger.info(f"✅ Emitting {len(new_refs)} new patient reference(s)")
+                                    yield {
+                                        "type": "patient_references",
+                                        "patient_references": [ref.to_dict() for ref in new_refs]
+                                    }
             
-            elif event_type == "on_chat_model_end":
-                node = event.get("metadata", {}).get("langgraph_node")
-                if node in ["direct_answer", "synthesis"]:
-                    # End of a turn
-                    if checking_consult and buffer:
-                        # Flush remaining buffer if we were still checking
-                        final_content.append(buffer)
-                        yield {
-                            "type": "content",
-                            "content": buffer
-                        }
-                    
-                    # Reset for next potential turn
-                    buffer = ""
-                    checking_consult = True
-                    is_consult = False
-            
-            # Handle tool calls (if we want to show them as they happen)
+            # Handle tool calls
             elif event_type == "on_tool_start":
-                # We can yield tool calls if needed, but chat.py handles tool_call events from the stream
-                # For now, let's stick to what chat.py expects or just logs
-                pass
+                data = event.get("data", {})
+                name = event.get("name")
+                run_id = event.get("run_id")
+                
+                # Filter out internal tools if necessary, but generally we want to show all tools
+                yield {
+                    "type": "tool_call",
+                    "id": run_id,
+                    "tool": name,
+                    "args": data.get("input")
+                }
+
+            elif event_type == "on_tool_end":
+                data = event.get("data", {})
+                run_id = event.get("run_id")
+                output = data.get("output")
+                
+                yield {
+                    "type": "tool_result",
+                    "id": run_id,
+                    "result": str(output)
+                }
+
+            # Handle token usage from model end events
+            elif event_type == "on_chat_model_end":
+                # logger.info("✅ on_chat_model_end event detected!")
+                output = event.get("data", {}).get("output")
+                # logger.info(f"Output type: {type(output)}")
+                # logger.info(f"Output hasattr response_metadata: {hasattr(output, 'response_metadata') if output else False}")
+
+                if output:
+                    # Try to get usage from response_metadata (standard in LangChain)
+                    usage = None
+                    if hasattr(output, "response_metadata"):
+                        # logger.info(f"response_metadata: {output.response_metadata}")
+                        usage = output.response_metadata.get("token_usage") or output.response_metadata.get("usage")
+
+                    # If not found, check if it's a dict (sometimes happens in raw outputs)
+                    if not usage and isinstance(output, dict):
+                         usage = output.get("token_usage") or output.get("usage")
+
+                    if usage:
+                        logger.info("✅✅✅ Token usage detected: %s", usage)
+                        yield {
+                            "type": "usage",
+                            "usage": usage
+                        }
+                    else:
+                        logger.warning("⚠️ No usage found in on_chat_model_end event")
+
+        # Final comprehensive patient detection after streaming completes
+        if final_content and patient_profile:
+            full_text = "".join(final_content)
+            context_patient_id = patient_profile.get("id") if patient_profile else None
+            logger.info(f"🎯 Final patient detection (text_len={len(full_text)}, patient_id={context_patient_id})")
+
+            # Do final comprehensive detection
+            final_refs = patient_detector.detect_in_text_sync(
+                text=full_text,
+                patient_id=context_patient_id,
+                patient_name=patient_profile.get("name") if patient_profile else None
+            )
+            logger.info(f"🎯 Final detection found {len(final_refs)} total references")
+
+            # Find any new references that weren't caught during streaming
+            new_final_refs = []
+            for ref in final_refs:
+                is_new = True
+                for existing in all_detected_refs:
+                    if (existing.patient_id == ref.patient_id and
+                        existing.start_index == ref.start_index):
+                        is_new = False
+                        break
+
+                if is_new:
+                    new_final_refs.append(ref)
+                    all_detected_refs.append(ref)
+
+            # Emit any remaining new references
+            if new_final_refs:
+                logger.info(f"✅ Emitting {len(new_final_refs)} final patient reference(s)")
+                yield {
+                    "type": "patient_references",
+                    "patient_references": [ref.to_dict() for ref in new_final_refs]
+                }
 
         # Store in memory after streaming completes
         if self.memory_manager and final_content:

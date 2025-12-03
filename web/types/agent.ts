@@ -5,7 +5,12 @@
 export interface SubAgent {
   id: number;
   name: string;
-  role: 'imaging' | 'lab_results' | 'drug_interaction' | 'clinical_text' | string;
+  role:
+    | "imaging"
+    | "lab_results"
+    | "drug_interaction"
+    | "clinical_text"
+    | string;
   description: string;
   system_prompt: string;
   enabled: boolean;
@@ -15,6 +20,7 @@ export interface SubAgent {
   parent_template_id: number | null;
   created_at: string;
   updated_at: string;
+  tools?: string[] | null; // Tool symbols for core agents
 }
 
 export interface SubAgentCreate {
@@ -39,10 +45,11 @@ export interface SubAgentUpdate {
 }
 
 export interface Tool {
+  id: number;
   name: string;
   description?: string;
-  enabled: boolean;
-  scope?: 'global' | 'assignable' | 'both';
+  enabled?: boolean;
+  scope?: "global" | "assignable" | "both";
   category?: string;
   assigned_agent_id?: number | null;
 }

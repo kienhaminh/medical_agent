@@ -48,10 +48,6 @@ __pycache__/
 htmlcov/
 .tox/
 
-# Session storage
-sessions/
-*.session
-
 # Logs
 *.log
 logs/
@@ -62,12 +58,7 @@ config/local.yaml
 # Claude
 .claude/*
 .repomixignore
-.coveragerc
-plans/*
 CLAUDE.md
-REQUIREMENTS.md
-docs/
-Database-Description.md
-
-# Docs
-/uploads
+.agent/*
+.shared/*
+.cursor/*

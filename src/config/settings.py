@@ -51,6 +51,7 @@ class Config:
     model: str = "kimi-k2-thinking"
     max_tokens: int = 4096
     temperature: float = 0.3
+    redis_url: str = "redis://localhost:6379/0"
 
     # Sub-configurations
     context: ContextConfig = field(default_factory=ContextConfig)
@@ -116,6 +117,7 @@ def load_config(config_file: Optional[Path] = None) -> Config:
     model = os.getenv("KIMI_MODEL", "kimi-k2-thinking")
     max_tokens = int(os.getenv("MAX_TOKENS", yaml_config.get("max_tokens", 4096)))
     temperature = float(os.getenv("TEMPERATURE", yaml_config.get("temperature", 0.3)))
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     # Load sub-configurations
     context_cfg = yaml_config.get("context", {})
@@ -129,6 +131,7 @@ def load_config(config_file: Optional[Path] = None) -> Config:
         model=model,
         max_tokens=max_tokens,
         temperature=temperature,
+        redis_url=redis_url,
         context=ContextConfig(
             max_messages=context_cfg.get("max_messages", 50),
             keep_recent=context_cfg.get("keep_recent", 20),

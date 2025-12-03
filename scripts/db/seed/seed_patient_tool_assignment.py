@@ -1,35 +1,31 @@
 """
-Seed script to ensure patient query tool is available and assigned to Internist.
-This script:
-1. Adds query_patient_info to custom_tools table (if not exists)
-2. Assigns it to the Internist agent
+Ensure the core patient lookup tool exists in the database and is assigned to the Internist agent.
 """
 import asyncio
 from sqlalchemy import select
 from src.config.database import AsyncSessionLocal, SubAgent, Tool
 
-# ...
+PATIENT_TOOL = {
+    "name": "Query Patient Basic Info",
+    "symbol": "query_patient_basic_info",
+    "description": "Return patient demographics (ID, name, DOB, gender) filtered by identifier or name.",
+    "tool_type": "function",
+    "scope": "global",
+    "enabled": True,
+    "test_passed": True,
+}
 
 async def add_patient_tool(session):
     """Add patient query tool to tools table."""
     print("Adding patient query tool to tools...")
-
-    # Check if tool already exists
-    result = await session.execute(
-        select(Tool).where(Tool.name == PATIENT_TOOL["name"])
-    )
+    result = await session.execute(select(Tool).where(Tool.symbol == PATIENT_TOOL["symbol"]))
     existing_tool = result.scalar_one_or_none()
 
     if existing_tool:
         print(f"  ⚠ Tool '{PATIENT_TOOL['name']}' already exists, updating...")
-        # Update existing tool
-        existing_tool.description = PATIENT_TOOL["description"]
-        existing_tool.code = PATIENT_TOOL["code"]
-        existing_tool.enabled = PATIENT_TOOL["enabled"]
-        existing_tool.scope = PATIENT_TOOL["scope"]
-        existing_tool.category = PATIENT_TOOL["category"]
+        for key, value in PATIENT_TOOL.items():
+            setattr(existing_tool, key, value)
     else:
-        # Create new tool
         tool = Tool(**PATIENT_TOOL)
         session.add(tool)
         print(f"  ✓ Created tool: {PATIENT_TOOL['name']}")
@@ -52,10 +48,7 @@ async def assign_tool_to_internist(session):
         print("  ✗ Internist agent not found. Please run seed_agents.py first.")
         return
 
-    # Get patient tool
-    result = await session.execute(
-        select(Tool).where(Tool.name == PATIENT_TOOL["name"])
-    )
+    result = await session.execute(select(Tool).where(Tool.symbol == PATIENT_TOOL["symbol"]))
     patient_tool = result.scalar_one_or_none()
 
     if not patient_tool:
@@ -96,7 +89,7 @@ async def verify_setup(session):
     result = await session.execute(
         select(Tool).where(
             Tool.assigned_agent_id == internist.id,
-            Tool.enabled == True
+            Tool.enabled.is_(True)
         )
     )
     tools = result.scalars().all()
@@ -104,7 +97,7 @@ async def verify_setup(session):
     print(f"  ✓ Internist agent found: {internist.name}")
     print(f"  ✓ Assigned tools ({len(tools)}):")
     for tool in tools:
-        print(f"    - {tool.name} ({tool.category})")
+        print(f"    - {tool.name} [{tool.symbol}] (scope={tool.scope})")
 
     print()
 

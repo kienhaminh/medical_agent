@@ -267,8 +267,9 @@ export default function PatientsPage() {
         ) : filteredPatients.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center space-y-4">
-              <div className="inline-flex p-6 rounded-full bg-muted/50">
-                <User className="w-12 h-12 text-muted-foreground" />
+              <div className="inline-flex p-6 rounded-full bg-muted/50 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <User className="w-12 h-12 text-muted-foreground group-hover:text-cyan-500 transition-colors duration-300" />
               </div>
               <div>
                 <h2 className="font-display text-xl font-semibold mb-2">

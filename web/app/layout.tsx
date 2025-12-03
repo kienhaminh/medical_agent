@@ -28,6 +28,9 @@ const bodyFont = Geist({
 export const metadata: Metadata = {
   title: "AI Agent - Your Personal AI Assistant",
   description: "Intelligent conversation agent powered by Claude AI. Natural interactions with meaningful context.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

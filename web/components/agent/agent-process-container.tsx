@@ -78,11 +78,13 @@ export function AgentProcessContainer({
   isLoading,
   currentActivity,
   activityDetails,
+  tokenUsage,
 }: AgentProcessContainerProps) {
   const hasContent = !!(
     reasoning ||
     (toolCalls && toolCalls.length > 0) ||
-    (logs && logs.length > 0)
+    (logs && logs.length > 0) ||
+    tokenUsage
   );
   const showLoading = isLatest && isLoading;
 
@@ -107,7 +109,7 @@ export function AgentProcessContainer({
   const Icon = config.icon;
 
   return (
-    <div className="mb-2 relative group">
+    <div className="mb-2 w-full max-w-4xl relative group">
       {isActive && (
         <div
           className={cn(
@@ -203,6 +205,20 @@ export function AgentProcessContainer({
             )}
             {toolCalls && toolCalls.length > 0 && (
               <ToolCallLog toolCalls={toolCalls} />
+            )}
+            {tokenUsage && (
+              <div className="text-[10px] text-muted-foreground flex items-center gap-2 pt-2 border-t border-border/30">
+                <span className="font-medium">Tokens:</span>
+                <span>{tokenUsage.total_tokens.toLocaleString()}</span>
+                <span className="text-muted-foreground/30 mx-1">|</span>
+                <span className="text-muted-foreground/70">
+                  Prompt: {tokenUsage.prompt_tokens.toLocaleString()}
+                </span>
+                <span className="text-muted-foreground/30 mx-1">|</span>
+                <span className="text-muted-foreground/70">
+                  Completion: {tokenUsage.completion_tokens.toLocaleString()}
+                </span>
+              </div>
             )}
           </div>
         )}

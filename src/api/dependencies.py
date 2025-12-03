@@ -44,6 +44,8 @@ llm_provider = KimiProvider(
     api_key=config.kimi_api_key,
     model="kimi-k2-thinking", # Enforce k2 thinking model
     temperature=0.3,
+    streaming=True,  # Enable streaming for real-time responses
+    # Note: stream_usage=True is already set in KimiProvider.__init__
 )
 
 # User-specific agents
@@ -62,7 +64,7 @@ def get_or_create_agent(user_id: str):
             memory_manager=memory_manager,
             user_id=user_id,
             fast_llm=llm_provider.fast_llm,  # Pass the fast LLM for routing/classification
-            subagent_timeout=60.0,  # Increased timeout for k2-thinking model (was 30s)
+            subagent_timeout=120.0,  # Increased timeout for k2-thinking model (was 30s)
             # system_prompt defaults to get_default_system_prompt() in LangGraphAgent.__init__
         )
 

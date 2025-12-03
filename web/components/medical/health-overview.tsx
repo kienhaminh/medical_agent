@@ -21,11 +21,15 @@ import type { PatientWithDetails } from "@/lib/mock-data";
 interface HealthOverviewProps {
   patient: PatientWithDetails;
   onRegenerateClick?: () => void;
+  isRegenerating?: boolean;
+  healthSummaryUpdatedAt?: string;
 }
 
 export function HealthOverview({
   patient,
   onRegenerateClick,
+  isRegenerating = false,
+  healthSummaryUpdatedAt,
 }: HealthOverviewProps) {
   const lastVisit = patient.visits?.[0];
 
@@ -61,32 +65,54 @@ export function HealthOverview({
               variant="outline"
               size="sm"
               onClick={onRegenerateClick}
+              disabled={isRegenerating}
               className="secondary-button gap-2"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Regenerate
+              <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
+              {isRegenerating ? "Generating..." : "Regenerate"}
             </Button>
           </div>
 
           <Separator className="mb-4" />
 
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-cyan-500 prose-li:text-muted-foreground">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {patient.health_summary ||
-                "No health summary available. Click 'Regenerate' to generate an AI-powered health overview."}
-            </ReactMarkdown>
-          </div>
+          {isRegenerating ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center">
+                  <Sparkles className="w-8 h-8 text-cyan-500 animate-pulse" />
+                </div>
+                <div className="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-ping" />
+              </div>
+              <div className="text-center space-y-2">
+                <p className="font-medium text-foreground">Generating AI Health Summary</p>
+                <p className="text-sm text-muted-foreground">
+                  Analyzing patient records and medical history...
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-p:leading-relaxed prose-strong:text-cyan-500 prose-li:text-muted-foreground">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {patient.health_summary ||
+                  "No health summary available. Click 'Regenerate' to generate an AI-powered health overview."}
+              </ReactMarkdown>
+            </div>
+          )}
 
           <div className="mt-4 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Activity className="w-3.5 h-3.5 text-cyan-500" />
               <span>
                 Last updated:{" "}
-                {new Date().toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {healthSummaryUpdatedAt
+                  ? new Date(healthSummaryUpdatedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Never"}
               </span>
             </div>
           </div>
