@@ -1,12 +1,12 @@
 """Configuration management for AI Agent."""
 
+import functools
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import yaml
-from dotenv import load_dotenv
 
 
 @dataclass
@@ -84,21 +84,11 @@ class Config:
             raise ValueError("context.keep_recent must be positive")
 
 
-def load_config(config_file: Optional[Path] = None) -> Config:
-    """Load configuration from environment and YAML file.
-
-    Args:
-        config_file: Path to YAML config file. Defaults to config/default.yaml
-
-    Returns:
-        Config instance
-
-    Raises:
-        ValueError: If configuration is invalid
+def _load_config_impl(config_file: Optional[Path] = None) -> Config:
+    """Internal implementation of config loading.
+    
+    Use load_config() which is cached.
     """
-    # Load environment variables
-    load_dotenv()
-
     # Load YAML config
     if config_file is None:
         config_file = Path(__file__).parent.parent.parent / "config" / "default.yaml"
@@ -109,15 +99,22 @@ def load_config(config_file: Optional[Path] = None) -> Config:
             yaml_config = yaml.safe_load(f) or {}
 
     # Environment variables take precedence over YAML
-    provider = "kimi"
+    provider = os.getenv("AI_PROVIDER", yaml_config.get("provider", "kimi"))
     
     kimi_api_key = os.getenv("KIMI_API_KEY", os.getenv("MOONSHOT_API_KEY", ""))
     
-    # Determine model based on provider
-    model = os.getenv("KIMI_MODEL", "kimi-k2-thinking")
+    # Determine model: env var > yaml > default based on provider
+    if provider == "kimi":
+        default_model = "kimi-k2-thinking"
+    elif provider == "gemini":
+        default_model = "gemini-2.5-pro"
+    else:
+        default_model = "kimi-k2-thinking"
+    
+    model = os.getenv("MODEL", os.getenv("KIMI_MODEL", yaml_config.get("model", default_model)))
     max_tokens = int(os.getenv("MAX_TOKENS", yaml_config.get("max_tokens", 4096)))
     temperature = float(os.getenv("TEMPERATURE", yaml_config.get("temperature", 0.3)))
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_url = os.getenv("REDIS_URL", yaml_config.get("redis_url", "redis://localhost:6379/0"))
 
     # Load sub-configurations
     context_cfg = yaml_config.get("context", {})
@@ -154,3 +151,22 @@ def load_config(config_file: Optional[Path] = None) -> Config:
     config.validate()
 
     return config
+
+
+@functools.lru_cache(maxsize=1)
+def load_config(config_file: Optional[Path] = None) -> Config:
+    """Load configuration from environment and YAML file.
+    
+    This function is cached - the config is loaded only once per process.
+    Environment variables are read at first call.
+
+    Args:
+        config_file: Path to YAML config file. Defaults to config/default.yaml
+
+    Returns:
+        Config instance
+
+    Raises:
+        ValueError: If configuration is invalid
+    """
+    return _load_config_impl(config_file)

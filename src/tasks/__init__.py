@@ -1,11 +1,8 @@
 """Celery application for background task processing."""
 from celery import Celery
-from dotenv import load_dotenv
 from ..config.settings import load_config
 
-load_dotenv()
-
-# Load configuration
+# Load configuration (env vars should be loaded by entry point)
 config = load_config()
 
 # Initialize Celery app

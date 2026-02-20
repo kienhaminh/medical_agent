@@ -1,9 +1,17 @@
 # Default configuration for AI Agent
 
+# Provider Configuration
+provider: kimi  # Options: kimi, gemini
+
 # Model Configuration
-model: gemini-2.5-pro
+# For kimi: kimi-k2-thinking, kimi-k2-5, kimi-k1-5
+# For gemini: gemini-2.5-pro, gemini-2.0-flash
+model: kimi-k2-thinking
 max_tokens: 4096
-temperature: 0.7
+temperature: 0.3
+
+# Redis Configuration
+redis_url: redis://localhost:6379/0
 
 # Context Configuration
 context:

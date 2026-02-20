@@ -2,15 +2,11 @@ import os
 import yaml
 from typing import Dict, Optional
 from pathlib import Path
-from dotenv import load_dotenv
 from ..agent.langgraph_agent import LangGraphAgent
 from ..llm.kimi import KimiProvider
 from ..config.settings import load_config
 from ..memory import Mem0MemoryManager
 from ..tools.registry import ToolRegistry
-
-# Load environment variables
-load_dotenv()
 
 # Load memory configuration
 def load_memory_config() -> Optional[Dict]:
@@ -42,10 +38,9 @@ provider_name = "Moonshot Kimi (LangGraph)"
 
 llm_provider = KimiProvider(
     api_key=config.kimi_api_key,
-    model="kimi-k2-thinking", # Enforce k2 thinking model
-    temperature=0.3,
+    model=config.model,  # Use model from config (env/YAML)
+    temperature=config.temperature,
     streaming=True,  # Enable streaming for real-time responses
-    # Note: stream_usage=True is already set in KimiProvider.__init__
 )
 
 # User-specific agents
