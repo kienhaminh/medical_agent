@@ -4,10 +4,11 @@ This agent combines:
 1. Supervisor pattern: Delegates to specialized sub-agents from database
 2. ReAct pattern: Directly executes common tools
 3. Hybrid decision-making: Routes to specialists OR uses tools based on query
+4. Skill-based orchestration: Uses SkillOrchestrator for query routing
 """
 
 import logging
-from typing import Union, AsyncGenerator
+from typing import Union, AsyncGenerator, Optional
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from .state import AgentState
@@ -17,7 +18,10 @@ from .agent_loader import AgentLoader
 from .specialist_handler import SpecialistHandler
 from .graph_builder import GraphBuilder
 from .response_generator import ResponseGenerator
+from .skill_orchestrator import SkillOrchestrator
+from .skill_selector import SkillSelector
 from ..tools.registry import ToolRegistry
+from ..tools.pool import ToolPool
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,7 @@ class LangGraphAgent:
         max_concurrent_subagents: int = 5,
         subagent_timeout: float = 30.0,
         fast_llm = None,  # Optional fast LLM for routing/classification
+        use_skill_orchestrator: bool = True,  # Enable skill-based orchestration
     ):
         """Initialize unified LangGraph agent.
 
@@ -54,10 +59,12 @@ class LangGraphAgent:
             use_persistence: Whether to use Postgres persistence
             max_concurrent_subagents: Maximum concurrent sub-agent consultations
             subagent_timeout: Timeout in seconds for sub-agent consultations
+            use_skill_orchestrator: Whether to use new skill-based orchestration
         """
         self.llm = llm_with_tools
         self.system_prompt = system_prompt or get_default_system_prompt()
         self.memory_manager = memory_manager
+        self.use_skill_orchestrator = use_skill_orchestrator
         
         # Initialize configuration
         self.config = AgentConfig(
@@ -68,8 +75,23 @@ class LangGraphAgent:
             use_persistence=use_persistence,
         )
         
-        # Initialize tool registry
+        # Initialize tool registry (legacy support)
         self.tool_registry = ToolRegistry()
+        
+        # Initialize skill-based components (new)
+        if use_skill_orchestrator:
+            self.skill_selector = SkillSelector()
+            self.skill_orchestrator = SkillOrchestrator(
+                skill_selector=self.skill_selector
+            )
+            self.tool_pool = ToolPool()
+            # Load tools from skills into pool
+            self._load_skill_tools()
+            logger.info("Skill-based orchestration enabled")
+        else:
+            self.skill_selector = None
+            self.skill_orchestrator = None
+            self.tool_pool = None
         
         # Initialize agent loader
         self.agent_loader = AgentLoader()
@@ -105,11 +127,60 @@ class LangGraphAgent:
         )
         
         logger.debug(
-            "LangGraphAgent initialized for user=%s (max_iterations=%s, subagent_timeout=%s)",
+            "LangGraphAgent initialized for user=%s (max_iterations=%s, subagent_timeout=%s, skills=%s)",
             user_id,
             max_iterations,
             subagent_timeout,
+            use_skill_orchestrator,
         )
+    
+    def _load_skill_tools(self) -> None:
+        """Load tools from skills into the tool pool."""
+        from ..skills.registry import SkillRegistry
+        
+        registry = SkillRegistry()
+        # Discover skills if not already loaded
+        if not registry.get_all_skills():
+            import os
+            skills_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "skills"
+            )
+            registry.discover_skills(skills_dir)
+        
+        # Register tools from skills
+        for skill in registry.get_all_skills():
+            self.tool_pool.register_from_skill(skill)
+        
+        logger.debug(f"Loaded {len(self.tool_pool.list_tools())} tools from skills")
+    
+    def get_tools_for_query(self, query: str) -> list:
+        """Get relevant tools for a query using skill orchestration.
+        
+        Args:
+            query: User query string
+            
+        Returns:
+            List of relevant tool functions
+        """
+        if self.use_skill_orchestrator and self.skill_orchestrator:
+            return self.skill_orchestrator.get_tools_for_query(query)
+        else:
+            # Fallback to legacy tool registry
+            return self.tool_registry.get_langchain_tools()
+    
+    def explain_skill_selection(self, query: str) -> dict:
+        """Explain which skills were selected for a query.
+        
+        Args:
+            query: User query string
+            
+        Returns:
+            Explanation of skill selection
+        """
+        if self.use_skill_orchestrator and self.skill_orchestrator:
+            return self.skill_orchestrator.explain_selection(query)
+        return {"error": "Skill orchestrator not enabled"}
     
     async def _reload_graph(self, sub_agents: dict = None):
         """Reload the graph after loading sub-agents.
