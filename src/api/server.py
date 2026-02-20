@@ -11,15 +11,31 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config.database import init_db
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat, usage
+from .routers import patients, agents, tools, chat, usage, skills
 import src.tools.builtin  # Register builtin tools
+
+# Import and discover skills on startup
+from src.skills.registry import SkillRegistry
+import os
+
+def discover_skills_on_startup():
+    """Discover and register all skills on startup."""
+    registry = SkillRegistry()
+    skills_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills")
+    count = registry.discover_skills(skills_dir)
+    print(f"Discovered {count} skills from {skills_dir}")
+    return count
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan events (startup and shutdown)."""
-    # Startup: Initialize database only
+    # Startup: Initialize database
     await init_db()
     print("Database initialized")
+    
+    # Startup: Discover skills
+    discover_skills_on_startup()
+    
     yield
 
 app = FastAPI(
@@ -47,6 +63,7 @@ app.include_router(agents.router)
 app.include_router(tools.router)
 app.include_router(chat.router)
 app.include_router(usage.router)
+app.include_router(skills.router)
 
 @app.get("/")
 async def root():
