@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import redis.asyncio as redis
 
-from ...config.database import get_db, Patient, MedicalRecord, Imaging, ImageGroup
+from src.models import get_db, Patient, MedicalRecord, Imaging, ImageGroup
 from ...config.settings import load_config
 from ..models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
