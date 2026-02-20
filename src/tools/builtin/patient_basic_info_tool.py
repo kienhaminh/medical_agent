@@ -9,7 +9,7 @@ from typing import Optional, List
 from sqlalchemy import select, and_
 from sqlalchemy.orm import Session
 
-from src.config.database import SessionLocal, Patient
+from src.models import SessionLocal, Patient
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)

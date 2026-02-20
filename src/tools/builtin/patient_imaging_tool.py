@@ -8,7 +8,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.config.database import SessionLocal, Imaging
+from src.models import SessionLocal, Imaging
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)

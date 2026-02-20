@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from langchain_openai import OpenAIEmbeddings
 
-from src.config.database import SessionLocal, MedicalRecord
+from src.models import SessionLocal, MedicalRecord
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)

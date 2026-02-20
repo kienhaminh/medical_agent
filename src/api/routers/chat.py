@@ -12,7 +12,7 @@ import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 
-from src.config.database import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal
+from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal
 from src.config.settings import load_config
 from ..models import (
     ChatRequest, ChatResponse, ChatSessionResponse, ChatMessageResponse,
@@ -187,7 +187,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                     if full_response or tool_calls_buffer:
                         # Create a new session for saving the message to avoid "session closed" errors
                         # in the streaming response callback
-                        from src.config.database import AsyncSessionLocal
+                        from src.models import AsyncSessionLocal
                         async with AsyncSessionLocal() as local_db:
                             assistant_msg = ChatMessage(
                                 session_id=session.id,
@@ -207,7 +207,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
                 except Exception as e:
                     # Save error to database
-                    from src.config.database import AsyncSessionLocal
+                    from src.models import AsyncSessionLocal
                     async with AsyncSessionLocal() as local_db:
                         assistant_msg = ChatMessage(
                             session_id=session.id,
@@ -411,7 +411,7 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
 
             logger.info(f"Checking DB for message {message_id}")
             # 2. Check initial state from DB
-            from src.config.database import AsyncSessionLocal
+            from src.models import AsyncSessionLocal
             async with AsyncSessionLocal() as local_db:
                 result = await local_db.execute(
                     select(ChatMessage).where(ChatMessage.id == message_id)

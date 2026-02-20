@@ -544,7 +544,7 @@ async def stream_health_summary_updates(patient_id: int, db: AsyncSession = Depe
             
             logger.info(f"Checking DB for patient {patient_id}")
             # 1. Check initial state from DB
-            from src.config.database import AsyncSessionLocal
+            from src.models import AsyncSessionLocal
             async with AsyncSessionLocal() as local_db:
                 result = await local_db.execute(
                     select(Patient).where(Patient.id == patient_id)

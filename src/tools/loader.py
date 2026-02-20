@@ -2,7 +2,7 @@
 
 import logging
 from sqlalchemy import select
-from src.config.database import Tool, AsyncSessionLocal
+from src.models import CustomTool as Tool, AsyncSessionLocal
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -28,13 +28,13 @@ async def load_custom_tools():
                     import typing
                     import sqlalchemy
                     import sqlalchemy.orm
-                    from src.config.database import (
+                    from src.models import (
                         SessionLocal, 
                         AsyncSessionLocal as DbAsyncSessionLocal,
                         Patient, 
                         MedicalRecord,
                         SubAgent,
-                        Tool as ToolModel
+                        CustomTool as ToolModel
                     )
                     
                     global_scope = {

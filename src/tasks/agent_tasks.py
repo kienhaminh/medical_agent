@@ -6,7 +6,7 @@ from typing import Optional, List, Dict
 
 
 from . import celery_app
-from src.config.database import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
+from src.models import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
 from src.config.settings import load_config
 from ..api.dependencies import get_or_create_agent
 import logging
