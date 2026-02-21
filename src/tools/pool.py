@@ -4,7 +4,7 @@ The ToolPool provides a unified interface for accessing tools across all skills,
 with support for skill-based organization and query-based tool selection.
 """
 
-from typing import Callable, Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
 
 from ..skills.base import Skill
@@ -17,25 +17,36 @@ class ToolInfo:
     func: Callable
     skill_name: str
     description: str = ""
+    implementation_type: str = "code"  # code, config, api, composite
+    config: Optional[Dict[str, Any]] = None
 
 
 class ToolPool:
     """Central pool for managing all tools organized by skills.
     
     The ToolPool provides a unified interface for:
-    - Registering tools from skills
+    - Registering tools from skills (code or config-based)
     - Query-based tool discovery
     - Skill-based tool organization
+    - Dynamic tool creation from configuration
     
     Usage:
         >>> pool = ToolPool()
         >>> pool.register_from_skill(skill)
         >>> tools = pool.get_for_query("tìm bệnh nhân")
+        >>> 
+        >>> # Register config-based tool
+        >>> pool.register_from_config("query_drug", {
+        ...     "type": "api",
+        ...     "endpoint": "https://api.drugs.com/search",
+        ...     "method": "GET"
+        ... }, skill_name="pharmacy")
     """
     
     _instance: Optional["ToolPool"] = None
     _tools: Dict[str, ToolInfo]
     _by_skill: Dict[str, List[str]]
+    _config_loaders: Dict[str, Callable]
     
     def __new__(cls) -> "ToolPool":
         """Create or return existing singleton instance."""
@@ -43,15 +54,25 @@ class ToolPool:
             cls._instance = super().__new__(cls)
             cls._instance._tools = {}
             cls._instance._by_skill = {}
+            cls._instance._config_loaders = {}
+            cls._instance._register_default_loaders()
         return cls._instance
     
-    def register(self, name: str, func: Callable, skill_name: str = "general") -> None:
+    def _register_default_loaders(self) -> None:
+        """Register default configuration loaders."""
+        self._config_loaders["api"] = self._load_api_tool
+        self._config_loaders["composite"] = self._load_composite_tool
+    
+    def register(self, name: str, func: Callable, skill_name: str = "general", 
+                 implementation_type: str = "code", config: Optional[Dict] = None) -> None:
         """Register a single tool.
         
         Args:
             name: Tool name/symbol
             func: Callable tool function
             skill_name: Name of the skill this tool belongs to
+            implementation_type: Type of implementation (code, config, api, composite)
+            config: Optional configuration dict for config-based tools
         """
         # Get description from function docstring
         description = func.__doc__ or ""
@@ -60,7 +81,9 @@ class ToolPool:
             name=name,
             func=func,
             skill_name=skill_name,
-            description=description
+            description=description,
+            implementation_type=implementation_type,
+            config=config
         )
         
         # Track by skill
@@ -68,6 +91,114 @@ class ToolPool:
             self._by_skill[skill_name] = []
         if name not in self._by_skill[skill_name]:
             self._by_skill[skill_name].append(name)
+    
+    def register_from_config(self, name: str, config: Dict[str, Any], 
+                            skill_name: str = "general") -> None:
+        """Register a tool from configuration.
+        
+        Supports:
+        - API tools: {"type": "api", "endpoint": "...", "method": "GET"}
+        - Composite tools: {"type": "composite", "steps": [...]}
+        
+        Args:
+            name: Tool name
+            config: Configuration dictionary
+            skill_name: Skill this tool belongs to
+        """
+        tool_type = config.get("type", "api")
+        
+        if tool_type in self._config_loaders:
+            func = self._config_loaders[tool_type](name, config)
+            self.register(name, func, skill_name, implementation_type=tool_type, config=config)
+        else:
+            raise ValueError(f"Unknown tool type: {tool_type}")
+    
+    def _load_api_tool(self, name: str, config: Dict[str, Any]) -> Callable:
+        """Create an API tool from configuration."""
+        import requests
+        
+        endpoint = config.get("endpoint", "")
+        method = config.get("method", "GET").upper()
+        headers = config.get("headers", {})
+        timeout = config.get("timeout", 30)
+        
+        def api_tool(**kwargs):
+            """Auto-generated API tool."""
+            try:
+                if method == "GET":
+                    response = requests.get(endpoint, params=kwargs, headers=headers, timeout=timeout)
+                elif method == "POST":
+                    response = requests.post(endpoint, json=kwargs, headers=headers, timeout=timeout)
+                elif method == "PUT":
+                    response = requests.put(endpoint, json=kwargs, headers=headers, timeout=timeout)
+                elif method == "DELETE":
+                    response = requests.delete(endpoint, params=kwargs, headers=headers, timeout=timeout)
+                else:
+                    response = requests.request(method, endpoint, json=kwargs, headers=headers, timeout=timeout)
+                
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.RequestException as e:
+                return {"error": f"API call failed: {str(e)}", "tool": name}
+            except Exception as e:
+                return {"error": f"Unexpected error: {str(e)}", "tool": name}
+        
+        api_tool.__name__ = name
+        api_tool.__doc__ = config.get("description", f"API tool: {name}")
+        
+        return api_tool
+    
+    def _load_composite_tool(self, name: str, config: Dict[str, Any]) -> Callable:
+        """Create a composite tool that chains multiple tools."""
+        steps = config.get("steps", [])
+        
+        def composite_tool(**kwargs):
+            """Auto-generated composite tool."""
+            results = []
+            context = kwargs.copy()
+            
+            for step in steps:
+                tool_name = step.get("tool")
+                params = step.get("params", {})
+                
+                # Resolve parameter values from context
+                resolved_params = {}
+                for key, value in params.items():
+                    if isinstance(value, str) and value.startswith("$"):
+                        # Reference to context variable
+                        var_name = value[1:]
+                        resolved_params[key] = context.get(var_name)
+                    else:
+                        resolved_params[key] = value
+                
+                # Execute tool
+                tool_info = self._tools.get(tool_name)
+                if tool_info:
+                    result = tool_info.func(**resolved_params)
+                    results.append({"step": tool_name, "result": result})
+                    
+                    # Store result in context for next steps
+                    output_var = step.get("output_as")
+                    if output_var:
+                        context[output_var] = result
+                else:
+                    results.append({"step": tool_name, "error": "Tool not found"})
+            
+            return {"results": results, "final_context": context}
+        
+        composite_tool.__name__ = name
+        composite_tool.__doc__ = config.get("description", f"Composite tool: {name}")
+        
+        return composite_tool
+    
+    def register_config_loader(self, tool_type: str, loader: Callable) -> None:
+        """Register a custom configuration loader.
+        
+        Args:
+            tool_type: Type identifier for this loader
+            loader: Function that takes (name, config) and returns a callable
+        """
+        self._config_loaders[tool_type] = loader
     
     def register_from_skill(self, skill: Skill) -> None:
         """Register all tools from a skill.

@@ -1,7 +1,7 @@
 """Base classes for the skill system."""
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any, Union
 import yaml
 import re
 from pathlib import Path
@@ -48,6 +48,40 @@ class SkillMetadata:
             keywords=data.get("keywords", []),
             examples=data.get("examples", [])
         )
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SkillMetadata":
+        """Create metadata from dictionary.
+        
+        Args:
+            data: Dictionary with metadata fields
+            
+        Returns:
+            SkillMetadata instance
+        """
+        return cls(
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            when_to_use=data.get("when_to_use", []),
+            when_not_to_use=data.get("when_not_to_use", []),
+            keywords=data.get("keywords", []),
+            examples=data.get("examples", [])
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert metadata to dictionary.
+        
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "name": self.name,
+            "description": self.description,
+            "when_to_use": self.when_to_use,
+            "when_not_to_use": self.when_not_to_use,
+            "keywords": self.keywords,
+            "examples": self.examples,
+        }
 
 
 class Skill:
@@ -59,21 +93,50 @@ class Skill:
     Attributes:
         metadata: SkillMetadata parsed from SKILL.md
         tools: Dictionary mapping tool names to callable functions
-        skill_dir: Path to the skill directory
+        skill_dir: Optional Path to the skill directory
     """
     
-    def __init__(self, skill_dir: str):
-        """Initialize skill from directory containing SKILL.md and tools.py.
+    def __init__(self, skill_dir: Optional[str] = None, metadata: Optional[SkillMetadata] = None):
+        """Initialize skill from directory or metadata.
         
         Args:
-            skill_dir: Path to skill directory
+            skill_dir: Optional path to skill directory (for filesystem-based skills)
+            metadata: Optional SkillMetadata (for DB/dynamic skills)
+            
+        Raises:
+            ValueError: If neither skill_dir nor metadata is provided
+            FileNotFoundError: If SKILL.md not found in skill_dir
         """
-        self.skill_dir = Path(skill_dir)
-        self.metadata = self._load_metadata()
+        self.skill_dir = Path(skill_dir) if skill_dir else None
+        
+        if metadata:
+            self.metadata = metadata
+        elif skill_dir:
+            self.metadata = self._load_metadata()
+        else:
+            raise ValueError("Either skill_dir or metadata must be provided")
+        
         self.tools: Dict[str, Callable] = {}
         
+    @classmethod
+    def _from_metadata(cls, metadata: SkillMetadata) -> "Skill":
+        """Create a skill from metadata without filesystem.
+        
+        This is used for database-driven or dynamically created skills.
+        
+        Args:
+            metadata: SkillMetadata instance
+            
+        Returns:
+            Skill instance
+        """
+        return cls(metadata=metadata)
+    
     def _load_metadata(self) -> SkillMetadata:
         """Load metadata from SKILL.md file."""
+        if not self.skill_dir:
+            raise ValueError("skill_dir not set")
+            
         skill_md_path = self.skill_dir / "SKILL.md"
         if not skill_md_path.exists():
             raise FileNotFoundError(f"SKILL.md not found in {self.skill_dir}")
@@ -116,6 +179,9 @@ class Skill:
         any callable functions that start with an underscore prefix
         (indicating they should be registered).
         """
+        if not self.skill_dir:
+            return
+            
         tools_path = self.skill_dir / "tools.py"
         if not tools_path.exists():
             return

@@ -30,6 +30,13 @@ class SubAgent(Base):
         back_populates="agent",
         cascade="all, delete-orphan"
     )
+    
+    # Relationship to skills
+    skills: Mapped[List["Skill"]] = relationship(
+        secondary="agent_skills",
+        back_populates="assigned_agents",
+        lazy="selectin"
+    )
 
     # Self-referential for template cloning
     cloned_agents: Mapped[List["SubAgent"]] = relationship(
