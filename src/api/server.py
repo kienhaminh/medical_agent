@@ -13,6 +13,7 @@ from ..config.database import init_db
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage, skills
 import src.tools.builtin  # Register builtin tools
+import src.skills.builtin  # Register skill search tools
 
 # Import and discover skills on startup
 from src.skills.registry import SkillRegistry
