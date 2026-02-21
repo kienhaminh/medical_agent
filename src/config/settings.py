@@ -42,6 +42,16 @@ class ToolsConfig:
 
 
 @dataclass
+class SkillsConfig:
+    """Skills configuration."""
+
+    db_only: bool = False  # If true, only load from database
+    core_dir: str = "src/skills"
+    custom_dir: str = "./custom_skills"
+    external_dir: str = "./external_skills"
+
+
+@dataclass
 class Config:
     """Main configuration class."""
 
@@ -58,6 +68,7 @@ class Config:
     session: SessionConfig = field(default_factory=SessionConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     tools: ToolsConfig = field(default_factory=ToolsConfig)
+    skills: SkillsConfig = field(default_factory=SkillsConfig)
 
     def validate(self) -> None:
         """Validate configuration.
@@ -121,6 +132,7 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
     session_cfg = yaml_config.get("session", {})
     logging_cfg = yaml_config.get("logging", {})
     tools_cfg = yaml_config.get("tools", {})
+    skills_cfg = yaml_config.get("skills", {})
 
     config = Config(
         provider=provider,
@@ -145,6 +157,12 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
             ),
         ),
         tools=ToolsConfig(enabled=tools_cfg.get("enabled", ["calculator", "file_ops", "datetime"])),
+        skills=SkillsConfig(
+            db_only=os.getenv("SKILLS_DB_ONLY", str(skills_cfg.get("db_only", False))).lower() == "true",
+            core_dir=skills_cfg.get("core_dir", "src/skills"),
+            custom_dir=skills_cfg.get("custom_dir", "./custom_skills"),
+            external_dir=skills_cfg.get("external_dir", "./external_skills"),
+        ),
     )
 
     # Validate configuration
