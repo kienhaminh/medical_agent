@@ -17,6 +17,7 @@ from .imaging import Imaging, ImageGroup
 from .chat import ChatSession, ChatMessage
 from .agent import SubAgent
 from .tool import CustomTool
+from .skill import Skill, SkillTool, AgentSkill
 
 __all__ = [
     # Base
@@ -39,4 +40,8 @@ __all__ = [
     "ChatMessage",
     "SubAgent",
     "CustomTool",
+    # Skill models
+    "Skill",
+    "SkillTool",
+    "AgentSkill",
 ]

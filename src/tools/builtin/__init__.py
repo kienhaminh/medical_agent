@@ -13,6 +13,8 @@ from . import patient_basic_info_tool
 from . import patient_medical_records_tool
 from . import patient_imaging_tool
 from . import agent_info_tool
+from . import tool_search  # Tool discovery to save prompt tokens
+from . import semantic_tool_search  # Vector-based semantic search
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -23,6 +25,8 @@ from .patient_basic_info_tool import query_patient_basic_info
 from .patient_medical_records_tool import query_patient_medical_records
 from .patient_imaging_tool import query_patient_imaging
 from .agent_info_tool import get_agent_architecture
+from .tool_search import search_tools, get_tool_info, list_available_tools
+from .semantic_tool_search import search_tools_semantic, index_all_tools, get_search_stats
 
 __all__ = [
     "get_current_datetime",
@@ -32,5 +36,11 @@ __all__ = [
     "query_patient_basic_info",
     "query_patient_medical_records",
     "query_patient_imaging",
-    "get_agent_architecture"
+    "get_agent_architecture",
+    "search_tools",  # Tool discovery
+    "get_tool_info",
+    "list_available_tools",
+    "search_tools_semantic",  # Semantic search
+    "index_all_tools",
+    "get_search_stats"
 ]

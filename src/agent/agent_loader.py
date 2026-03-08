@@ -12,6 +12,7 @@ from .core_agents import CORE_AGENTS
 
 # Import builtin tools to trigger auto-registration
 from ..tools import builtin  # noqa: F401
+from ..skills import builtin as skill_builtin  # noqa: F401  # Register skill search tools
 
 
 class AgentLoader:

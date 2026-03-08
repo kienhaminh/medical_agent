@@ -12,6 +12,7 @@ from ..api.dependencies import get_or_create_agent
 import logging
 from sqlalchemy import select
 import src.tools.builtin  # Register builtin tools
+import src.skills.builtin  # Register skill search tools
 import redis.asyncio as redis
 import os
 

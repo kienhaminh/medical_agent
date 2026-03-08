@@ -13,28 +13,77 @@ from ..config.database import init_db
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage, skills
 import src.tools.builtin  # Register builtin tools
+import src.skills.builtin  # Register skill search tools
 
 # Import and discover skills on startup
 from src.skills.registry import SkillRegistry
 import os
 
-def discover_skills_on_startup():
-    """Discover and register all skills on startup."""
+# Load config for skill settings
+from ..config.settings import load_config
+config = load_config()
+
+# Plugin directory configuration (only used when db_only=false)
+SKILL_DIRS = {
+    "core": os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills"),
+    "custom": os.environ.get("CUSTOM_SKILLS_DIR", "./custom_skills"),
+    "external": os.environ.get("EXTERNAL_SKILLS_DIR", "./external_skills"),
+}
+
+async def discover_skills_on_startup():
+    """Discover and register all skills on startup.
+    
+    Mode 1 - DB Only (recommended for production):
+    - Only load skills from database
+    - All skills managed via UI/API
+    
+    Mode 2 - Hybrid (development):
+    - Load from filesystem (core/custom/external)
+    - Also load from database
+    """
     registry = SkillRegistry()
-    skills_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills")
-    count = registry.discover_skills(skills_dir)
-    print(f"Discovered {count} skills from {skills_dir}")
-    return count
+    total = 0
+    
+    # Check if DB-only mode is enabled
+    db_only = config.skills.db_only if hasattr(config, 'skills') else False
+    
+    if db_only:
+        print("[SKILLS] Running in DB-ONLY mode (filesystem discovery disabled)")
+        print("[SKILLS] Set skills.db_only=false in config to enable filesystem discovery")
+    else:
+        # 1. Discover filesystem skills (core, custom, external)
+        print("[SKILLS] Running in HYBRID mode (filesystem + database)")
+        for source_type, skills_dir in SKILL_DIRS.items():
+            if os.path.exists(skills_dir):
+                try:
+                    count = registry.discover_skills([skills_dir])
+                    print(f"[SKILLS] Discovered {count} {source_type} skills from {skills_dir}")
+                    total += count
+                except Exception as e:
+                    print(f"[WARN] Failed to discover {source_type} skills: {e}")
+    
+    # 2. Load skills from database (always do this)
+    try:
+        db_count = await registry.load_from_database()
+        print(f"[SKILLS] Loaded {db_count} skills from database")
+        total += db_count
+    except Exception as e:
+        print(f"[WARN] Failed to load skills from database: {e}")
+    
+    print(f"[SKILLS] Total skills registered: {total}")
+    if total == 0:
+        print("[WARN] No skills loaded! Run: python -m scripts.migrate_skills_to_db")
+    return total
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan events (startup and shutdown)."""
     # Startup: Initialize database
     await init_db()
-    print("Database initialized")
+    print("[STARTUP] Database initialized")
     
     # Startup: Discover skills
-    discover_skills_on_startup()
+    await discover_skills_on_startup()
     
     yield
 

@@ -23,6 +23,9 @@ from src.models import (
     ChatMessage,
     SubAgent,
     CustomTool,
+    Skill,
+    SkillTool,
+    AgentSkill,
 )
 
 # For backwards compatibility - Tool was renamed to CustomTool
@@ -46,7 +49,9 @@ __all__ = [
     "ChatSession",
     "ChatMessage",
     "SubAgent",
-    "SubAgent", 
     "CustomTool",
     "Tool",  # Backwards compatibility alias
+    "Skill",
+    "SkillTool",
+    "AgentSkill",
 ]

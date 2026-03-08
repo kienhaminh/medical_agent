@@ -35,3 +35,14 @@ tools:
     - calculator
     - file_ops
     - datetime
+
+# Skill Configuration
+skills:
+  # If true, only load skills from database (ignore filesystem)
+  # Set to true after running: python -m scripts.migrate_skills_to_db
+  db_only: false
+  
+  # Directories to scan for skills (only used when db_only: false)
+  core_dir: "src/skills"
+  custom_dir: "./custom_skills"
+  external_dir: "./external_skills"
