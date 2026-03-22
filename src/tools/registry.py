@@ -27,7 +27,6 @@ class ToolRegistry:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._tools = {}
-            cls._instance._tools = {}
             cls._instance._tool_scopes = {}
             cls._instance._tool_types = {}
         return cls._instance
@@ -128,7 +127,6 @@ class ToolRegistry:
                 tools.append(convert_to_langchain_tool(t))
             except Exception as e:
                 print(f"[ERROR] Failed to convert tool '{symbol}' to LangChain format: {e}")
-        # print(f"get_langchain_tools: {tools}")
         return tools
 
     def get_tools_by_symbols(self, symbols: list[str]) -> list:
@@ -173,7 +171,6 @@ class ToolRegistry:
         
         try:
             async with AsyncSessionLocal() as db:
-                print(f"Fetching tools for agent {agent_id}")
                 # Query for tools assigned to this agent
                 result = await db.execute(
                     select(Tool)
@@ -181,47 +178,41 @@ class ToolRegistry:
                         Tool.assigned_agent_id == agent_id
                     )
                 )
-                print(f"Result: {result}")
                 db_tools = result.scalars().all()
-                print(f"DB tools: {db_tools}")
-                
+
                 # Convert to LangChain format with enriched descriptions
                 for db_tool in db_tools:
-                    print(f"[DEBUG] Processing DB tool: {db_tool.name} (scope={db_tool.scope}, type={db_tool.tool_type})")
-                    
                     # Update registry with tool type
                     self._tool_types[db_tool.symbol] = db_tool.tool_type
-                    
+
                     # Get tool function from memory if available
                     tool_func = self._tools.get(db_tool.symbol)
-                    
+
                     # If tool is not in registry but is an API tool, create and register it
                     if tool_func is None and db_tool.tool_type == "api":
                         try:
                             from .adapters import create_api_wrapper_function, build_enriched_docstring
-                            
+
                             # Create wrapper
                             docstring = build_enriched_docstring(db_tool)
                             tool_func = create_api_wrapper_function(db_tool, docstring)
-                            
+
                             # Register in registry so ToolExecutor can find it
                             # Use allow_overwrite=True to ensure we have the latest version
                             self.register(
-                                tool_func, 
-                                scope=db_tool.scope or "global", 
-                                symbol=db_tool.symbol, 
+                                tool_func,
+                                scope=db_tool.scope or "global",
+                                symbol=db_tool.symbol,
                                 allow_overwrite=True
                             )
-                            print(f"[DEBUG] ✓ Created and registered API tool wrapper: {db_tool.symbol}")
                         except Exception as e:
                             print(f"[ERROR] Failed to create API wrapper for '{db_tool.symbol}': {e}")
                             # Continue to try conversion, though it will likely fail or use None
-                    
+
                     try:
                         # Use new enriched adapter that includes DB metadata
                         enriched_tool = convert_db_tool_to_langchain(db_tool, tool_func)
                         tools.append(enriched_tool)
-                        print(f"[DEBUG] ✓ Added enriched tool: {db_tool.symbol}")
                     except Exception as e:
                         print(f"[ERROR] Failed to convert tool '{db_tool.symbol}' to LangChain format: {e}")
                         import traceback
@@ -231,7 +222,6 @@ class ToolRegistry:
             import traceback
             print(f"Warning: Failed to fetch tools for agent {agent_id}: {e}")
             print(traceback.format_exc())
-        print(f"Tools for agent {agent_id}: {tools}")
         return tools
 
     def reset(self) -> None:
@@ -241,3 +231,4 @@ class ToolRegistry:
         """
         self._tools.clear()
         self._tool_scopes.clear()
+        self._tool_types.clear()
