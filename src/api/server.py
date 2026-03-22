@@ -26,8 +26,8 @@ config = load_config()
 # Plugin directory configuration (only used when db_only=false)
 SKILL_DIRS = {
     "core": os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills"),
-    "custom": os.environ.get("CUSTOM_SKILLS_DIR", "./custom_skills"),
-    "external": os.environ.get("EXTERNAL_SKILLS_DIR", "./external_skills"),
+    "custom": config.skills.custom_dir,
+    "external": config.skills.external_dir,
 }
 
 async def discover_skills_on_startup():
@@ -45,7 +45,7 @@ async def discover_skills_on_startup():
     total = 0
     
     # Check if DB-only mode is enabled
-    db_only = config.skills.db_only if hasattr(config, 'skills') else False
+    db_only = config.skills.db_only
     
     if db_only:
         print("[SKILLS] Running in DB-ONLY mode (filesystem discovery disabled)")
