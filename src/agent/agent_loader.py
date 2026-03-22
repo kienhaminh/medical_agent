@@ -3,8 +3,11 @@
 Handles loading enabled sub-agents from the database and managing their configurations.
 """
 
+import logging
 from typing import Dict, Any
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 from ..config.database import SubAgent, AsyncSessionLocal
 from ..tools.loader import load_custom_tools
@@ -73,7 +76,7 @@ class AgentLoader:
                         "icon": agent.icon,
                     }
         except Exception as e:
-            print(f"Warning: Failed to load sub-agents: {e}")
+            logger.warning("Failed to load sub-agents: %s", e)
         
         # Update internal state
         self.sub_agents = agents_info

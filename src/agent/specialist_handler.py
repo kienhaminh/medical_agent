@@ -420,8 +420,8 @@ class SpecialistHandler:
                     content=format_specialist_report(agent_info['name'], formatted_content)
                 )
                 
-                # Print response for debugging
-                print(f"\n\n=== SUB-AGENT RESPONSE ({specialist_role}) ===\n{tagged_response.content}\n============================================\n")
+                # Log response for debugging
+                logger.debug("SUB-AGENT RESPONSE (%s): %s", specialist_role, tagged_response.content)
 
                 # Attach patient profile if found
                 if found_patient_profile:
@@ -438,7 +438,7 @@ class SpecialistHandler:
                 error_response = SystemMessage(
                     content=format_specialist_error(agent_info.get('name', specialist_role), str(e))
                 )
-                print(f"\n\n=== SUB-AGENT ERROR ({specialist_role}) ===\n{error_response.content}\n=========================================\n")
+                logger.error("SUB-AGENT ERROR (%s): %s", specialist_role, error_response.content)
                 return error_response
         
         # FAN-OUT: Launch all specialist consultations concurrently

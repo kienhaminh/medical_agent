@@ -1,9 +1,12 @@
 """Adapters to convert existing tools to LangChain format."""
 
+import logging
 from typing import Callable, Optional, Any
 from langchain_core.tools import tool as langchain_tool
 import inspect
 import json
+
+logger = logging.getLogger(__name__)
 
 
 def convert_to_langchain_tool(func: Callable) -> Callable:
@@ -151,7 +154,7 @@ def create_api_wrapper_function(db_tool, docstring: str) -> Callable:
             # Make API request
             # For now, assume POST request with JSON body
             # This can be enhanced to support different HTTP methods
-            print(f"API Request Payload: {kwargs}")
+            logger.debug("API Request Payload: %s", kwargs)
             response = requests.post(
                 db_tool.api_endpoint,
                 json=kwargs,

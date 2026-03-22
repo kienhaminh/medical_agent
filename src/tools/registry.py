@@ -1,6 +1,9 @@
 """Tool registry for managing and discovering available tools."""
 
+import logging
 from typing import Any, Optional, Callable
+
+logger = logging.getLogger(__name__)
 
 
 class ToolRegistry:
@@ -127,7 +130,7 @@ class ToolRegistry:
             try:
                 tools.append(convert_to_langchain_tool(t))
             except Exception as e:
-                print(f"[ERROR] Failed to convert tool '{symbol}' to LangChain format: {e}")
+                logger.error("Failed to convert tool '%s' to LangChain format: %s", symbol, e)
         return tools
 
     def get_tools_by_symbols(self, symbols: list[str]) -> list:
@@ -148,7 +151,7 @@ class ToolRegistry:
                 try:
                     tools.append(convert_to_langchain_tool(tool))
                 except Exception as e:
-                    print(f"[ERROR] Failed to convert tool '{symbol}' to LangChain format: {e}")
+                    logger.error("Failed to convert tool '%s' to LangChain format: %s", symbol, e)
         return tools
 
     async def get_langchain_tools_for_agent(self, agent_id: int) -> list:
@@ -172,6 +175,7 @@ class ToolRegistry:
         
         try:
             async with AsyncSessionLocal() as db:
+                logger.debug("Fetching tools for agent %d", agent_id)
                 # Query for tools assigned to this agent
                 result = await db.execute(
                     select(Tool)
@@ -180,9 +184,16 @@ class ToolRegistry:
                     )
                 )
                 db_tools = result.scalars().all()
+                logger.debug("DB tools for agent %d: %s", agent_id, db_tools)
 
                 # Convert to LangChain format with enriched descriptions
                 for db_tool in db_tools:
+                    logger.debug(
+                        "Processing DB tool: %s (scope=%s, type=%s)",
+                        db_tool.name,
+                        db_tool.scope,
+                        db_tool.tool_type,
+                    )
                     # Update registry with tool type
                     self._tool_types[db_tool.symbol] = db_tool.tool_type
 
@@ -206,23 +217,27 @@ class ToolRegistry:
                                 symbol=db_tool.symbol,
                                 allow_overwrite=True
                             )
+                            logger.debug("Created and registered API tool wrapper: %s", db_tool.symbol)
                         except Exception as e:
-                            print(f"[ERROR] Failed to create API wrapper for '{db_tool.symbol}': {e}")
+                            logger.error("Failed to create API wrapper for '%s': %s", db_tool.symbol, e)
                             # Continue to try conversion, though it will likely fail or use None
 
                     try:
                         # Use new enriched adapter that includes DB metadata
                         enriched_tool = convert_db_tool_to_langchain(db_tool, tool_func)
                         tools.append(enriched_tool)
+                        logger.debug("Added enriched tool: %s", db_tool.symbol)
                     except Exception as e:
-                        print(f"[ERROR] Failed to convert tool '{db_tool.symbol}' to LangChain format: {e}")
-                        import traceback
-                        print(traceback.format_exc())
-                        
+                        logger.error(
+                            "Failed to convert tool '%s' to LangChain format: %s",
+                            db_tool.symbol,
+                            e,
+                            exc_info=True,
+                        )
+
         except Exception as e:
-            import traceback
-            print(f"Warning: Failed to fetch tools for agent {agent_id}: {e}")
-            print(traceback.format_exc())
+            logger.warning("Failed to fetch tools for agent %d: %s", agent_id, e, exc_info=True)
+        logger.debug("Tools for agent %d: %s", agent_id, tools)
         return tools
 
     def reset(self) -> None:

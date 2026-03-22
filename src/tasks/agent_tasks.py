@@ -352,7 +352,7 @@ async def _process_message_async(
                         await error_db.commit()
             except Exception as final_error:
                 # If even the finally block fails, log it but don't raise
-                print(f"Failed to save error state: {final_error}")
+                logger.error("Failed to save error state: %s", final_error)
 
 
 async def _update_message_content(

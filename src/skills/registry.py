@@ -1,5 +1,6 @@
 """Enhanced Skill registry with database support and hot-reload."""
 
+import logging
 import os
 import re
 import hashlib
@@ -9,6 +10,8 @@ from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, field
 import yaml
+
+logger = logging.getLogger(__name__)
 
 from .base import Skill, SkillMetadata
 
@@ -269,11 +272,11 @@ class SkillRegistry:
                         await self.register_skill_from_db(db_skill)
                         count += 1
                     except Exception as e:
-                        print(f"[ERROR] Failed to load skill '{db_skill.name}' from DB: {e}")
-                
+                        logger.error("Failed to load skill '%s' from DB: %s", db_skill.name, e)
+
                 self._db_loaded = True
         except Exception as e:
-            print(f"[ERROR] Failed to load skills from database: {e}")
+            logger.error("Failed to load skills from database: %s", e)
         
         return count
     
@@ -384,7 +387,7 @@ class SkillRegistry:
                     self.register(skill, source)
                     count += 1
                 except Exception as e:
-                    print(f"[ERROR] Failed to load skill from {skill_dir}: {e}")
+                    logger.error("Failed to load skill from %s: %s", skill_dir, e)
         
         return count
     
@@ -421,7 +424,7 @@ class SkillRegistry:
                 source.last_modified = datetime.now()
                 
                 self.register(skill, source)
-                print(f"[INFO] Reloaded skill '{name}' from filesystem")
+                logger.info("Reloaded skill '%s' from filesystem", name)
                 return skill
                 
             elif source.type == "database" and source.db_id:
@@ -439,7 +442,7 @@ class SkillRegistry:
                     if db_skill:
                         return await self.register_skill_from_db(db_skill)
         except Exception as e:
-            print(f"[ERROR] Failed to reload skill '{name}': {e}")
+            logger.error("Failed to reload skill '%s': %s", name, e)
             # Restore old skill on failure
             self._skills[name] = old_skill
             if source:
