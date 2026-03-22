@@ -14,7 +14,7 @@ class MedicalRecord(Base):
     __tablename__ = "medical_records"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"))
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
     record_type: Mapped[str] = mapped_column(String(50))  # "text", "image", "pdf"
     content: Mapped[str] = mapped_column(Text)  # Text content or file path/URL
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
