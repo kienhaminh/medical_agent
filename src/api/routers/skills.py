@@ -3,6 +3,8 @@
 import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -685,7 +687,7 @@ async def discover_skills(
                 try:
                     await registry.save_to_database(skill, source_type="filesystem")
                 except Exception as e:
-                    logger.warning(f"Failed to save skill '{skill.name}' to DB: {e}")
+                    logger.warning("Failed to save skill '%s' to DB: %s", skill.name, e)
         
         return {
             "discovered": count,

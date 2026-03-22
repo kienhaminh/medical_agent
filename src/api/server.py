@@ -4,7 +4,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -48,31 +51,31 @@ async def discover_skills_on_startup():
     db_only = config.skills.db_only
     
     if db_only:
-        print("[SKILLS] Running in DB-ONLY mode (filesystem discovery disabled)")
-        print("[SKILLS] Set skills.db_only=false in config to enable filesystem discovery")
+        logger.info("Running in DB-ONLY mode (filesystem discovery disabled)")
+        logger.info("Set skills.db_only=false in config to enable filesystem discovery")
     else:
         # 1. Discover filesystem skills (core, custom, external)
-        print("[SKILLS] Running in HYBRID mode (filesystem + database)")
+        logger.info("Running in HYBRID mode (filesystem + database)")
         for source_type, skills_dir in SKILL_DIRS.items():
             if os.path.exists(skills_dir):
                 try:
                     count = registry.discover_skills([skills_dir])
-                    print(f"[SKILLS] Discovered {count} {source_type} skills from {skills_dir}")
+                    logger.info("Discovered %d %s skills from %s", count, source_type, skills_dir)
                     total += count
                 except Exception as e:
-                    print(f"[WARN] Failed to discover {source_type} skills: {e}")
-    
+                    logger.warning("Failed to discover %s skills: %s", source_type, e)
+
     # 2. Load skills from database (always do this)
     try:
         db_count = await registry.load_from_database()
-        print(f"[SKILLS] Loaded {db_count} skills from database")
+        logger.info("Loaded %d skills from database", db_count)
         total += db_count
     except Exception as e:
-        print(f"[WARN] Failed to load skills from database: {e}")
-    
-    print(f"[SKILLS] Total skills registered: {total}")
+        logger.warning("Failed to load skills from database: %s", e)
+
+    logger.info("Total skills registered: %d", total)
     if total == 0:
-        print("[WARN] No skills loaded! Run: python -m scripts.migrate_skills_to_db")
+        logger.warning("No skills loaded! Run: python -m scripts.migrate_skills_to_db")
     return total
 
 @asynccontextmanager
@@ -80,7 +83,7 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan events (startup and shutdown)."""
     # Startup: Initialize database
     await init_db()
-    print("[STARTUP] Database initialized")
+    logger.info("Database initialized")
     
     # Startup: Discover skills
     await discover_skills_on_startup()

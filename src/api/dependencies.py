@@ -1,3 +1,4 @@
+import logging
 import os
 import yaml
 from typing import Dict, Optional
@@ -7,6 +8,8 @@ from ..llm.kimi import KimiProvider
 from ..config.settings import load_config
 from ..memory import Mem0MemoryManager
 from ..tools.registry import ToolRegistry
+
+logger = logging.getLogger(__name__)
 
 # Load memory configuration
 def load_memory_config() -> Optional[Dict]:
@@ -25,9 +28,9 @@ if memory_config and memory_config.get("memory", {}).get("enabled", False):
     try:
         long_term_config = memory_config["memory"]["long_term"]["mem0"]
         memory_manager = Mem0MemoryManager(config=long_term_config)
-        print("Memory manager initialized successfully")
+        logger.info("Memory manager initialized successfully")
     except Exception as e:
-        print(f"Warning: Failed to initialize memory manager: {e}")
+        logger.warning("Failed to initialize memory manager: %s", e)
 
 # Initialize ToolRegistry (Singleton)
 tool_registry = ToolRegistry()

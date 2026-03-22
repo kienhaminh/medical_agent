@@ -3,10 +3,13 @@
 Handles agent configuration, default prompts, and persistence setup.
 """
 
+import logging
 import os
 from typing import Optional
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg2.pool import SimpleConnectionPool
+
+logger = logging.getLogger(__name__)
 
 
 class AgentConfig:
@@ -53,7 +56,7 @@ class AgentConfig:
             self.checkpointer = PostgresSaver(self.pool)
             self.checkpointer.setup()
         except Exception as e:
-            print(f"Failed to initialize persistence: {e}")
+            logger.warning("Failed to initialize persistence: %s", e)
     
     def get_config(self) -> dict:
         """Get configuration dict for graph execution.
