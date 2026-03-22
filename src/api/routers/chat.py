@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from src.api.error_handlers import raise_internal_error
 
 
 import redis.asyncio as redis
@@ -254,8 +255,10 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                 session_id=session.id
             )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise_internal_error(logger, "Error processing chat request", e)
 
 
 @router.post("/api/chat/send", response_model=ChatTaskResponse)
@@ -333,8 +336,10 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             status="pending"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise_internal_error(logger, "Error sending chat message", e)
 
 @router.get("/api/chat/tasks/{task_id}/status", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
@@ -378,7 +383,7 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting task status: {str(e)}")
+        raise_internal_error(logger, "Error getting task status", e)
 
 @router.get("/api/chat/messages/{message_id}/stream")
 async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get_db)):
@@ -544,7 +549,7 @@ async def get_chat_sessions(db: AsyncSession = Depends(get_db)):
 
         return response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching chat sessions: {str(e)}")
+        raise_internal_error(logger, "Error fetching chat sessions", e)
 
 @router.get("/api/chat/sessions/{session_id}/messages", response_model=list[ChatMessageResponse])
 async def get_session_messages(session_id: int, db: AsyncSession = Depends(get_db)):
@@ -587,7 +592,7 @@ async def get_session_messages(session_id: int, db: AsyncSession = Depends(get_d
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
+        raise_internal_error(logger, "Error fetching messages", e)
 
 @router.delete("/api/chat/sessions/{session_id}")
 async def delete_chat_session(session_id: int, db: AsyncSession = Depends(get_db)):
@@ -618,7 +623,7 @@ async def delete_chat_session(session_id: int, db: AsyncSession = Depends(get_db
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error deleting chat session: {str(e)}")
+        raise_internal_error(logger, "Error deleting chat session", e)
 
 @router.delete("/api/chat/history")
 async def clear_history(user_id: str = "default"):
@@ -634,7 +639,7 @@ async def clear_history(user_id: str = "default"):
         # For now, just return ok
         return {"message": "No history found or cleared", "status": "ok"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error clearing history: {str(e)}")
+        raise_internal_error(logger, "Error clearing history", e)
 
 @router.get("/api/memory/stats/{user_id}")
 async def get_memory_stats(user_id: str):
@@ -646,8 +651,10 @@ async def get_memory_stats(user_id: str):
         stats = memory_manager.get_memory_stats(user_id)
         return stats
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting memory stats: {str(e)}")
+        raise_internal_error(logger, "Error getting memory stats", e)
 
 @router.get("/api/memory/export/{user_id}")
 async def export_user_memories(user_id: str):
@@ -667,8 +674,10 @@ async def export_user_memories(user_id: str):
             "memories": memories,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error exporting memories: {str(e)}")
+        raise_internal_error(logger, "Error exporting memories", e)
 
 @router.get("/api/health/celery")
 async def check_celery_health():
@@ -708,7 +717,4 @@ async def check_celery_health():
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Celery health check failed: {str(e)}"
-        )
+        raise_internal_error(logger, "Celery health check failed", e)
