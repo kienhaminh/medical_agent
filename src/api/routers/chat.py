@@ -479,9 +479,9 @@ async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get
                         if parsed.get("type") in ["done", "error"]:
                             logger.info(f"Stream completed for message {message_id} with type: {parsed.get('type')}")
                             break
-                    except:
+                    except json.JSONDecodeError:
                         pass
-                
+
                 await asyncio.sleep(0.01)
 
         except asyncio.CancelledError:

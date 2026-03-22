@@ -610,11 +610,11 @@ async def stream_health_summary_updates(patient_id: int, db: AsyncSession = Depe
                         if parsed.get("type") in ["done", "error"]:
                             logger.info(f"Stream completed for patient {patient_id} with type: {parsed.get('type')}")
                             break
-                    except:
+                    except json.JSONDecodeError:
                         pass
-                
+
                 await asyncio.sleep(0.01)
-        
+
         except asyncio.CancelledError:
             logger.info(f"Stream cancelled for patient {patient_id}")
         except Exception as e:
@@ -624,7 +624,7 @@ async def stream_health_summary_updates(patient_id: int, db: AsyncSession = Depe
             try:
                 await pubsub.unsubscribe()
                 await redis_client.aclose()
-            except:
+            except Exception:
                 pass
     
     return StreamingResponse(
