@@ -13,7 +13,7 @@ class Imaging(Base):
     __tablename__ = "imaging"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"))
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     image_type: Mapped[str] = mapped_column(String(50))  # x-ray, t1, t1ce, t2, flair
     original_url: Mapped[str] = mapped_column(Text)
@@ -22,7 +22,7 @@ class Imaging(Base):
 
     patient: Mapped["Patient"] = relationship(back_populates="imaging")
 
-    group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("image_groups.id"), nullable=True)
+    group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("image_groups.id"), nullable=True, index=True)
     group: Mapped[Optional["ImageGroup"]] = relationship(back_populates="images")
 
 
@@ -31,7 +31,7 @@ class ImageGroup(Base):
     __tablename__ = "image_groups"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"))
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 

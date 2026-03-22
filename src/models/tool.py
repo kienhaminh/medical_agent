@@ -24,7 +24,7 @@ class CustomTool(Base):
     api_response_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     api_response_example: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     scope: Mapped[str] = mapped_column(String(20), default="global")
-    assigned_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sub_agents.id"), nullable=True)
+    assigned_agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sub_agents.id"), nullable=True, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     test_passed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
