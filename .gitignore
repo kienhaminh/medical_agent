@@ -55,6 +55,9 @@ logs/
 # Project specific
 config/local.yaml
 
+# Worktrees
+.worktrees/
+
 # Claude
 .claude/*
 .repomixignore
