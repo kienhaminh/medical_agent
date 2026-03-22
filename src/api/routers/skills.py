@@ -1,5 +1,6 @@
 """Enhanced API router for skills with full CRUD and dynamic registration."""
 
+import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -13,6 +14,9 @@ from src.skills.base import Skill, SkillMetadata
 from src.agent.skill_selector import SkillSelector
 from src.agent.skill_orchestrator import SkillOrchestrator
 from src.tools.pool import ToolPool
+from src.api.error_handlers import raise_internal_error
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -148,7 +152,7 @@ async def list_skills(
         
         return [skill.to_dict() for skill in skills]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing skills: {str(e)}")
+        raise_internal_error(logger, "Error listing skills", e)
 
 
 @router.post("/api/skills", response_model=SkillInfo, status_code=201)
@@ -200,7 +204,7 @@ async def create_skill(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating skill: {str(e)}")
+        raise_internal_error(logger, "Error creating skill", e)
 
 
 @router.get("/api/skills/{name}", response_model=SkillInfo)
@@ -229,7 +233,7 @@ async def get_skill(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting skill: {str(e)}")
+        raise_internal_error(logger, "Error getting skill", e)
 
 
 @router.patch("/api/skills/{name}", response_model=SkillInfo)
@@ -278,11 +282,11 @@ async def update_skill(
         await registry.register_skill_from_db(skill)
         
         return skill.to_dict()
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating skill: {str(e)}")
+        raise_internal_error(logger, "Error updating skill", e)
 
 
 @router.delete("/api/skills/{name}")
@@ -320,11 +324,11 @@ async def delete_skill(
         registry.unregister(name)
         
         return {"message": f"Skill '{name}' deleted successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting skill: {str(e)}")
+        raise_internal_error(logger, "Error deleting skill", e)
 
 
 # ============================================================================
@@ -354,11 +358,11 @@ async def get_skill_tools(
             raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
         
         return [tool.to_dict() for tool in skill.tools]
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting tools: {str(e)}")
+        raise_internal_error(logger, "Error getting tools", e)
 
 
 @router.post("/api/skills/{name}/tools", response_model=ToolInfo, status_code=201)
@@ -424,11 +428,11 @@ async def add_tool_to_skill(
         await registry.register_skill_from_db(skill)
         
         return tool.to_dict()
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating tool: {str(e)}")
+        raise_internal_error(logger, "Error creating tool", e)
 
 
 @router.patch("/api/skills/{name}/tools/{tool_name}", response_model=ToolInfo)
@@ -484,11 +488,11 @@ async def update_tool(
         await registry.register_skill_from_db(skill)
         
         return tool.to_dict()
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating tool: {str(e)}")
+        raise_internal_error(logger, "Error updating tool", e)
 
 
 @router.delete("/api/skills/{name}/tools/{tool_name}")
@@ -530,11 +534,11 @@ async def delete_tool(
         await registry.register_skill_from_db(skill)
         
         return {"message": f"Tool '{tool_name}' deleted from skill '{name}'"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting tool: {str(e)}")
+        raise_internal_error(logger, "Error deleting tool", e)
 
 
 # ============================================================================
@@ -561,7 +565,7 @@ async def select_skills(request: SkillSelectionRequest):
             ]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error selecting skills: {str(e)}")
+        raise_internal_error(logger, "Error selecting skills", e)
 
 
 @router.post("/api/skills/execute")
@@ -572,7 +576,7 @@ async def execute_skills(request: SkillSelectionRequest):
         result = await orchestrator.execute(query=request.query)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error executing skills: {str(e)}")
+        raise_internal_error(logger, "Error executing skills", e)
 
 
 # ============================================================================
@@ -627,7 +631,7 @@ async def reload_skills(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reloading skills: {str(e)}")
+        raise_internal_error(logger, "Error reloading skills", e)
 
 
 @router.get("/api/skills/check-changes")
@@ -646,7 +650,7 @@ async def check_skill_changes():
             "count": len(changed)
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error checking changes: {str(e)}")
+        raise_internal_error(logger, "Error checking changes", e)
 
 
 # ============================================================================
@@ -681,7 +685,7 @@ async def discover_skills(
                 try:
                     await registry.save_to_database(skill, source_type="filesystem")
                 except Exception as e:
-                    print(f"[WARN] Failed to save skill '{skill.name}' to DB: {e}")
+                    logger.warning(f"Failed to save skill '{skill.name}' to DB: {e}")
         
         return {
             "discovered": count,
@@ -689,4 +693,4 @@ async def discover_skills(
             "message": f"Discovered {count} skills from {len(paths)} paths"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error discovering skills: {str(e)}")
+        raise_internal_error(logger, "Error discovering skills", e)
