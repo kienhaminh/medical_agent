@@ -607,7 +607,7 @@ Be concise but thorough. Use bullet points and clear formatting."""
                 try:
                     content_key = f"patient:health_summary:{patient_id}:content"
                     await redis_client.delete(content_key)
-                except:
+                except Exception:
                     pass
 
                 # Publish error event
