@@ -36,6 +36,10 @@ tools:
     - file_ops
     - datetime
 
+# CORS Configuration
+cors_origins:
+  - "http://localhost:3000"
+
 # Skill Configuration
 skills:
   # If true, only load skills from database (ignore filesystem)
