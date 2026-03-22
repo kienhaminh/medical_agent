@@ -1,6 +1,6 @@
 """Tool registry for managing and discovering available tools."""
 
-from typing import Optional, Callable
+from typing import Any, Optional, Callable
 
 
 class ToolRegistry:
@@ -21,6 +21,7 @@ class ToolRegistry:
     _instance: Optional["ToolRegistry"] = None
     _tools: dict[str, Callable]  # Maps symbol to callable
     _tool_scopes: dict[str, str]  # Maps symbol to scope (global, assignable)
+    _tool_types: dict[str, str]  # Maps symbol to tool type
 
     def __new__(cls) -> "ToolRegistry":
         """Create or return existing singleton instance."""
@@ -80,7 +81,7 @@ class ToolRegistry:
         """
         return self._tool_types.get(symbol, "function")
 
-    def list_tools(self) -> list[dict]:
+    def list_tools(self) -> list[dict[str, str]]:
         """List all registered tools.
 
         Returns:
@@ -99,7 +100,7 @@ class ToolRegistry:
         """
         return list(self._tools.values())
 
-    def get_langchain_tools(self, scope_filter: Optional[str] = None) -> list:
+    def get_langchain_tools(self, scope_filter: Optional[str] = None) -> list[Any]:
         """Get enabled tools in LangChain format with optional scope filtering.
 
         Converts enabled tools to LangChain @tool format with

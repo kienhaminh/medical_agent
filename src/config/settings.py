@@ -4,7 +4,7 @@ import functools
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 
@@ -104,7 +104,7 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
     if config_file is None:
         config_file = Path(__file__).parent.parent.parent / "config" / "default.yaml"
 
-    yaml_config = {}
+    yaml_config: dict[str, Any] = {}
     if config_file.exists():
         with open(config_file, "r") as f:
             yaml_config = yaml.safe_load(f) or {}
