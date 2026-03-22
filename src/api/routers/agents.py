@@ -10,7 +10,7 @@ from ..models import (
     ToolResponse, AssignToolRequest, AgentToolAssignmentResponse, BulkToolsRequest
 )
 
-router = APIRouter()
+router = APIRouter(tags=["Agents"])
 
 @router.get("/api/agents", response_model=list[SubAgentResponse])
 async def list_agents(db: AsyncSession = Depends(get_db)):

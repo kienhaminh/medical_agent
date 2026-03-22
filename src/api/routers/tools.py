@@ -5,7 +5,7 @@ import logging
 from ...config.database import get_db, Tool
 from ..models import ToolResponse, ToolCreate, ToolUpdate, ToolTestRequest, ToolTestResponse
 
-router = APIRouter()
+router = APIRouter(tags=["Tools"])
 logger = logging.getLogger(__name__)
 
 @router.get("/api/tools", response_model=list[ToolResponse])

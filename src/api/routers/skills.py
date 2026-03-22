@@ -14,7 +14,7 @@ from src.agent.skill_selector import SkillSelector
 from src.agent.skill_orchestrator import SkillOrchestrator
 from src.tools.pool import ToolPool
 
-router = APIRouter()
+router = APIRouter(tags=["Skills"])
 
 
 # Enhanced Request/Response models
