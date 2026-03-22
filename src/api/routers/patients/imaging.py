@@ -8,7 +8,7 @@ from src.models import get_db, Patient, Imaging, ImageGroup
 from ..models import ImagingResponse, ImageGroupResponse, ImageGroupCreate
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(tags=["Patients"])
 
 
 @router.get("/api/patients/{patient_id}/imaging", response_model=list[ImagingResponse])

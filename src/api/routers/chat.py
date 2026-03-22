@@ -24,9 +24,9 @@ from ...tasks.agent_tasks import process_agent_message
 # Load configuration
 config = load_config()
 
-router = APIRouter()
+router = APIRouter(tags=["Chat"])
 
-@router.post("/api/chat")
+@router.post("/api/chat", summary="Send a chat message to the medical agent")
 async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     """Chat endpoint with streaming support and patient context.
 

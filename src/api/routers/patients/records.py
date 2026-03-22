@@ -8,7 +8,7 @@ from src.models import get_db, Patient, MedicalRecord
 from ..models import RecordResponse, TextRecordCreate
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(tags=["Patients"])
 
 
 @router.get("/api/patients/{patient_id}/records", response_model=list[RecordResponse])

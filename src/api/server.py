@@ -88,9 +88,11 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="AI Agent API",
-    description="Chat API powered by Kimi (Moonshot AI)",
-    version="1.0.0",
+    title="Medical Agent API",
+    description="AI-powered medical assistant with skill-based agent orchestration",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan,
 )
 
