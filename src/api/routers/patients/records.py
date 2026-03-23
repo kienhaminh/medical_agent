@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, MedicalRecord
-from ..models import RecordResponse, TextRecordCreate
+from ...models import RecordResponse, TextRecordCreate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
@@ -32,8 +32,11 @@ async def list_patient_records(patient_id: int, db: AsyncSession = Depends(get_d
             id=r.id,
             patient_id=r.patient_id,
             record_type=r.record_type,
+            title=r.summary or "Medical Record",
+            description=None,
             content=r.content,
-            summary=r.summary,
+            file_url=None,
+            file_type=r.record_type,
             created_at=r.created_at.isoformat()
         ) for r in records
     ]
@@ -56,7 +59,7 @@ async def create_text_record(
         patient_id=patient_id,
         record_type="text",
         content=record.content,
-        summary=record.summary
+        summary=record.description
     )
     db.add(new_record)
     await db.commit()
@@ -66,8 +69,11 @@ async def create_text_record(
         id=new_record.id,
         patient_id=new_record.patient_id,
         record_type=new_record.record_type,
+        title=record.title,
+        description=new_record.summary,
         content=new_record.content,
-        summary=new_record.summary,
+        file_url=None,
+        file_type="text",
         created_at=new_record.created_at.isoformat()
     )
 
