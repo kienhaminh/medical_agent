@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
 
 
+def _extract_title(content: str, summary: str | None) -> str:
+    """Extract title from content convention 'Title: xxx\\n\\n...'."""
+    first_line = content.split('\n', 1)[0] if content else ""
+    if first_line.startswith("Title: "):
+        return first_line[len("Title: "):].strip()
+    return summary or "Medical Record"
+
+
 @router.get("/api/patients/{patient_id}/records", response_model=list[RecordResponse])
 async def list_patient_records(patient_id: int, db: AsyncSession = Depends(get_db)):
     """List all medical records for a patient."""
@@ -32,8 +40,8 @@ async def list_patient_records(patient_id: int, db: AsyncSession = Depends(get_d
             id=r.id,
             patient_id=r.patient_id,
             record_type=r.record_type,
-            title=r.summary or "Medical Record",
-            description=None,
+            title=_extract_title(r.content, r.summary),
+            description=r.summary,
             content=r.content,
             file_url=None,
             file_type=r.record_type,
@@ -55,10 +63,11 @@ async def create_text_record(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
+    full_content = f"Title: {record.title}\n\n{record.content}"
     new_record = MedicalRecord(
         patient_id=patient_id,
         record_type="text",
-        content=record.content,
+        content=full_content,
         summary=record.description
     )
     db.add(new_record)
