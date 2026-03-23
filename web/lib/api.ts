@@ -27,43 +27,16 @@ export interface Tool {
   assigned_agent_id?: number | null;
 }
 
-export interface PatientVisit {
-  id: number;
-  patient_id: number;
-  visit_date: string;
-  visit_type: string; // 'routine' | 'emergency' | 'follow-up' | 'consultation'
-  chief_complaint: string;
-  diagnosis: string;
-  treatment_plan: string;
-  notes: string;
-  vital_signs?: {
-    temperature?: string;
-    blood_pressure?: string;
-    heart_rate?: string;
-    respiratory_rate?: string;
-    oxygen_saturation?: string;
-    weight?: string;
-    height?: string;
-  };
-  doctor_name: string;
-  status: "scheduled" | "in-progress" | "completed" | "cancelled";
-  created_at: string;
-  updated_at: string;
-}
-
 export interface MedicalRecord {
   id: number;
   patient_id: number;
-  visit_id?: number; // Link to specific visit
   record_type: "text" | "image" | "pdf";
   title: string;
   description?: string;
-  content?: string; // For text records
-  file_url?: string; // For image/pdf records
-  file_type?: string; // 'mri' | 'xray' | 'ct_scan' | 'ultrasound' | 'lab_report' | 'other'
-  metadata?: Record<string, any>;
+  content?: string;
+  file_url?: string;
+  file_type?: string;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Imaging {
@@ -86,18 +59,9 @@ export interface ImageGroup {
 }
 
 export interface PatientDetail extends Patient {
-  medical_history?: string;
-  allergies?: string;
-  current_medications?: string;
-  family_history?: string;
-  health_summary?: string; // AI-generated overview
-  health_summary_updated_at?: string; // Last generation timestamp
-  health_summary_status?: "pending" | "generating" | "completed" | "error";
-  health_summary_task_id?: string;
   records?: MedicalRecord[];
   imaging?: Imaging[];
   image_groups?: ImageGroup[];
-  visits?: PatientVisit[];
 }
 
 export async function getPatients(): Promise<Patient[]> {
@@ -106,7 +70,7 @@ export async function getPatients(): Promise<Patient[]> {
   return res.json();
 }
 
-export async function getPatient(id: number): Promise<Patient> {
+export async function getPatient(id: number): Promise<PatientDetail> {
   const res = await fetch(`${API_BASE_URL}/patients/${id}`);
   if (!res.ok) throw new Error("Failed to fetch patient");
   return res.json();
@@ -205,63 +169,11 @@ export async function testTool(
 }
 
 // Medical Records API
-export async function getPatientDetail(id: number): Promise<PatientDetail> {
-  const res = await fetch(`${API_BASE_URL}/patients/${id}/detail`);
-  if (!res.ok) throw new Error("Failed to fetch patient detail");
-  return res.json();
-}
-
 export async function getPatientRecords(
   patientId: number
 ): Promise<MedicalRecord[]> {
   const res = await fetch(`${API_BASE_URL}/patients/${patientId}/records`);
   if (!res.ok) throw new Error("Failed to fetch patient records");
-  return res.json();
-}
-
-export async function uploadMedicalRecord(
-  patientId: number,
-  file: File,
-  metadata: { title: string; description?: string; file_type?: string }
-): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("title", metadata.title);
-  if (metadata.description)
-    formData.append("description", metadata.description);
-  if (metadata.file_type) formData.append("file_type", metadata.file_type);
-
-  const res = await fetch(
-    `${API_BASE_URL}/patients/${patientId}/records/upload`,
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
-  if (!res.ok) throw new Error("Failed to upload medical record");
-  return res.json();
-}
-
-export async function uploadImagingRecord(
-  patientId: number,
-  file: File,
-  metadata: { title: string; image_type: string; group_id?: number }
-): Promise<Imaging> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("title", metadata.title);
-  formData.append("image_type", metadata.image_type);
-  if (metadata.group_id)
-    formData.append("group_id", metadata.group_id.toString());
-
-  const res = await fetch(
-    `${API_BASE_URL}/patients/${patientId}/imaging/upload`,
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
-  if (!res.ok) throw new Error("Failed to upload imaging record");
   return res.json();
 }
 
@@ -318,101 +230,6 @@ export async function deleteImagingRecord(
     }
   );
   if (!res.ok) throw new Error("Failed to delete imaging record");
-}
-
-export interface HealthSummaryResponse {
-  patient_id: number;
-  health_summary?: string;
-  health_summary_updated_at?: string;
-  status: "pending" | "generating" | "completed" | "error";
-  task_id?: string;
-}
-
-export interface UploadResponse {
-  success: boolean;
-  record: MedicalRecord;
-}
-
-/**
- * Regenerate AI health summary for a patient (Background Task).
- * Returns immediately with task_id. UI should stream updates.
- */
-export async function regenerateHealthSummary(
-  patientId: number
-): Promise<HealthSummaryResponse> {
-  const res = await fetch(
-    `${API_BASE_URL}/patients/${patientId}/generate-summary`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    }
-  );
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.detail || "Failed to generate health summary");
-  }
-  return res.json();
-}
-
-/**
- * Stream health summary generation updates via Server-Sent Events.
- */
-export function streamHealthSummaryUpdates(
-  patientId: number,
-  onChunk: (content: string) => void,
-  onStatus: (status: string) => void,
-  onError: (error: Error) => void,
-  onComplete: () => void
-): () => void {
-  const eventSource = new EventSource(
-    `${API_BASE_URL}/patients/${patientId}/summary-stream`
-  );
-
-  let accumulatedContent = "";
-
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-
-      if (data.type === "done") {
-        eventSource.close();
-        onComplete();
-        return;
-      }
-
-      if (data.error) {
-        eventSource.close();
-        onError(new Error(data.error));
-        return;
-      }
-
-      if (data.type === "status") {
-        onStatus(data.status);
-        if (data.summary) {
-          accumulatedContent = data.summary;
-          onChunk(data.summary);
-        }
-      } else if (data.type === "chunk") {
-        accumulatedContent += data.content;
-        onChunk(data.content);
-      } else if (data.type === "error") {
-        eventSource.close();
-        onError(new Error(data.message));
-      }
-    } catch (err) {
-      console.error("Error parsing SSE data:", err);
-    }
-  };
-
-  eventSource.onerror = (err) => {
-    eventSource.close();
-    onError(new Error("Stream connection error"));
-  };
-
-  // Return cleanup function
-  return () => {
-    eventSource.close();
-  };
 }
 
 // --- Agent API ---
