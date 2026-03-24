@@ -1,25 +1,12 @@
 import type {
   Patient,
   MedicalRecord,
-  PatientVisit,
   Imaging,
   ImageGroup,
+  PatientDetail,
 } from "./api";
 
-export interface PatientWithDetails extends Patient {
-  medical_history?: string;
-  allergies?: string;
-  current_medications?: string;
-  family_history?: string;
-  health_summary?: string;
-  health_summary_updated_at?: string;
-  health_summary_status?: "pending" | "generating" | "completed" | "error";
-  health_summary_task_id?: string;
-  records?: MedicalRecord[];
-  imaging?: Imaging[];
-  image_groups?: ImageGroup[];
-  visits?: PatientVisit[];
-}
+export interface PatientWithDetails extends PatientDetail {}
 
 export const mockPatients: PatientWithDetails[] = [
   {
@@ -28,149 +15,10 @@ export const mockPatients: PatientWithDetails[] = [
     dob: "1978-03-15",
     gender: "Female",
     created_at: "2024-01-10T08:00:00Z",
-    medical_history: `Patient diagnosed with Type 2 Diabetes Mellitus in 2015, well-controlled with oral hypoglycemics. History of hypertension since 2012, managed with ACE inhibitors. Previous appendectomy in 2005 without complications. Regular exercise routine, non-smoker, occasional alcohol consumption (social drinker). Last HbA1c: 6.8% (January 2024). Blood pressure consistently 125/80 mmHg on current medication regimen.`,
-    allergies:
-      "Penicillin (anaphylaxis), Latex (contact dermatitis), Shellfish (urticaria)",
-    current_medications: `• Metformin 1000mg twice daily (Diabetes management)
-• Lisinopril 20mg once daily (Hypertension)
-• Atorvastatin 40mg at bedtime (Cholesterol)
-• Aspirin 81mg once daily (Cardiovascular prophylaxis)
-• Vitamin D3 2000 IU daily (Supplementation)`,
-    family_history:
-      "Father: Coronary artery disease (MI at age 62), Type 2 Diabetes. Mother: Breast cancer (diagnosed age 58, in remission), Hypertension. Sister: Hypothyroidism. Maternal grandmother: Alzheimer's disease.",
-    health_summary: `**Overall Health Status: Stable with Managed Chronic Conditions**
-
-Sarah Johnson is a 46-year-old female with well-controlled Type 2 Diabetes Mellitus and hypertension. Current treatment regimen is effective with recent HbA1c of 6.8% (target <7%) and blood pressure averaging 125/80 mmHg.
-
-**Key Health Indicators:**
-- Diabetes control: Excellent (HbA1c 6.8%, stable glucose readings)
-- Cardiovascular risk: Moderate (managed with statins and aspirin prophylaxis)
-- Kidney function: Normal (eGFR >90, no proteinuria)
-- Weight management: Improving (BMI decreased from 29.2 to 28.5)
-
-**Active Concerns:**
-- Family history of cardiovascular disease and diabetes requires ongoing monitoring
-- Penicillin allergy documented - avoid all penicillin-based antibiotics
-
-**Preventive Care Status:**
-- Mammography: Due within 3 months (last: 14 months ago)
-- Eye exam: Completed (January 2024) - no diabetic retinopathy
-- Foot exam: Completed - no neuropathy detected
-- Lipid panel: Within target ranges
-
-**Recommendations:**
-Continue current medication regimen with excellent adherence. Maintain diet and exercise modifications. Schedule follow-up HbA1c in 3 months. Consider cardiology consultation given strong family history of early MI.`,
-    visits: [
-      {
-        id: 1001,
-        patient_id: 1,
-        visit_date: "2024-01-10T14:00:00Z",
-        visit_type: "follow-up",
-        chief_complaint: "Routine diabetes management follow-up",
-        diagnosis:
-          "Type 2 Diabetes Mellitus, well-controlled; Essential Hypertension, stable",
-        treatment_plan:
-          "Continue current medications. Repeat HbA1c in 3 months. Continue home glucose monitoring.",
-        notes: `Patient reports improved glucose control since last visit. Blood sugar readings at home averaging 110-125 mg/dL fasting. Denies symptoms of hypoglycemia. Adherence to medication excellent. Diet modifications ongoing with reduced carbohydrate intake.
-
-PHYSICAL EXAM:
-- Vitals: BP 122/78, HR 72, Temp 98.4°F, RR 14
-- BMI: 28.5 (down from 29.2 last visit)
-- Foot exam: No neuropathy, pulses intact bilaterally, no ulcers or wounds
-- Visual acuity: 20/20 both eyes, no diabetic retinopathy on recent exam
-- Cardiovascular: Regular rate and rhythm, no murmurs
-- Lungs: Clear to auscultation bilaterally
-
-LABS REVIEWED:
-- HbA1c: 6.8% (excellent control)
-- Fasting glucose: 118 mg/dL
-- Lipid panel: Total cholesterol 185, LDL 110, HDL 62, Triglycerides 95
-- Kidney function: Creatinine 0.9, eGFR >90 (normal)
-
-ASSESSMENT: Excellent diabetes control with current regimen. Blood pressure well-managed. Weight loss progress encouraging.
-
-PLAN:
-- Continue Metformin 1000mg BID
-- Continue Lisinopril 20mg daily
-- Continue Atorvastatin 40mg at bedtime
-- Repeat HbA1c in 3 months
-- Encouraged continued diet and exercise modifications
-- Follow-up in 3 months or sooner if concerns`,
-        vital_signs: {
-          temperature: "98.4°F",
-          blood_pressure: "122/78 mmHg",
-          heart_rate: "72 bpm",
-          respiratory_rate: "14/min",
-          oxygen_saturation: "98%",
-          weight: "165 lbs",
-          height: "5'6\"",
-        },
-        doctor_name: "Dr. Emily Rodriguez",
-        status: "completed",
-        created_at: "2024-01-10T14:00:00Z",
-        updated_at: "2024-01-10T15:30:00Z",
-      },
-      {
-        id: 1002,
-        patient_id: 1,
-        visit_date: "2023-10-15T10:00:00Z",
-        visit_type: "routine",
-        chief_complaint: "Annual physical examination",
-        diagnosis:
-          "Type 2 Diabetes Mellitus; Essential Hypertension; Hyperlipidemia",
-        treatment_plan:
-          "Continue current medications. Order comprehensive metabolic panel and lipid panel. Chest X-ray for baseline.",
-        notes: `Annual wellness visit for comprehensive health assessment.
-
-REVIEW OF SYSTEMS: Patient denies chest pain, shortness of breath, palpitations. No polyuria or polydipsia. Reports good energy levels. Sleep quality good. Stress level moderate.
-
-PHYSICAL EXAM:
-- Vitals: BP 128/82, HR 76, Temp 98.6°F
-- BMI: 29.2
-- HEENT: Normocephalic, atraumatic, PERRLA, oropharynx clear
-- Neck: No thyromegaly, no lymphadenopathy
-- Cardiovascular: RRR, no murmurs/rubs/gallops
-- Respiratory: Clear to auscultation, no wheezes/rales
-- Abdomen: Soft, non-tender, no organomegaly
-- Extremities: No edema, pulses 2+ bilaterally
-- Skin: No concerning lesions
-
-SCREENING:
-- Breast exam: Normal, no masses
-- Last mammogram: 11 months ago (normal)
-- Last colonoscopy: Age 45 (normal, repeat in 10 years)
-- Immunizations: Up to date
-
-COUNSELING: Discussed importance of medication adherence, diet modifications, regular exercise. Reviewed diabetic foot care. Discussed cardiovascular disease prevention.
-
-ORDERS:
-- Comprehensive metabolic panel (fasting)
-- Lipid panel
-- HbA1c
-- Urinalysis with microalbumin
-- Chest X-ray (baseline)
-
-FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
-        vital_signs: {
-          temperature: "98.6°F",
-          blood_pressure: "128/82 mmHg",
-          heart_rate: "76 bpm",
-          respiratory_rate: "16/min",
-          oxygen_saturation: "99%",
-          weight: "170 lbs",
-          height: "5'6\"",
-        },
-        doctor_name: "Dr. Emily Rodriguez",
-        status: "completed",
-        created_at: "2023-10-15T10:00:00Z",
-        updated_at: "2023-10-15T11:45:00Z",
-      },
-    ],
     records: [
       {
         id: 101,
         patient_id: 1,
-        visit_id: 1002,
         record_type: "image",
         title: "Chest X-Ray - Annual Physical",
         description:
@@ -178,12 +26,10 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         file_url: "/mock/chest-xray-sarah.jpg",
         file_type: "xray",
         created_at: "2023-10-15T10:30:00Z",
-        updated_at: "2023-10-15T10:30:00Z",
       },
       {
         id: 102,
         patient_id: 1,
-        visit_id: 1001,
         record_type: "pdf",
         title: "Comprehensive Metabolic Panel",
         description:
@@ -191,7 +37,6 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         file_url: "/mock/lab-report-sarah-cmp.pdf",
         file_type: "lab_report",
         created_at: "2024-01-14T08:15:00Z",
-        updated_at: "2024-01-14T08:15:00Z",
       },
     ],
   },
@@ -201,14 +46,6 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
     dob: "1985-11-22",
     gender: "Male",
     created_at: "2024-02-05T09:30:00Z",
-    medical_history: `Athletic 38-year-old male with history of sports-related injuries. Right ACL reconstruction (2018) with complete recovery. Mild exercise-induced asthma, controlled with rescue inhaler. Recent complaint of intermittent lower back pain, likely mechanical. No chronic medical conditions. Regular runner (30-40 miles/week). Excellent cardiovascular fitness. Non-smoker, social drinker.`,
-    allergies: "Sulfa drugs (rash), Codeine (nausea)",
-    current_medications: `• Albuterol inhaler PRN (Asthma rescue)
-• Ibuprofen 400mg PRN (Pain management, max 3x/day)
-• Multivitamin daily
-• Glucosamine/Chondroitin supplement (Joint health)`,
-    family_history:
-      "Father: Healthy, age 68. Mother: Osteoarthritis, age 65. Brother: No significant medical history. Paternal grandfather: Prostate cancer (age 72). No family history of cardiovascular disease or diabetes.",
     records: [
       {
         id: 201,
@@ -220,7 +57,6 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         file_url: "/mock/mri-spine-michael.jpg",
         file_type: "mri",
         created_at: "2024-02-18T16:45:00Z",
-        updated_at: "2024-02-18T16:45:00Z",
       },
       {
         id: 202,
@@ -232,7 +68,6 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         file_url: "/mock/knee-xray-michael.jpg",
         file_type: "xray",
         created_at: "2024-02-10T11:20:00Z",
-        updated_at: "2024-02-10T11:20:00Z",
       },
       {
         id: 203,
@@ -244,7 +79,6 @@ FOLLOW-UP: Results review in 2 weeks, sooner if abnormal.`,
         file_url: "/mock/sports-physical-michael.pdf",
         file_type: "lab_report",
         created_at: "2024-02-05T10:00:00Z",
-        updated_at: "2024-02-05T10:00:00Z",
       },
       {
         id: 204,
@@ -262,7 +96,6 @@ ASSESSMENT: Mechanical lower back pain, improving with conservative management. 
 
 PLAN: Continue physical therapy 2x/week for 4 more weeks. Progress core strengthening exercises. Gradual return to full running schedule. Patient educated on proper running mechanics and importance of cross-training. Follow-up in 2 weeks.`,
         created_at: "2024-02-15T13:30:00Z",
-        updated_at: "2024-02-15T13:30:00Z",
       },
     ],
   },
@@ -272,14 +105,6 @@ PLAN: Continue physical therapy 2x/week for 4 more weeks. Progress core strength
     dob: "1992-07-08",
     gender: "Female",
     created_at: "2024-03-01T11:00:00Z",
-    medical_history: `31-year-old female, G2P2 (two pregnancies, two live births). Last delivery 2 years ago via cesarean section. History of postpartum depression, resolved with therapy and brief SSRI treatment. Diagnosed with hypothyroidism 3 years ago, well-controlled on levothyroxine. Anxiety disorder, managed with counseling and as-needed medication. IUD in place for contraception. Regular menstrual cycles. No significant surgical history beyond C-section.`,
-    allergies: "NKDA (No Known Drug Allergies)",
-    current_medications: `• Levothyroxine 75mcg once daily (Hypothyroidism)
-• Lorazepam 0.5mg PRN anxiety (max 2x/week)
-• Prenatal vitamin daily (general health)
-• Iron supplement 325mg daily (mild anemia)`,
-    family_history:
-      "Mother: Thyroid disorder (Hashimoto's thyroiditis), Depression. Father: Healthy. Sister: Postpartum depression. Maternal aunt: Autoimmune disorder (Lupus). Grandmother: Breast cancer (age 70, survived).",
     records: [
       {
         id: 301,
@@ -291,7 +116,6 @@ PLAN: Continue physical therapy 2x/week for 4 more weeks. Progress core strength
         file_url: "/mock/thyroid-panel-emily.pdf",
         file_type: "lab_report",
         created_at: "2024-03-05T09:00:00Z",
-        updated_at: "2024-03-05T09:00:00Z",
       },
       {
         id: 302,
@@ -303,7 +127,6 @@ PLAN: Continue physical therapy 2x/week for 4 more weeks. Progress core strength
         file_url: "/mock/cbc-emily.pdf",
         file_type: "lab_report",
         created_at: "2024-03-05T09:00:00Z",
-        updated_at: "2024-03-05T09:00:00Z",
       },
       {
         id: 303,
@@ -333,7 +156,6 @@ PLAN:
 7. Pap smear due next visit
 8. Follow-up in 6 months or sooner if symptoms arise`,
         created_at: "2024-03-01T14:30:00Z",
-        updated_at: "2024-03-01T14:30:00Z",
       },
     ],
   },
@@ -343,19 +165,6 @@ PLAN:
     dob: "1965-12-03",
     gender: "Male",
     created_at: "2023-11-15T10:00:00Z",
-    medical_history: `58-year-old male with history of coronary artery disease. Stent placement in LAD (2020) with excellent recovery. Risk factors include hyperlipidemia, former smoker (quit 2021, 30 pack-year history). Mild COPD from smoking history. Prediabetes (HbA1c 6.0%). Benign prostatic hyperplasia causing mild urinary symptoms. Chronic kidney disease stage 2 (eGFR 75). Osteoarthritis in both knees. Regular cardiology follow-up. Cardiac rehab completed. Currently stable.`,
-    allergies:
-      "Statins (myalgias - tried multiple, same reaction), Aspirin (gastritis)",
-    current_medications: `• Clopidogrel 75mg daily (Antiplatelet, post-stent)
-• Metoprolol succinate 50mg daily (Beta-blocker, cardiac)
-• Ezetimibe 10mg daily (Cholesterol, statin alternative)
-• Amlodipine 5mg daily (Blood pressure)
-• Tamsulosin 0.4mg at bedtime (BPH symptoms)
-• Albuterol/Ipratropium inhaler PRN (COPD)
-• Glucosamine 1500mg daily (Osteoarthritis)
-• Omeprazole 20mg daily (GERD)`,
-    family_history:
-      "Father: MI at age 55 (deceased age 67, second MI). Mother: Stroke at age 72, Dementia (age 80, deceased). Brother: CABG at age 60. Sister: Diabetes type 2. Strong family history of cardiovascular disease.",
     records: [
       {
         id: 401,
@@ -367,7 +176,6 @@ PLAN:
         file_url: "/mock/cardiac-cta-robert.jpg",
         file_type: "mri",
         created_at: "2024-01-20T15:00:00Z",
-        updated_at: "2024-01-20T15:00:00Z",
       },
       {
         id: 402,
@@ -379,7 +187,6 @@ PLAN:
         file_url: "/mock/stress-test-robert.pdf",
         file_type: "lab_report",
         created_at: "2024-01-18T10:30:00Z",
-        updated_at: "2024-01-18T10:30:00Z",
       },
       {
         id: 403,
@@ -391,7 +198,6 @@ PLAN:
         file_url: "/mock/lipid-panel-robert.pdf",
         file_type: "lab_report",
         created_at: "2024-01-15T08:00:00Z",
-        updated_at: "2024-01-15T08:00:00Z",
       },
       {
         id: 404,
@@ -425,7 +231,6 @@ PLAN:
 7. Follow-up in 6 months, sooner if chest pain or concerning symptoms
 8. Patient educated on warning signs of ACS - call 911 if symptoms occur`,
         created_at: "2024-01-22T14:00:00Z",
-        updated_at: "2024-01-22T14:00:00Z",
       },
     ],
   },
@@ -435,17 +240,6 @@ PLAN:
     dob: "2001-04-25",
     gender: "Female",
     created_at: "2024-02-20T13:00:00Z",
-    medical_history: `23-year-old female college student with history of migraines since age 16. Migraines with aura, 4-6 episodes per month, responsive to triptans. Diagnosed with ADHD in childhood, currently on stimulant medication with good symptom control. Generalized anxiety disorder, manages with therapy and SSRI. Recently diagnosed with vitamin D deficiency. No significant surgical history. Non-smoker, occasional alcohol use (social). Birth control pills for contraception and menstrual regulation.`,
-    allergies: "Morphine (severe nausea/vomiting)",
-    current_medications: `• Sumatriptan 100mg as needed for migraines (max 2/week)
-• Propranolol 40mg twice daily (Migraine prophylaxis)
-• Adderall XR 20mg daily (ADHD)
-• Sertraline 75mg daily (Anxiety)
-• Combination oral contraceptive daily
-• Vitamin D3 5000 IU daily
-• Magnesium glycinate 400mg at bedtime (Migraine prevention)`,
-    family_history:
-      "Mother: Migraines, Anxiety. Father: ADHD. Maternal grandmother: Depression. No significant family history of cardiovascular disease, cancer, or diabetes.",
     records: [
       {
         id: 501,
@@ -457,7 +251,6 @@ PLAN:
         file_url: "/mock/brain-mri-jennifer.jpg",
         file_type: "mri",
         created_at: "2024-02-25T11:00:00Z",
-        updated_at: "2024-02-25T11:00:00Z",
       },
       {
         id: 502,
@@ -469,7 +262,6 @@ PLAN:
         file_url: "/mock/vitamin-d-jennifer.pdf",
         file_type: "lab_report",
         created_at: "2024-02-20T09:30:00Z",
-        updated_at: "2024-02-20T09:30:00Z",
       },
       {
         id: 503,
@@ -504,7 +296,6 @@ PLAN:
 8. F/U in 6 weeks to assess response to prophylaxis
 9. Patient educated on when to seek emergency care (thunderclap headache, neurological deficits, fever with headache)`,
         created_at: "2024-02-28T15:30:00Z",
-        updated_at: "2024-02-28T15:30:00Z",
       },
     ],
   },
@@ -517,14 +308,5 @@ export function getMockPatientById(id: number): PatientWithDetails | undefined {
 
 // Helper function to get all mock patients (basic info only)
 export function getAllMockPatients(): Patient[] {
-  return mockPatients.map(
-    ({
-      medical_history,
-      allergies,
-      current_medications,
-      family_history,
-      records,
-      ...patient
-    }) => patient
-  );
+  return mockPatients.map(({ records, imaging, image_groups, ...patient }) => patient);
 }
