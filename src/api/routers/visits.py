@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import get_db, Visit, Patient, ChatSession, SubAgent
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitDetailResponse, VisitRouteUpdate
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -86,16 +86,32 @@ async def create_visit(visit_data: VisitCreate, db: AsyncSession = Depends(get_d
     return _visit_to_response(visit)
 
 
-@router.get("/api/visits", response_model=list[VisitResponse])
-async def list_visits(status: str | None = None, patient_id: int | None = None, limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
-    query = select(Visit).order_by(Visit.created_at.desc())
+@router.get("/api/visits", response_model=list[VisitListResponse])
+async def list_visits(
+    status: str | None = None,
+    exclude_status: str | None = None,
+    patient_id: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Visit, Patient.name).join(Patient, Visit.patient_id == Patient.id).order_by(Visit.created_at.desc())
     if status:
         query = query.where(Visit.status == status)
+    if exclude_status:
+        query = query.where(Visit.status != exclude_status)
     if patient_id:
         query = query.where(Visit.patient_id == patient_id)
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
-    return [_visit_to_response(v) for v in result.scalars().all()]
+    rows = result.all()
+    return [
+        VisitListResponse(
+            **_visit_to_response(visit).model_dump(),
+            patient_name=patient_name,
+        )
+        for visit, patient_name in rows
+    ]
 
 
 @router.get("/api/visits/{visit_id}", response_model=VisitDetailResponse)
@@ -134,6 +150,36 @@ async def route_visit(visit_id: int, route_data: VisitRouteUpdate, db: AsyncSess
     visit.routing_decision = route_data.routing_decision
     visit.reviewed_by = route_data.reviewed_by
     visit.status = VisitStatus.ROUTED.value
+    await db.commit()
+    await db.refresh(visit)
+    return _visit_to_response(visit)
+
+
+@router.patch("/api/visits/{visit_id}/check-in", response_model=VisitResponse)
+async def check_in_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Transition a routed visit to in_department status."""
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    if visit.status != VisitStatus.ROUTED.value:
+        raise HTTPException(status_code=400, detail=f"Visit cannot be checked in from status '{visit.status}'. Must be 'routed'.")
+    visit.status = VisitStatus.IN_DEPARTMENT.value
+    await db.commit()
+    await db.refresh(visit)
+    return _visit_to_response(visit)
+
+
+@router.patch("/api/visits/{visit_id}/complete", response_model=VisitResponse)
+async def complete_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Transition an in-department visit to completed status."""
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    if visit.status != VisitStatus.IN_DEPARTMENT.value:
+        raise HTTPException(status_code=400, detail=f"Visit cannot be completed from status '{visit.status}'. Must be 'in_department'.")
+    visit.status = VisitStatus.COMPLETED.value
     await db.commit()
     await db.refresh(visit)
     return _visit_to_response(visit)

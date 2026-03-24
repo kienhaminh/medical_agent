@@ -17,8 +17,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   Palette,
-  ClipboardList,
-  Stethoscope,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,14 +36,9 @@ const navigation: NavItem[] = [
     icon: Users,
   },
   {
-    name: "Reception",
-    href: "/reception",
-    icon: ClipboardList,
-  },
-  {
-    name: "Doctor Queue",
-    href: "/doctor/queue",
-    icon: Stethoscope,
+    name: "Pipeline",
+    href: "/pipeline",
+    icon: Workflow,
   },
   {
     name: "Agent",

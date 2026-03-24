@@ -298,6 +298,10 @@ class VisitResponse(BaseModel):
     created_at: str
     updated_at: str
 
+class VisitListResponse(VisitResponse):
+    """Visit response for list view — includes patient_name."""
+    patient_name: str = "Unknown"
+
 class VisitDetailResponse(VisitResponse):
     """Extended visit response with patient info and intake notes."""
     patient_name: str
