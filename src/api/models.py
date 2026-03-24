@@ -51,7 +51,7 @@ class ImagingCreate(BaseModel):
     title: str
     image_type: str
     preview_url: str
-    origin_url: str
+    original_url: str
     group_id: Optional[int] = None
 
 

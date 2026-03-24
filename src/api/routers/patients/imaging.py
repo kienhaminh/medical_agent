@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, Imaging, ImageGroup
-from ..models import ImagingResponse, ImageGroupResponse, ImageGroupCreate
+from ...models import ImagingResponse, ImageGroupResponse, ImageGroupCreate, ImagingCreate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
@@ -43,10 +43,7 @@ async def list_patient_imaging(patient_id: int, db: AsyncSession = Depends(get_d
 @router.post("/api/patients/{patient_id}/imaging", response_model=ImagingResponse)
 async def create_imaging_record(
     patient_id: int,
-    title: str,
-    image_type: str,
-    original_url: str,
-    preview_url: str,
+    imaging: ImagingCreate,
     db: AsyncSession = Depends(get_db)
 ):
     """Create an imaging record for a patient."""
@@ -58,10 +55,10 @@ async def create_imaging_record(
 
     new_imaging = Imaging(
         patient_id=patient_id,
-        title=title,
-        image_type=image_type,
-        original_url=original_url,
-        preview_url=preview_url
+        title=imaging.title,
+        image_type=imaging.image_type,
+        original_url=imaging.original_url,
+        preview_url=imaging.preview_url
     )
     db.add(new_imaging)
     await db.commit()

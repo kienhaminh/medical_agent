@@ -109,7 +109,7 @@ export function RecordUpload({
             title: title.trim(),
             image_type: fileType,
             preview_url: previewUrl.trim(),
-            origin_url: originUrl.trim(),
+            original_url: originUrl.trim(),
             group_id:
               selectedGroupId !== "none" && selectedGroupId !== "new"
                 ? parseInt(selectedGroupId)
@@ -134,7 +134,7 @@ export function RecordUpload({
             description: description.trim() || undefined,
             file_type: fileType,
             preview_url: previewUrl.trim(),
-            origin_url: originUrl.trim(),
+            original_url: originUrl.trim(),
           }),
         });
 
@@ -142,8 +142,7 @@ export function RecordUpload({
           throw new Error("Failed to create medical record");
         }
 
-        const data = await response.json();
-        record = data.record;
+        record = await response.json();
       }
 
       onUploadComplete(record);
