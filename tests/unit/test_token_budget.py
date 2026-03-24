@@ -55,3 +55,37 @@ class TestTrimToTokenBudget:
         budget = count_message_tokens(msgs) + 100
         result = trim_to_token_budget(msgs, budget=budget)
         assert len(result) == 3
+
+    def test_interleaved_order_preserved(self):
+        """Verify that SystemMessages appearing mid-list preserve relative order."""
+        msgs = [
+            HumanMessage(content="first"),
+            SystemMessage(content="mid-system"),
+            HumanMessage(content="second"),
+        ]
+        # Budget large enough to keep everything
+        budget = count_message_tokens(msgs) + 100
+        result = trim_to_token_budget(msgs, budget=budget)
+        assert len(result) == 3
+        assert result[0].content == "first"
+        assert isinstance(result[1], SystemMessage)
+        assert result[2].content == "second"
+
+    def test_tiktoken_fallback(self):
+        """Verify that count_text_tokens falls back to char estimate when tiktoken is unavailable."""
+        import sys
+        from unittest.mock import patch
+        from src.utils.token_budget import count_text_tokens
+
+        # Simulate tiktoken module unavailable
+        with patch.dict("sys.modules", {"tiktoken": None}):
+            result = count_text_tokens("a" * 40)
+        # 40 chars → 10 tokens (40 // 4)
+        assert result == 10
+
+    def test_non_string_content_handled(self):
+        """Verify that messages with non-string content (e.g. tool calls) are handled without error."""
+        # AIMessage with list content (tool call format)
+        msg = AIMessage(content=[{"type": "text", "text": "hello"}])
+        result = count_message_tokens([msg])
+        assert result >= 1

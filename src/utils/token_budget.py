@@ -65,4 +65,6 @@ def trim_to_token_budget(
     if dropped:
         logger.debug("trim_to_token_budget: dropped %d messages to fit budget=%d", dropped, budget)
 
-    return system_msgs + other_msgs
+    # Preserve original message order: include SystemMessages and remaining other_msgs
+    remaining_ids = {id(m) for m in other_msgs}
+    return [m for m in messages if isinstance(m, SystemMessage) or id(m) in remaining_ids]
