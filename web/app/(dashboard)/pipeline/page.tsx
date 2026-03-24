@@ -41,7 +41,7 @@ export default function PipelinePage() {
   const activeCount = visits.filter((v) => v.status !== "completed").length;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-border/50 shrink-0">
         <div className="flex items-center gap-3">
           <Workflow className="w-5 h-5 text-cyan-500" />
