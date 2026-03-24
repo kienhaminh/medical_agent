@@ -705,6 +705,10 @@ export interface VisitDetail extends Visit {
   intake_notes: string | null;
 }
 
+export interface VisitListItem extends Visit {
+  patient_name: string;
+}
+
 // --- Visit API functions ---
 
 export async function createVisit(patientId: number): Promise<Visit> {
@@ -759,6 +763,36 @@ export async function routeVisit(
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to route visit");
+  }
+  return response.json();
+}
+
+export async function listActiveVisits(): Promise<VisitListItem[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/visits?exclude_status=completed`
+  );
+  if (!response.ok) throw new Error("Failed to fetch active visits");
+  return response.json();
+}
+
+export async function checkInVisit(id: number): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits/${id}/check-in`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to check in visit");
+  }
+  return response.json();
+}
+
+export async function completeVisit(id: number): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits/${id}/complete`, {
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to complete visit");
   }
   return response.json();
 }
