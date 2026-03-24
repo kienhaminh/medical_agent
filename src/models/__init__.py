@@ -18,6 +18,7 @@ from .chat import ChatSession, ChatMessage
 from .agent import SubAgent
 from .tool import CustomTool
 from .skill import Skill, SkillTool, AgentSkill
+from .visit import Visit, VisitStatus
 
 __all__ = [
     # Base
@@ -44,4 +45,7 @@ __all__ = [
     "Skill",
     "SkillTool",
     "AgentSkill",
+    # Visit models
+    "Visit",
+    "VisitStatus",
 ]
