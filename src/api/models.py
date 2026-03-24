@@ -116,7 +116,6 @@ class ChatRequest(BaseModel):
     patient_id: Optional[int] = None
     record_id: Optional[int] = None
     session_id: Optional[int] = None
-    agent_role: Optional[str] = None
 
 class ChatResponse(BaseModel):
     """Chat response model."""

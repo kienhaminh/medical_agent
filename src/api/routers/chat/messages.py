@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal
-from src.models.agent import SubAgent
 from src.config.settings import load_config
 from ...models import (
     ChatRequest, ChatResponse, ChatTaskResponse, TaskStatusResponse,
@@ -49,19 +48,10 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             session = result.scalar_one_or_none()
 
         if not session:
-            # Look up agent by role if specified
-            agent_id = None
-            if request.agent_role:
-                result = await db.execute(
-                    select(SubAgent).where(SubAgent.role == request.agent_role)
-                )
-                agent = result.scalar_one_or_none()
-                if agent:
-                    agent_id = agent.id
-
+            # Create new session
             session = ChatSession(
                 title=request.message[:50] + "..." if len(request.message) > 50 else request.message,
-                agent_id=agent_id,
+                # agent_id could be set if we knew which agent is handling it primarily
             )
             db.add(session)
             await db.commit()
@@ -122,16 +112,6 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                         "content": msg.content
                     })
 
-        # Load session agent's system prompt if linked
-        agent_system_prompt = None
-        if session and session.agent_id:
-            result = await db.execute(
-                select(SubAgent).where(SubAgent.id == session.agent_id)
-            )
-            session_agent = result.scalar_one_or_none()
-            if session_agent and session_agent.system_prompt:
-                agent_system_prompt = session_agent.system_prompt
-
         # If streaming is requested
         if request.stream:
             async def generate():
@@ -151,8 +131,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                         stream=True,
                         chat_history=chat_history,
                         patient_id=patient.id if patient else None,
-                        patient_name=patient.name if patient else None,
-                        system_prompt_override=agent_system_prompt,
+                        patient_name=patient.name if patient else None
                     )
 
                     # Stream each chunk as Server-Sent Events (async iteration)
@@ -250,8 +229,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                 stream=False,
                 chat_history=chat_history,
                 patient_id=patient.id if patient else None,
-                patient_name=patient.name if patient else None,
-                system_prompt_override=agent_system_prompt,
+                patient_name=patient.name if patient else None
             )
 
             # 3. Save Assistant Message
