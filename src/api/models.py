@@ -270,3 +270,37 @@ class ChatTaskResponse(BaseModel):
     message_id: int
     session_id: int
     status: str = "pending"
+
+
+# --- Visit schemas ---
+
+class VisitCreate(BaseModel):
+    """Request body for creating a new visit."""
+    patient_id: int
+
+class VisitRouteUpdate(BaseModel):
+    """Request body for doctor routing approval."""
+    routing_decision: list[str]
+    reviewed_by: str
+
+class VisitResponse(BaseModel):
+    """Visit response for list and detail views."""
+    id: int
+    visit_id: str
+    patient_id: int
+    status: str
+    confidence: Optional[float] = None
+    routing_suggestion: Optional[list[str]] = None
+    routing_decision: Optional[list[str]] = None
+    chief_complaint: Optional[str] = None
+    intake_session_id: Optional[int] = None
+    reviewed_by: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+class VisitDetailResponse(VisitResponse):
+    """Extended visit response with patient info and intake notes."""
+    patient_name: str
+    patient_dob: str
+    patient_gender: str
+    intake_notes: Optional[str] = None
