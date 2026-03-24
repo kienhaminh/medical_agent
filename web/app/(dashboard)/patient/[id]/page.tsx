@@ -4,10 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   getPatient,
-  getPatientDetail,
+  getImageGroups,
   getSessionMessages,
-  regenerateHealthSummary,
-  streamHealthSummaryUpdates,
   deleteImagingRecord,
   type MedicalRecord,
   type Imaging,
@@ -59,14 +57,8 @@ export default function PatientDetailPage() {
 
   const sessionIdRef = useRef<string | null>(sessionId);
 
-  // Health summary regeneration
-  const [isRegenerating, setIsRegenerating] = useState(false);
-
   // Modals
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadDefaultGroupId, setUploadDefaultGroupId] = useState<
-    string | undefined
-  >(undefined);
   const [viewerRecord, setViewerRecord] = useState<
     MedicalRecord | Imaging | null
   >(null);
@@ -76,13 +68,14 @@ export default function PatientDetailPage() {
 
   useEffect(() => {
     if (params.id) {
-      getPatient(Number(params.id))
-        .then(setPatient)
+      const patientId = Number(params.id);
+      Promise.all([getPatient(patientId), getImageGroups(patientId)])
+        .then(([patientData, imageGroupsData]) => {
+          setPatient({ ...patientData, image_groups: imageGroupsData });
+        })
         .catch(() => {
-          const mockPatient = getMockPatientById(Number(params.id));
-          if (mockPatient) {
-            setPatient(mockPatient);
-          }
+          const mockPatient = getMockPatientById(patientId);
+          if (mockPatient) setPatient(mockPatient);
         });
     }
   }, [params.id]);
@@ -324,7 +317,6 @@ export default function PatientDetailPage() {
                   )
                 );
               }
-              console.log("patient_references", parsed.patient_references);
               if (parsed.patient_references) {
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -403,133 +395,6 @@ export default function PatientDetailPage() {
         image_groups: [group, ...existingGroups],
       };
     });
-  };
-
-  // Reusable streaming function
-  const startHealthSummaryStream = (
-    patientId: number,
-    initialContent: string = ""
-  ) => {
-    // Note: We don't check isRegenerating here because this function sets it,
-    // and we might call it when isRegenerating is false (initial load)
-
-    setIsRegenerating(true);
-    let summaryContent = initialContent;
-
-    const cleanupStream = streamHealthSummaryUpdates(
-      patientId,
-      // onChunk
-      (content) => {
-        summaryContent += content;
-        setPatient((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            health_summary: summaryContent,
-            health_summary_status: "generating",
-          };
-        });
-      },
-      // onStatus
-      (status) => {
-        setPatient((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            health_summary_status: status as
-              | "pending"
-              | "generating"
-              | "completed"
-              | "error",
-          };
-        });
-      },
-      // onError
-      (error) => {
-        console.error("Failed to stream health summary:", error);
-        setIsRegenerating(false);
-        setPatient((prev) => {
-          if (!prev) return prev;
-          return { ...prev, health_summary_status: "error" };
-        });
-      },
-      // onComplete
-      () => {
-        getPatientDetail(patientId)
-          .then((updatedPatient) => {
-            setPatient((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                health_summary: updatedPatient.health_summary,
-                health_summary_updated_at:
-                  updatedPatient.health_summary_updated_at,
-                health_summary_status: "completed",
-              };
-            });
-          })
-          .finally(() => {
-            setIsRegenerating(false);
-          });
-      }
-    );
-
-    return cleanupStream;
-  };
-
-  const streamCleanupRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (streamCleanupRef.current) {
-        streamCleanupRef.current();
-      }
-    };
-  }, []);
-
-  // Auto-resume streaming if status is generating/pending on load
-  useEffect(() => {
-    if (
-      patient &&
-      (patient.health_summary_status === "generating" ||
-        patient.health_summary_status === "pending") &&
-      !isRegenerating
-    ) {
-      if (streamCleanupRef.current) streamCleanupRef.current();
-      streamCleanupRef.current = startHealthSummaryStream(
-        patient.id,
-        patient.health_summary || ""
-      );
-    }
-  }, [patient?.id, patient?.health_summary_status]);
-
-  const handleRegenerateHealthSummary = async () => {
-    if (!patient || isRegenerating) return;
-
-    try {
-      setIsRegenerating(true);
-      setPatient((prev) => (prev ? { ...prev, health_summary: "" } : null));
-
-      const response = await regenerateHealthSummary(patient.id);
-
-      // Update patient with new status/task_id
-      setPatient((prev) =>
-        prev
-          ? {
-              ...prev,
-              health_summary_status: response.status,
-              health_summary_task_id: response.task_id,
-            }
-          : null
-      );
-
-      // Start streaming
-      if (streamCleanupRef.current) streamCleanupRef.current();
-      streamCleanupRef.current = startHealthSummaryStream(patient.id, "");
-    } catch (error) {
-      console.error("Failed to regenerate:", error);
-      setIsRegenerating(false);
-    }
   };
 
   const handleDeleteImaging = (record: Imaging) => {
@@ -626,9 +491,6 @@ export default function PatientDetailPage() {
               <TabsContent value="overview" className="mt-0">
                 <HealthOverview
                   patient={patient}
-                  onRegenerateClick={handleRegenerateHealthSummary}
-                  isRegenerating={isRegenerating}
-                  healthSummaryUpdatedAt={patient.health_summary_updated_at}
                 />
               </TabsContent>
 
@@ -653,10 +515,8 @@ export default function PatientDetailPage() {
                   imageRecords={imageRecords}
                   imageGroups={patient.image_groups}
                   setUploadOpen={setUploadOpen}
-                  setUploadDefaultGroupId={setUploadDefaultGroupId}
                   setViewerRecord={setViewerRecord}
                   onAnalyzeGroup={handleAnalyzeGroup}
-                  onGroupCreated={handleImageGroupCreated}
                 />
               </TabsContent>
 
@@ -706,12 +566,8 @@ export default function PatientDetailPage() {
       <RecordUpload
         patientId={patient.id}
         open={uploadOpen}
-        onClose={() => {
-          setUploadOpen(false);
-          setUploadDefaultGroupId(undefined);
-        }}
+        onClose={() => setUploadOpen(false)}
         onUploadComplete={handleUploadComplete}
-        defaultGroupId={uploadDefaultGroupId}
         onGroupCreated={handleImageGroupCreated}
       />
 
