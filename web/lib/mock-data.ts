@@ -1,12 +1,6 @@
-import type {
-  Patient,
-  MedicalRecord,
-  Imaging,
-  ImageGroup,
-  PatientDetail,
-} from "./api";
+import type { Patient, MedicalRecord, PatientDetail } from "./api";
 
-export interface PatientWithDetails extends PatientDetail {}
+export type PatientWithDetails = PatientDetail;
 
 export const mockPatients: PatientWithDetails[] = [
   {
@@ -308,5 +302,5 @@ export function getMockPatientById(id: number): PatientWithDetails | undefined {
 
 // Helper function to get all mock patients (basic info only)
 export function getAllMockPatients(): Patient[] {
-  return mockPatients.map(({ records, imaging, image_groups, ...patient }) => patient);
+  return mockPatients.map(({ records, ...patient }) => patient);
 }
