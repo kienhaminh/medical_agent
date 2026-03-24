@@ -18,6 +18,7 @@ from . import semantic_tool_search  # Vector-based semantic search
 from . import complete_triage_tool
 from . import find_patient_tool
 from . import create_patient_tool
+from . import create_visit_tool
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -32,6 +33,7 @@ from .tool_search import search_tools, get_tool_info, list_available_tools
 from .semantic_tool_search import search_tools_semantic, index_all_tools, get_search_stats
 from .complete_triage_tool import complete_triage
 from .find_patient_tool import find_patient
+from .create_patient_tool import create_patient
 
 __all__ = [
     "get_current_datetime",
@@ -50,4 +52,5 @@ __all__ = [
     "get_search_stats",
     "complete_triage",
     "find_patient",
+    "create_patient",
 ]
