@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { VisitListItem, listActiveVisits, listVisits } from "@/lib/api";
 import { KanbanBoard } from "@/components/pipeline/kanban-board";
-import { DetailPanel } from "@/components/pipeline/detail-panel";
+import { DetailDialog } from "@/components/pipeline/detail-panel";
 import { Workflow } from "lucide-react";
 
 export default function PipelinePage() {
@@ -18,19 +18,12 @@ export default function PipelinePage() {
         ? (await listVisits()) as VisitListItem[]
         : await listActiveVisits();
       setVisits(data);
-
-      if (selectedVisit) {
-        const updated = data.find((v) => v.id === selectedVisit.id);
-        if (updated) {
-          setSelectedVisit(updated);
-        }
-      }
     } catch (err) {
       console.error("Failed to fetch visits:", err);
     } finally {
       setLoading(false);
     }
-  }, [showCompleted, selectedVisit?.id]);
+  }, [showCompleted]);
 
   useEffect(() => {
     fetchVisits();
@@ -63,36 +56,33 @@ export default function PipelinePage() {
         </label>
       </div>
 
-      <div className="flex-1 min-h-0 flex">
-        <div className="flex-[2] min-w-0 p-4">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Loading visits...
-            </div>
-          ) : visits.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-              <Workflow className="w-10 h-10 opacity-30" />
-              <p className="text-sm">No active visits</p>
-              <p className="text-xs">
-                Visits will appear here when patients start conversations.
-              </p>
-            </div>
-          ) : (
-            <KanbanBoard
-              visits={visits}
-              selectedVisitId={selectedVisit?.id ?? null}
-              onSelectVisit={setSelectedVisit}
-            />
-          )}
-        </div>
-
-        <div className="flex-[1.5] min-w-0 border-l border-border/50 p-4">
-          <DetailPanel
-            selectedVisit={selectedVisit}
-            onVisitUpdated={fetchVisits}
+      <div className="flex-1 min-h-0 p-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            Loading visits...
+          </div>
+        ) : visits.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+            <Workflow className="w-10 h-10 opacity-30" />
+            <p className="text-sm">No active visits</p>
+            <p className="text-xs">
+              Visits will appear here when patients start conversations.
+            </p>
+          </div>
+        ) : (
+          <KanbanBoard
+            visits={visits}
+            selectedVisitId={selectedVisit?.id ?? null}
+            onSelectVisit={setSelectedVisit}
           />
-        </div>
+        )}
       </div>
+
+      <DetailDialog
+        selectedVisit={selectedVisit}
+        onClose={() => setSelectedVisit(null)}
+        onVisitUpdated={fetchVisits}
+      />
     </div>
   );
 }
