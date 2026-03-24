@@ -32,14 +32,12 @@ interface PatientImagingTabProps {
   imageRecords: Imaging[];
   imageGroups?: ImageGroup[];
   setUploadOpen: (open: boolean) => void;
-  setUploadDefaultGroupId?: (groupId: string | undefined) => void;
   setViewerRecord: (record: Imaging | null) => void;
   onAnalyzeGroup?: (payload: {
     groupId: string;
     groupName: string;
     images: Imaging[];
   }) => void;
-  onGroupCreated?: (group: ImageGroup) => void;
 }
 
 export function PatientImagingTab({
@@ -47,10 +45,8 @@ export function PatientImagingTab({
   imageRecords,
   imageGroups = [],
   setUploadOpen,
-  setUploadDefaultGroupId,
   setViewerRecord,
   onAnalyzeGroup,
-  onGroupCreated,
 }: PatientImagingTabProps) {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
@@ -62,10 +58,7 @@ export function PatientImagingTab({
 
     setIsCreatingGroup(true);
     try {
-      const newGroup = await createImageGroup(patientId, newGroupName);
-      if (onGroupCreated) {
-        onGroupCreated(newGroup);
-      }
+      await createImageGroup(patientId, newGroupName);
       setCreateGroupOpen(false);
       setNewGroupName("");
     } catch (error) {
@@ -75,15 +68,8 @@ export function PatientImagingTab({
     }
   };
 
-  // Group images
-  const groupedImages = imageRecords.reduce((acc, record) => {
-    if (record.group_id) {
-      const groupId = record.group_id;
-      if (!acc[groupId]) acc[groupId] = [];
-      acc[groupId].push(record);
-    }
-    return acc;
-  }, {} as Record<string | number, Imaging[]>);
+  // Group images (Imaging type has no group_id field, so grouping is not possible)
+  const groupedImages: Record<string | number, Imaging[]> = {};
 
   // If a group is active, show its images
   if (activeGroupId) {
@@ -127,9 +113,6 @@ export function PatientImagingTab({
             )}
             <Button
               onClick={() => {
-                if (setUploadDefaultGroupId) {
-                  setUploadDefaultGroupId(activeGroupId);
-                }
                 setUploadOpen(true);
               }}
               className="primary-button"
