@@ -33,9 +33,9 @@ The entry point of the hospital. Contains all pre-department visit stages.
 - **Display:** Sub-stage badge counts (e.g., "3 intake · 2 awaiting review")
 - **Queue tail:** Patient dots queue outside this node
 - **Click action:** Opens dialog with tabbed sub-stage breakdown:
-  - Intake tab: patients currently in chat (reuses `intake-detail.tsx` logic)
-  - Routing tab: patients awaiting/in routing
-  - Review tab: patients needing doctor review (reuses `review-detail.tsx` logic with approve/change actions)
+  - Intake tab: list of visits in `intake`/`triaged` status. Each row shows patient name, complaint, time elapsed. Clicking a row expands to show the intake detail (reuses `intake-detail.tsx` logic — chat transcript, patient demographics).
+  - Routing tab: list of visits in `auto_routed` status with their routing suggestions and confidence scores.
+  - Review tab: list of visits in `pending_review`/`routed` status. Each row is expandable with approve/change actions (reuses `review-detail.tsx` logic — department selector, confidence display, reviewed-by input).
 - **Position:** Top center of canvas, visually larger than department nodes
 
 ### DepartmentNode
@@ -54,7 +54,7 @@ One per department (14 total). Represents a hospital department.
   - Full patient queue list (name, complaint, wait time, priority)
   - Department settings: capacity limit, open/close toggle
   - Assigned doctors/staff (display only — future phase)
-- **Right-click:** Context menu for quick actions (Close Department, Set Capacity, View History)
+- **Right-click:** Context menu for quick actions (Close Department, Set Capacity). "View History" is excluded from this phase.
 
 ### DischargeNode
 
@@ -95,14 +95,14 @@ Exit point at the bottom of the canvas.
 | New patient arrives | Dot fades in at end of Reception queue tail |
 | Patient enters department | Dot animates from queue into the node |
 | Patient transfer | Dot animates along path between nodes, path glows briefly |
-| Patient discharge | Dot animates toward DischargeNode, fades out |
+| Patient discharge | On `completeVisit()` API success, dot animates toward DischargeNode over 1s, then is removed from canvas |
 | Department goes critical | Node border starts pulsing red |
 
 ## Custom Edges
 
 - Animated dashed lines between Reception → Departments showing patient flow direction
 - Transfer edges that light up briefly during patient movement
-- Edge thickness or opacity could reflect volume (more patients routed → thicker line)
+- Edge opacity reflects volume (more patients routed to a department → more opaque line)
 
 ## Canvas-Level Features
 
@@ -117,8 +117,8 @@ Exit point at the bottom of the canvas.
 
 - Zoom/Pan via xyflow built-in controls
 - MiniMap in corner showing full hospital overview
-- Auto-layout positions departments in a sensible grid on first load
-- Node positions are draggable and persist (localStorage or DB)
+- Auto-layout: 3-row grid. Row 1 (top): Reception centered. Row 2 (middle): departments in 2 rows of 7, ordered alphabetically. Row 3 (bottom): Discharge centered. This layout applies on first load only.
+- Node positions are draggable and persist to localStorage (keyed by user/session)
 
 ### Real-time Updates
 
@@ -131,10 +131,11 @@ Exit point at the bottom of the canvas.
 ### Drag-and-Drop Patient Transfer
 
 1. User clicks and drags a patient dot from one department queue
-2. Valid drop target departments highlight with a glow effect
+2. Valid drop target departments (open departments with capacity) highlight with a glow effect. Closed or full departments are dimmed and reject drops.
 3. On drop, triggers transfer API call
 4. Dot animates along path from source to destination department
 5. Optimistic update — dot appears in new queue immediately, confirmed by API
+6. **On API failure:** dot snaps back to original department queue with a red flash, toast notification shows error message (e.g., "Department is at capacity")
 
 ### Department Management
 
@@ -149,8 +150,10 @@ Exit point at the bottom of the canvas.
 
 ```python
 class Department(Base):
-    id: int  # primary key
-    name: str  # e.g., "cardiology" (unique, matches existing constants)
+    __tablename__ = "departments"
+
+    id: int  # primary key, auto-increment
+    name: str  # e.g., "cardiology" (unique, used as FK reference throughout)
     label: str  # e.g., "Cardiology" (display name)
     capacity: int  # max patients (default varies by department)
     is_open: bool  # default True
@@ -158,27 +161,102 @@ class Department(Base):
     icon: str  # Lucide icon name
 ```
 
-Seed with the 14 existing departments from `DEPARTMENTS` constant, with sensible default capacities.
+**Department is keyed by `name` (string) throughout the system.** The `name` field matches existing string constants in `DEPARTMENTS`. The integer `id` is the database PK but the frontend and all API references use `name` as the identifier. `routing_decision` on Visit continues to store department names as strings — no migration needed.
+
+**Seed data** — default capacities:
+
+| Department | Capacity |
+|-----------|----------|
+| emergency | 6 |
+| cardiology | 4 |
+| neurology | 4 |
+| orthopedics | 3 |
+| radiology | 5 |
+| internal_medicine | 6 |
+| general_checkup | 3 |
+| dermatology | 3 |
+| gastroenterology | 3 |
+| pulmonology | 3 |
+| endocrinology | 3 |
+| ophthalmology | 3 |
+| ent | 2 |
+| urology | 3 |
 
 ### Visit Model Changes
 
-- Add `queue_position: int` — ordering within a department queue (nullable, only set when `status = in_department`)
+Add two fields:
+
+- `current_department: str` (nullable, FK to `departments.name`) — The department a patient is currently in. Set when status transitions to `in_department`. Cleared when `completed`. This field determines which DepartmentNode the patient dot appears in. Note: `routing_decision` remains a list (it records the routing plan), while `current_department` tracks where the patient actually is right now.
+- `queue_position: int` (nullable) — Ordering within a department queue. Auto-assigned on check-in (appended to end of queue). On transfer, the patient gets the next position in the target department's queue. When a patient leaves (transfer/discharge), remaining positions are compacted.
 
 ### New API Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/departments` | GET | List all departments with current patient count and capacity |
-| `/api/departments/{id}` | PATCH | Update capacity, open/close status |
-| `/api/visits/{id}/transfer` | POST | Transfer patient between departments |
-| `/api/hospital/stats` | GET | Aggregated KPIs for the KPI bar |
+**`GET /api/departments`**
+
+Returns all departments with live stats.
+
+```json
+[
+  {
+    "name": "cardiology",
+    "label": "Cardiology",
+    "capacity": 4,
+    "is_open": true,
+    "color": "#10b981",
+    "icon": "Heart",
+    "current_patient_count": 2,
+    "queue_length": 1,
+    "status": "OK"
+  }
+]
+```
+
+`status` is computed: IDLE (< 25% capacity), OK (25-60%), BUSY (60-85%), CRITICAL (> 85%).
+
+**`PATCH /api/departments/{name}`**
+
+Update department settings. `{name}` is the string department name (e.g., `cardiology`).
+
+```json
+// Request body
+{ "capacity": 6, "is_open": false }
+```
+
+**`POST /api/visits/{id}/transfer`**
+
+Transfer a patient between departments.
+
+```json
+// Request body
+{ "target_department": "radiology" }
+```
+
+Constraints:
+- Visit must have `status = in_department` (only patients already in a department can be transferred)
+- Target department must be open and not at capacity
+- Updates `current_department` to target, assigns new `queue_position` at end of target queue
+- Compacts `queue_position` in source department
+- Returns updated Visit
+
+**`GET /api/hospital/stats`**
+
+Aggregated KPIs for the top bar.
+
+```json
+{
+  "active_patients": 24,
+  "departments_at_capacity": 2,
+  "avg_wait_minutes": 12.5,
+  "discharged_today": 8
+}
+```
 
 ### Existing Endpoints (unchanged)
 
 - `GET /api/visits` — list visits (used to populate patient dots)
-- `POST /api/visits/{id}/route` — route a visit to department
-- `POST /api/visits/{id}/check-in` — check into department
-- `POST /api/visits/{id}/complete` — complete visit (triggers discharge animation)
+- `PATCH /api/visits/{id}/route` — route a visit to department
+- `PATCH /api/visits/{id}/check-in` — check into department (now also sets `current_department` and `queue_position`)
+- `PATCH /api/visits/{id}/complete` — complete visit (clears `current_department`, triggers discharge animation)
 
 ## Frontend Data Flow
 
@@ -232,14 +310,17 @@ web/components/operations/
 - `web/components/pipeline/kanban-board.tsx`
 - `web/components/pipeline/kanban-column.tsx`
 - `web/components/pipeline/visit-card.tsx`
-- `web/components/pipeline/pipeline-constants.ts`
+- `web/components/pipeline/detail-panel.tsx` (the stage-adaptive wrapper)
 
-## Files Preserved & Reused
+## Files Moved to `web/components/operations/`
 
-- `web/components/pipeline/intake-detail.tsx` → reused in reception-dialog.tsx
-- `web/components/pipeline/review-detail.tsx` → reused in reception-dialog.tsx
-- `web/components/pipeline/routed-detail.tsx` → reused in reception-dialog.tsx
-- `web/components/pipeline/department-detail.tsx` → adapted for department-dialog.tsx
+The following files move from `pipeline/` to `operations/` and are refactored as needed:
+
+- `pipeline-constants.ts` → `operations-constants.ts` (status colors, department colors — still needed by detail components)
+- `intake-detail.tsx` → reused inside reception-dialog.tsx (rendered per-visit in a list)
+- `review-detail.tsx` → reused inside reception-dialog.tsx (rendered per-visit in a list)
+- `routed-detail.tsx` → reused inside reception-dialog.tsx
+- `department-detail.tsx` → adapted for department-dialog.tsx
 
 ## Success Criteria
 
