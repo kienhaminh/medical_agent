@@ -876,12 +876,84 @@ Also add these two fields to `VisitResponse` in `src/api/models.py` (after `revi
     queue_position: int | None = None
 ```
 
-- [ ] **Step 8: Run tests to verify they pass**
+- [ ] **Step 8: Add tests for updated check_in and complete behavior**
+
+Add to `tests/test_visit_transfer.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_check_in_sets_current_department(client, db_session):
+    """check_in_visit should set current_department and queue_position."""
+    # Create department
+    dept = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#10b981", icon="Heart")
+    db_session.add(dept)
+    patient = Patient(name="Alice", dob="1992-03-15", gender="female")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-20260325-010",
+        patient_id=patient.id,
+        status=VisitStatus.ROUTED.value,
+        routing_decision=["cardiology"],
+    )
+    db_session.add(visit)
+    await db_session.commit()
+
+    response = await client.patch(f"/api/visits/{visit.id}/check-in")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "in_department"
+    assert data["current_department"] == "cardiology"
+    assert data["queue_position"] == 1
+
+
+@pytest.mark.asyncio
+async def test_complete_clears_department_and_compacts(client, db_session):
+    """complete_visit should clear current_department, queue_position, and compact remaining."""
+    dept = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#10b981", icon="Heart")
+    db_session.add(dept)
+    patient = Patient(name="Bob", dob="1985-07-20", gender="male")
+    db_session.add(patient)
+    await db_session.flush()
+
+    # Two patients in department
+    visit1 = Visit(
+        visit_id="VIS-20260325-020",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="cardiology",
+        queue_position=1,
+    )
+    visit2 = Visit(
+        visit_id="VIS-20260325-021",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="cardiology",
+        queue_position=2,
+    )
+    db_session.add_all([visit1, visit2])
+    await db_session.commit()
+
+    # Complete first patient
+    response = await client.patch(f"/api/visits/{visit1.id}/complete")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed"
+    assert data["current_department"] is None
+    assert data["queue_position"] is None
+
+    # Second patient should have compacted queue_position
+    await db_session.refresh(visit2)
+    assert visit2.queue_position == 1
+```
+
+- [ ] **Step 9: Run tests to verify they pass**
 
 Run: `pytest tests/test_visit_transfer.py -v`
-Expected: All 3 tests PASS
+Expected: All 6 tests PASS
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add src/api/routers/visits.py src/api/models.py tests/test_visit_transfer.py
