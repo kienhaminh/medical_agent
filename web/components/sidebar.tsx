@@ -16,6 +16,9 @@ import {
   BarChart3,
   PanelLeftClose,
   PanelLeft,
+  Palette,
+  ClipboardList,
+  Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +37,16 @@ const navigation: NavItem[] = [
     icon: Users,
   },
   {
+    name: "Reception",
+    href: "/reception",
+    icon: ClipboardList,
+  },
+  {
+    name: "Doctor Queue",
+    href: "/doctor/queue",
+    icon: Stethoscope,
+  },
+  {
     name: "Agent",
     href: "/agent",
     icon: MessageSquare,
@@ -43,6 +56,11 @@ const navigation: NavItem[] = [
       { name: "Settings", href: "/agent/settings", icon: Settings },
       { name: "Usage", href: "/agent/usage", icon: BarChart3 },
     ],
+  },
+  {
+    name: "Design System",
+    href: "/design-system",
+    icon: Palette,
   },
 ];
 
