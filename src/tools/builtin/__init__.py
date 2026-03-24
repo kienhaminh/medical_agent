@@ -15,6 +15,7 @@ from . import patient_imaging_tool
 from . import agent_info_tool
 from . import tool_search  # Tool discovery to save prompt tokens
 from . import semantic_tool_search  # Vector-based semantic search
+from . import complete_triage_tool
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -27,6 +28,7 @@ from .patient_imaging_tool import query_patient_imaging
 from .agent_info_tool import get_agent_architecture
 from .tool_search import search_tools, get_tool_info, list_available_tools
 from .semantic_tool_search import search_tools_semantic, index_all_tools, get_search_stats
+from .complete_triage_tool import complete_triage
 
 __all__ = [
     "get_current_datetime",
@@ -42,5 +44,6 @@ __all__ = [
     "list_available_tools",
     "search_tools_semantic",  # Semantic search
     "index_all_tools",
-    "get_search_stats"
+    "get_search_stats",
+    "complete_triage",
 ]
