@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
-import { useDropzone } from "react-dropzone";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, FileImage, FileText, X, Loader2, Link2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
-  uploadMedicalRecord,
-  uploadImagingRecord,
   getImageGroups,
   createImageGroup,
 } from "@/lib/api";
@@ -36,8 +33,6 @@ interface RecordUploadProps {
   onGroupCreated?: (group: ImageGroup) => void;
 }
 
-type UploadMode = "file" | "url";
-
 export function RecordUpload({
   patientId,
   open,
@@ -46,8 +41,6 @@ export function RecordUpload({
   defaultGroupId,
   onGroupCreated,
 }: RecordUploadProps) {
-  const [uploadMode, setUploadMode] = useState<UploadMode>("file");
-  const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [originUrl, setOriginUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -82,47 +75,10 @@ export function RecordUpload({
     }
   }, [open, patientId, defaultGroupId]);
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      if (acceptedFiles.length > 0) {
-        const uploadedFile = acceptedFiles[0];
-        setFile(uploadedFile);
-        setError(null);
-
-        // Auto-detect file type
-        if (uploadedFile.type.startsWith("image/")) {
-          if (!title) setTitle(`Medical Image - ${uploadedFile.name}`);
-        } else if (uploadedFile.type === "application/pdf") {
-          setFileType("lab_report");
-          if (!title) setTitle(`Lab Report - ${uploadedFile.name}`);
-        }
-      }
-    },
-    [title]
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "image/*": [".png", ".jpg", ".jpeg", ".dicom"],
-      "application/pdf": [".pdf"],
-    },
-    maxFiles: 1,
-    maxSize: 50 * 1024 * 1024, // 50MB
-  });
-
   const handleUpload = async () => {
-    // Validate based on upload mode
-    if (uploadMode === "file") {
-      if (!file || !title.trim()) {
-        setError("Please select a file and provide a title");
-        return;
-      }
-    } else {
-      if (!title.trim() || !previewUrl.trim() || !originUrl.trim()) {
-        setError("Please provide a title, preview URL, and origin URL");
-        return;
-      }
+    if (!title.trim() || !previewUrl.trim() || !originUrl.trim()) {
+      setError("Please provide a title, preview URL, and origin URL");
+      return;
     }
 
     setUploading(true);
@@ -142,80 +98,58 @@ export function RecordUpload({
         "ultrasound",
       ];
 
-      if (uploadMode === "url") {
-        // For URL-based upload
-        if (imagingTypes.includes(fileType)) {
-          // Create imaging record with URLs
-          const response = await fetch(`/api/patients/${patientId}/imaging`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              title: title.trim(),
-              image_type: fileType,
-              preview_url: previewUrl.trim(),
-              origin_url: originUrl.trim(),
-              group_id:
-                selectedGroupId !== "none" && selectedGroupId !== "new"
-                  ? parseInt(selectedGroupId)
-                  : undefined,
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to create imaging record");
-          }
-
-          record = await response.json();
-        } else {
-          // Create medical record with URLs
-          const response = await fetch(`/api/patients/${patientId}/records`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              title: title.trim(),
-              description: description.trim() || undefined,
-              file_type: fileType,
-              preview_url: previewUrl.trim(),
-              origin_url: originUrl.trim(),
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to create medical record");
-          }
-
-          const data = await response.json();
-          record = data.record;
-        }
-      } else {
-        // Original file upload logic
-        if (imagingTypes.includes(fileType)) {
-          record = await uploadImagingRecord(patientId, file!, {
+      if (imagingTypes.includes(fileType)) {
+        // Create imaging record with URLs
+        const response = await fetch(`/api/patients/${patientId}/imaging`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             title: title.trim(),
             image_type: fileType,
+            preview_url: previewUrl.trim(),
+            origin_url: originUrl.trim(),
             group_id:
               selectedGroupId !== "none" && selectedGroupId !== "new"
                 ? parseInt(selectedGroupId)
                 : undefined,
-          });
-        } else {
-          const response = await uploadMedicalRecord(patientId, file!, {
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create imaging record");
+        }
+
+        record = await response.json();
+      } else {
+        // Create medical record with URLs
+        const response = await fetch(`/api/patients/${patientId}/records`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             title: title.trim(),
             description: description.trim() || undefined,
             file_type: fileType,
-          });
-          record = response.record;
+            preview_url: previewUrl.trim(),
+            origin_url: originUrl.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create medical record");
         }
+
+        const data = await response.json();
+        record = data.record;
       }
 
       onUploadComplete(record);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload file");
+      setError(err instanceof Error ? err.message : "Failed to add record");
     } finally {
       setUploading(false);
     }
@@ -243,8 +177,6 @@ export function RecordUpload({
   };
 
   const handleClose = () => {
-    setUploadMode("file");
-    setFile(null);
     setPreviewUrl("");
     setOriginUrl("");
     setTitle("");
@@ -253,12 +185,8 @@ export function RecordUpload({
     setError(null);
     setIsCreatingGroup(false);
     setIsSavingGroup(false);
-    // Don't reset selectedGroupId here if we want it to persist, but usually we do.
-    // However, if defaultGroupId is passed, it might be confusing.
-    // Let's reset to "none" or default if we had one, but for now "none" is safe as the dialog unmounts or resets on open.
     setSelectedGroupId("none");
     setNewGroupName("");
-    setIsCreatingGroup(false);
     onClose();
   };
 
@@ -267,156 +195,59 @@ export function RecordUpload({
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">
-            Upload Medical Image
+            Add Medical Image
           </DialogTitle>
           <DialogDescription>
-            Upload images (MRI, X-Ray, CT Scan, etc.)
+            Add imaging records via URL (MRI, X-Ray, CT Scan, etc.)
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Upload Mode Toggle */}
-          <div className="flex gap-2 p-1 bg-muted rounded-lg">
-            <Button
-              type="button"
-              variant={uploadMode === "file" ? "default" : "ghost"}
-              className={`flex-1 ${
-                uploadMode === "file"
-                  ? "primary-button"
-                  : "hover:bg-background/50"
-              }`}
-              onClick={() => setUploadMode("file")}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload File
-            </Button>
-            <Button
-              type="button"
-              variant={uploadMode === "url" ? "default" : "ghost"}
-              className={`flex-1 ${
-                uploadMode === "url"
-                  ? "primary-button"
-                  : "hover:bg-background/50"
-              }`}
-              onClick={() => setUploadMode("url")}
-            >
-              <Link2 className="w-4 h-4 mr-2" />
-              Add by URL
-            </Button>
+          {/* URL Input Area */}
+          <div className="space-y-2">
+            <Label htmlFor="previewUrl">Preview URL *</Label>
+            <Input
+              id="previewUrl"
+              type="url"
+              value={previewUrl}
+              onChange={(e) => setPreviewUrl(e.target.value)}
+              placeholder="https://example.com/image-preview.jpg"
+              className="medical-input"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL to the preview/thumbnail image
+            </p>
           </div>
 
-          {uploadMode === "file" ? (
-            <>
-              {/* File Upload Area */}
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                  isDragActive
-                    ? "border-cyan-500 bg-cyan-500/5 medical-border-glow"
-                    : "border-border hover:border-cyan-500/50"
-                }`}
-              >
-                <input {...getInputProps()} />
+          <div className="space-y-2">
+            <Label htmlFor="originUrl">Origin URL *</Label>
+            <Input
+              id="originUrl"
+              type="url"
+              value={originUrl}
+              onChange={(e) => setOriginUrl(e.target.value)}
+              placeholder="https://example.com/full-resolution-image.jpg"
+              className="medical-input"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL to the original/full resolution image
+            </p>
+          </div>
 
-                {file ? (
-                  <div className="space-y-4">
-                    <div className="inline-flex p-3 rounded-xl bg-cyan-500/10">
-                      {file.type.startsWith("image/") ? (
-                        <FileImage className="w-8 h-8 text-cyan-500" />
-                      ) : (
-                        <FileText className="w-8 h-8 text-cyan-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{file.name}</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFile(null);
-                      }}
-                      className="secondary-button"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Remove
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="inline-flex p-4 rounded-xl bg-cyan-500/10">
-                      <Upload className="w-10 h-10 text-cyan-500" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {isDragActive
-                          ? "Drop file here"
-                          : "Drag & drop file here"}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        or click to browse (max 50MB)
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Supported: JPG, PNG, DICOM, PDF
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* URL Input Area */}
-              <div className="space-y-2">
-                <Label htmlFor="previewUrl">Preview URL *</Label>
-                <Input
-                  id="previewUrl"
-                  type="url"
-                  value={previewUrl}
-                  onChange={(e) => setPreviewUrl(e.target.value)}
-                  placeholder="https://example.com/image-preview.jpg"
-                  className="medical-input"
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL to the preview/thumbnail image
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="originUrl">Origin URL *</Label>
-                <Input
-                  id="originUrl"
-                  type="url"
-                  value={originUrl}
-                  onChange={(e) => setOriginUrl(e.target.value)}
-                  placeholder="https://example.com/full-resolution-image.jpg"
-                  className="medical-input"
-                />
-                <p className="text-xs text-muted-foreground">
-                  URL to the original/full resolution image
-                </p>
-              </div>
-
-              {previewUrl && (
-                <div className="mt-4 p-4 rounded-lg bg-background border border-border">
-                  <p className="text-sm font-medium text-muted-foreground mb-2">
-                    Preview:
-                  </p>
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="max-w-full max-h-48 rounded-lg object-contain mx-auto"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
-            </>
+          {previewUrl && (
+            <div className="mt-4 p-4 rounded-lg bg-background border border-border">
+              <p className="text-sm font-medium text-muted-foreground mb-2">
+                Preview:
+              </p>
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="max-w-full max-h-48 rounded-lg object-contain mx-auto"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
           )}
 
           {/* Metadata Form */}
@@ -569,22 +400,14 @@ export function RecordUpload({
             </Button>
             <Button
               onClick={handleUpload}
-              disabled={
-                uploading ||
-                !title.trim() ||
-                (uploadMode === "file"
-                  ? !file
-                  : !previewUrl.trim() || !originUrl.trim())
-              }
+              disabled={uploading || !title.trim() || !previewUrl.trim() || !originUrl.trim()}
               className="primary-button"
             >
               {uploading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {uploadMode === "file" ? "Uploading..." : "Adding..."}
+                  Adding...
                 </>
-              ) : uploadMode === "file" ? (
-                "Upload Record"
               ) : (
                 "Add Record"
               )}
