@@ -267,7 +267,7 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="pt-8 space-y-4">
+              <div className="pt-8 flex flex-col space-y-4">
                 <Link href="/patient">
                   <Button
                     size="lg"

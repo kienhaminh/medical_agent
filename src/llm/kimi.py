@@ -1,12 +1,17 @@
 """Kimi (Moonshot AI) provider."""
 
-import os
+import json
+import logging
 from typing import Optional, Iterator, Union
-from .provider import Message
-from ..utils.enums import MessageRole
 
+from openai import OpenAI
+
+from .provider import Message, LLMResponse
+from ..utils.enums import MessageRole
 from .langchain_adapter import LangChainAdapter
 from langchain_openai import ChatOpenAI
+
+logger = logging.getLogger(__name__)
 
 
 class KimiProvider(LangChainAdapter):
@@ -21,22 +26,9 @@ class KimiProvider(LangChainAdapter):
         temperature: float = 0.3,
         max_retries: int = 2,
         streaming: bool = True,
-        stream_usage: bool = True,  # Add explicit parameter
+        stream_usage: bool = True,
         **kwargs,
     ):
-        """Initialize Kimi provider.
-
-        Args:
-            api_key: Moonshot API key
-            model: Model name (default: kimi-k2-thinking)
-            base_url: API base URL (default: https://api.moonshot.ai/v1)
-            max_tokens: Maximum tokens to generate
-            temperature: Sampling temperature
-            max_retries: Maximum number of retries
-            streaming: Enable streaming responses
-            stream_usage: Enable usage tracking in streaming mode (default: True)
-            **kwargs: Additional parameters
-        """
         llm = ChatOpenAI(
             model=model,
             api_key=api_key,
@@ -45,54 +37,40 @@ class KimiProvider(LangChainAdapter):
             max_tokens=max_tokens,
             max_retries=max_retries,
             streaming=streaming,
-            stream_usage=stream_usage,  # Use the parameter value
+            stream_usage=stream_usage,
             **kwargs,
         )
-        
+
         super().__init__(llm)
-        
+
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_retries = max_retries
-        
-        # Create a fast LLM for routing/classification tasks
-        # Use moonshot-v1-8k which is much faster than k2-thinking
+
+        # Reusable OpenAI client (avoids creating a new connection pool per call)
+        self._client = OpenAI(api_key=api_key, base_url=base_url)
+
+        # Fast LLM for routing/classification tasks — small token budget is sufficient
         self.fast_llm = ChatOpenAI(
             model="moonshot-v1-8k",
             api_key=api_key,
             base_url=base_url,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=512,
             max_retries=max_retries,
-            streaming=False,  # No need for streaming in fast tasks
+            streaming=False,
         )
 
+    def _format_messages_for_api(self, messages: list[Message]) -> list[dict]:
+        """Convert internal messages to the OpenAI API dict format.
 
-    def generate(self, messages: list[Message], **kwargs):
-        """Generate a response from Kimi with reasoning content support.
-        
-        Args:
-            messages: List of chat messages
-            **kwargs: Additional parameters
-            
-        Returns:
-            LLMResponse with content and metadata
+        Shared by generate() and stream() to avoid duplication.
         """
-        from openai import OpenAI
-        from .provider import LLMResponse
-        import json
-        
-        client = OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
-        
-        # Convert messages
         lc_messages = self._convert_messages(messages)
-        formatted_messages = []
+        formatted = []
         for msg in lc_messages:
             role = MessageRole.USER
             if msg.type == "system":
@@ -101,54 +79,55 @@ class KimiProvider(LangChainAdapter):
                 role = MessageRole.ASSISTANT
             elif msg.type == "tool":
                 role = MessageRole.TOOL
-                
-            formatted_msg = {"role": role.value, "content": msg.content}
+
+            entry: dict = {"role": role.value, "content": msg.content}
             if role == MessageRole.TOOL:
-                formatted_msg["tool_call_id"] = msg.tool_call_id
+                entry["tool_call_id"] = msg.tool_call_id
             elif role == MessageRole.ASSISTANT and hasattr(msg, "tool_calls") and msg.tool_calls:
-                formatted_msg["tool_calls"] = [
+                entry["tool_calls"] = [
                     {
                         "id": tc["id"],
                         "type": "function",
                         "function": {
                             "name": tc["name"],
-                            "arguments": json.dumps(tc["args"]) if isinstance(tc["args"], dict) else str(tc["args"])
-                        }
+                            "arguments": json.dumps(tc["args"]) if isinstance(tc["args"], dict) else str(tc["args"]),
+                        },
                     }
                     for tc in msg.tool_calls
                 ]
-            formatted_messages.append(formatted_msg)
+            formatted.append(entry)
+        return formatted
 
-        # Extract tools from bound LLM if available
+    def generate(self, messages: list[Message], **kwargs) -> LLMResponse:
+        """Generate a response from Kimi with reasoning content support."""
+        formatted_messages = self._format_messages_for_api(messages)
+
         tools_param = None
-        if hasattr(self.llm, 'kwargs') and 'tools' in self.llm.kwargs:
-            tools_param = self.llm.kwargs['tools']
+        if hasattr(self.llm, "kwargs") and "tools" in self.llm.kwargs:
+            tools_param = self.llm.kwargs["tools"]
 
-        # Create completion with tools if available
         completion_params = {
             "model": self.model,
             "messages": formatted_messages,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
         }
-        
         if tools_param:
             completion_params["tools"] = tools_param
-        
         completion_params.update(kwargs)
-        
-        response = client.chat.completions.create(**completion_params)
-        
+
+        response = self._client.chat.completions.create(**completion_params)
+
         choice = response.choices[0]
         message = choice.message
-        
+
         # Combine reasoning_content and content
         content = ""
         if hasattr(message, "reasoning_content") and message.reasoning_content:
             content = message.reasoning_content + "\n\n"
         if message.content:
             content += message.content
-            
+
         # Extract tool calls if present
         tool_calls = None
         if hasattr(message, "tool_calls") and message.tool_calls:
@@ -161,7 +140,6 @@ class KimiProvider(LangChainAdapter):
                 for tc in message.tool_calls
             ]
 
-        # Extract usage
         usage = {"input_tokens": 0, "output_tokens": 0}
         if hasattr(response, "usage") and response.usage:
             usage = {
@@ -178,70 +156,23 @@ class KimiProvider(LangChainAdapter):
         )
 
     def bind_tools(self, tools: list) -> None:
-        """Bind tools to LLM for function calling.
-
-        Args:
-            tools: List of LangChain tool objects
-        """
+        """Bind tools to LLM for function calling."""
         self.llm = self.llm.bind_tools(tools)
 
     def stream(self, messages: list[Message], **kwargs) -> Iterator[Union[str, dict]]:
         """Stream response from Kimi with reasoning content support.
-        
-        Args:
-            messages: List of chat messages
-            **kwargs: Additional parameters
-            
+
         Yields:
-            Structured events:
             - {"type": "reasoning", "content": "..."}
             - {"type": "content", "content": "..."}
-            - {"type": "tool_call", ...} (from parent)
+            - {"type": "usage", "usage": {...}}
         """
-        # Use raw OpenAI client for Kimi to access reasoning_content
-        from openai import OpenAI
-        
-        client = OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
-        
-        # Convert messages
-        lc_messages = self._convert_messages(messages)
-        formatted_messages = []
-        for msg in lc_messages:
-            role = MessageRole.USER
-            if msg.type == "system":
-                role = MessageRole.SYSTEM
-            elif msg.type == "ai":
-                role = MessageRole.ASSISTANT
-            elif msg.type == "tool":
-                role = MessageRole.TOOL
-                
-            formatted_msg = {"role": role.value, "content": msg.content}
-            if role == MessageRole.TOOL:
-                formatted_msg["tool_call_id"] = msg.tool_call_id
-            elif role == MessageRole.ASSISTANT and hasattr(msg, "tool_calls") and msg.tool_calls:
-                import json
-                formatted_msg["tool_calls"] = [
-                    {
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": json.dumps(tc["args"]) if isinstance(tc["args"], dict) else str(tc["args"])
-                        }
-                    }
-                    for tc in msg.tool_calls
-                ]
-            formatted_messages.append(formatted_msg)
+        formatted_messages = self._format_messages_for_api(messages)
 
-        # Extract tools from bound LLM if available
         tools_param = None
-        if hasattr(self.llm, 'kwargs') and 'tools' in self.llm.kwargs:
-            tools_param = self.llm.kwargs['tools']
+        if hasattr(self.llm, "kwargs") and "tools" in self.llm.kwargs:
+            tools_param = self.llm.kwargs["tools"]
 
-        # Create stream with tools if available
         stream_params = {
             "model": self.model,
             "messages": formatted_messages,
@@ -249,39 +180,23 @@ class KimiProvider(LangChainAdapter):
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
         }
-        
         if tools_param:
             stream_params["tools"] = tools_param
-        
         stream_params.update(kwargs)
-        
-        stream = client.chat.completions.create(**stream_params)
 
-        # Track usage from chunks
-        total_usage = {
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0
-        }
+        stream = self._client.chat.completions.create(**stream_params)
+
+        total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
         for chunk in stream:
             delta = chunk.choices[0].delta
 
-            # Handle reasoning content
             if hasattr(delta, "reasoning_content") and delta.reasoning_content:
-                yield {
-                    "type": "reasoning",
-                    "content": delta.reasoning_content
-                }
+                yield {"type": "reasoning", "content": delta.reasoning_content}
 
-            # Handle standard content
             if delta.content:
-                yield {
-                    "type": "content",
-                    "content": delta.content
-                }
+                yield {"type": "content", "content": delta.content}
 
-            # Capture usage information from the chunk (usually in the last chunk)
             if hasattr(chunk, "usage") and chunk.usage:
                 if hasattr(chunk.usage, "prompt_tokens"):
                     total_usage["prompt_tokens"] = chunk.usage.prompt_tokens
@@ -290,9 +205,5 @@ class KimiProvider(LangChainAdapter):
                 if hasattr(chunk.usage, "total_tokens"):
                     total_usage["total_tokens"] = chunk.usage.total_tokens
 
-        # Emit usage at the end of the stream if we captured any
         if total_usage["total_tokens"] > 0:
-            yield {
-                "type": "usage",
-                "usage": total_usage
-            }
+            yield {"type": "usage", "usage": total_usage}

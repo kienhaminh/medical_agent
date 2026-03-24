@@ -134,14 +134,19 @@ class SpecialistHandler:
             if json_match:
                 json_str = json_match.group(1)
             else:
-                # Try to find raw JSON object with more flexible regex
-                # Look for any JSON object (starts with { and ends with })
-                json_match = re.search(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', response_content, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0)
-                else:
-                    # No structured output found, return as-is
-                    logger.warning(f"No structured output found for {agent_role}, using raw content")
+                # Scan for a JSON object using the decoder (handles arbitrary nesting)
+                decoder = json.JSONDecoder()
+                json_str = None
+                for i, ch in enumerate(response_content):
+                    if ch == "{":
+                        try:
+                            _, end = decoder.raw_decode(response_content, i)
+                            json_str = response_content[i:end]
+                            break
+                        except json.JSONDecodeError:
+                            continue
+                if json_str is None:
+                    logger.warning("No structured output found for %s, using raw content", agent_role)
                     return response_content
 
             # Parse JSON
@@ -176,7 +181,6 @@ class SpecialistHandler:
         specialists_needed: List[str],
         messages: List[BaseMessage],
         delegation_queries: dict = None,
-        synthesize_response: bool = True
     ) -> List[BaseMessage]:
         """Execute consultation with specialists IN PARALLEL.
         
@@ -385,19 +389,12 @@ class SpecialistHandler:
                             )
                         )
                     
-                    if synthesize_response:
-                        # 3. Second LLM Call with Tool Outputs (async)
-                        logger.debug("Starting second LLM call with tool outputs for %s", specialist_role)
-                        response = await agent_llm.ainvoke(
-                            [specialist_prompt] + input_messages + [response] + tool_outputs
-                        )
-                        logger.debug("Second LLM response received for %s", specialist_role)
-                    else:
-                        # Skip second LLM call, return tool outputs directly
-                        logger.debug("Skipping second LLM call for %s", specialist_role)
-                        # Create a summary message with tool outputs
-                        tool_results_str = "\n".join([str(t.content) for t in tool_outputs])
-                        response = AIMessage(content=f"Tool execution completed. Results:\n{tool_results_str}")
+                    # 3. Second LLM Call with Tool Outputs (async)
+                    logger.debug("Starting second LLM call with tool outputs for %s", specialist_role)
+                    response = await agent_llm.ainvoke(
+                        [specialist_prompt] + input_messages + [response] + tool_outputs
+                    )
+                    logger.debug("Second LLM response received for %s", specialist_role)
                 else:
                     logger.debug("No tool calls made by %s - responding directly", specialist_role)
                     found_patient_profile = None

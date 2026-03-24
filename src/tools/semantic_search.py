@@ -12,7 +12,10 @@ Usage:
 """
 
 import json
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from inspect import signature, Parameter
@@ -123,7 +126,7 @@ class SemanticToolSearcher(BaseSemanticSearcher):
         self._tool_info = data["tool_info"]
         self._indexed = True
 
-        print(f"[SemanticSearch] Loaded {len(self._tool_names)} tools from cache")
+        logger.debug("[SemanticSearch] Loaded %d tools from cache", len(self._tool_names))
         return True
 
     # ------------------------------------------------------------------
@@ -164,7 +167,7 @@ class SemanticToolSearcher(BaseSemanticSearcher):
         all_tools = self.pool.list_tools()
 
         if not all_tools:
-            print("[SemanticSearch] No tools to index")
+            logger.warning("[SemanticSearch] No tools to index")
             return 0
 
         # Prepare texts for embedding
@@ -190,11 +193,11 @@ class SemanticToolSearcher(BaseSemanticSearcher):
             self._tool_info[name] = full_info
 
         if not self._tool_texts:
-            print("[SemanticSearch] No valid tools to index")
+            logger.warning("[SemanticSearch] No valid tools to index")
             return 0
 
         # Compute embeddings
-        print(f"[SemanticSearch] Indexing {len(self._tool_texts)} tools...")
+        logger.info("[SemanticSearch] Indexing %d tools...", len(self._tool_texts))
         self._tool_embeddings = self._compute_embedding(self._tool_texts)
         self._indexed = True
 

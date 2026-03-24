@@ -12,8 +12,11 @@ This base class simply centralises that existing authorised code.
 
 import json
 import hashlib
+import logging
 import os
 from abc import ABC, abstractmethod
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -101,7 +104,7 @@ class BaseSemanticSearcher(ABC):
                     "sentence-transformers not installed. "
                     "Run: pip install sentence-transformers"
                 )
-            print(f"[SemanticSearch] Loading model: {self.model_name}")
+            logger.info("[SemanticSearch] Loading model: %s", self.model_name)
             self._model = SentenceTransformer(self.model_name)
 
         elif self.embedding_provider == "openai":
@@ -109,7 +112,7 @@ class BaseSemanticSearcher(ABC):
                 raise ImportError("openai not installed. Run: pip install openai")
             if not self.api_key:
                 raise ValueError("OpenAI API key required for embeddings")
-            print("[SemanticSearch] Using OpenAI embeddings")
+            logger.info("[SemanticSearch] Using OpenAI embeddings")
 
         return self._model
 
@@ -169,7 +172,7 @@ class BaseSemanticSearcher(ABC):
         payload.setdefault("model_name", self.model_name)
         payload.setdefault("provider", self.embedding_provider)
         _save_pickle(cache_file, payload)
-        print(f"[SemanticSearch] Cached embeddings to {cache_file}")
+        logger.debug("[SemanticSearch] Cached embeddings to %s", cache_file)
 
     def _load_embeddings_cache(self) -> Optional[Dict[str, Any]]:
         """Load and validate the cache file; return the payload or None."""
@@ -184,7 +187,7 @@ class BaseSemanticSearcher(ABC):
                 return None
             return data
         except Exception as exc:
-            print(f"[SemanticSearch] Cache load failed: {exc}")
+            logger.warning("[SemanticSearch] Cache load failed: %s", exc)
             return None
 
     # ------------------------------------------------------------------

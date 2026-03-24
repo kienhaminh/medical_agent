@@ -5,6 +5,7 @@ from typing import Dict, Optional
 from pathlib import Path
 from ..agent.langgraph_agent import LangGraphAgent
 from ..llm.kimi import KimiProvider
+from ..llm.openai_provider import OpenAIProvider
 from ..config.settings import load_config
 from ..memory import Mem0MemoryManager
 from ..tools.registry import ToolRegistry
@@ -35,16 +36,25 @@ if memory_config and memory_config.get("memory", {}).get("enabled", False):
 # Initialize ToolRegistry (Singleton)
 tool_registry = ToolRegistry()
 
-# Initialize LLM provider (Enforce Kimi)
+# Initialize LLM provider based on config
 config = load_config()
-provider_name = "Moonshot Kimi (LangGraph)"
 
-llm_provider = KimiProvider(
-    api_key=config.kimi_api_key,
-    model=config.model,  # Use model from config (env/YAML)
-    temperature=config.temperature,
-    streaming=True,  # Enable streaming for real-time responses
-)
+if config.provider == "openai":
+    provider_name = "OpenAI (LangGraph)"
+    llm_provider = OpenAIProvider(
+        api_key=config.openai_api_key,
+        model=config.model,
+        temperature=config.temperature,
+        streaming=True,
+    )
+else:
+    provider_name = "Moonshot Kimi (LangGraph)"
+    llm_provider = KimiProvider(
+        api_key=config.kimi_api_key,
+        model=config.model,
+        temperature=config.temperature,
+        streaming=True,
+    )
 
 # User-specific agents
 user_agents: Dict = {}

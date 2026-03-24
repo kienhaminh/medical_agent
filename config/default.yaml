@@ -1,12 +1,13 @@
 # Default configuration for AI Agent
 
 # Provider Configuration
-provider: kimi  # Options: kimi, gemini
+provider: openai  # Options: openai, kimi, gemini
 
 # Model Configuration
+# For openai: gpt-4o, gpt-4o-mini, o3
 # For kimi: kimi-k2-thinking, kimi-k2-5, kimi-k1-5
 # For gemini: gemini-2.5-pro, gemini-2.0-flash
-model: kimi-k2-thinking
+model: gpt-4o
 max_tokens: 4096
 temperature: 0.3
 

@@ -12,7 +12,10 @@ Usage:
 """
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 import numpy as np
@@ -135,7 +138,7 @@ class SemanticSkillSearcher(BaseSemanticSearcher):
         # Note: skill_info stored as dict, need to convert back if needed
         self._indexed = True
 
-        print(f"[SemanticSkillSearch] Loaded {len(self._skill_names)} skills from cache")
+        logger.debug("[SemanticSkillSearch] Loaded %d skills from cache", len(self._skill_names))
         return True
 
     # ------------------------------------------------------------------
@@ -184,7 +187,7 @@ class SemanticSkillSearcher(BaseSemanticSearcher):
         all_skills = self.registry.get_all_skills()
 
         if not all_skills:
-            print("[SemanticSkillSearch] No skills to index")
+            logger.warning("[SemanticSkillSearch] No skills to index")
             return 0
 
         # Prepare texts
@@ -199,10 +202,10 @@ class SemanticSkillSearcher(BaseSemanticSearcher):
             self._skill_info[skill.name] = skill
 
         if not self._skill_texts:
-            print("[SemanticSkillSearch] No valid skills to index")
+            logger.warning("[SemanticSkillSearch] No valid skills to index")
             return 0
 
-        print(f"[SemanticSkillSearch] Indexing {len(self._skill_texts)} skills...")
+        logger.info("[SemanticSkillSearch] Indexing %d skills...", len(self._skill_texts))
 
         if self.embedding_provider == "keyword":
             # Skip embedding computation for keyword fallback

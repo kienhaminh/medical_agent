@@ -56,9 +56,10 @@ class Config:
     """Main configuration class."""
 
     # API Configuration
-    provider: str = "kimi"
+    provider: str = "openai"
     kimi_api_key: str = ""
-    model: str = "kimi-k2-thinking"
+    openai_api_key: str = ""
+    model: str = "gpt-4o"
     max_tokens: int = 4096
     temperature: float = 0.3
     redis_url: str = "redis://localhost:6379/0"
@@ -79,7 +80,12 @@ class Config:
         Raises:
             ValueError: If configuration is invalid.
         """
-        if not self.kimi_api_key:
+        if self.provider == "openai" and not self.openai_api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is required for OpenAI provider. "
+                "Set it in .env file or OPENAI_API_KEY environment variable."
+            )
+        if self.provider == "kimi" and not self.kimi_api_key:
             raise ValueError(
                 "KIMI_API_KEY is required for Kimi provider. "
                 "Set it in .env file or KIMI_API_KEY environment variable."
@@ -113,17 +119,20 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
             yaml_config = yaml.safe_load(f) or {}
 
     # Environment variables take precedence over YAML
-    provider = os.getenv("AI_PROVIDER", yaml_config.get("provider", "kimi"))
-    
+    provider = os.getenv("AI_PROVIDER", yaml_config.get("provider", "openai"))
+
     kimi_api_key = os.getenv("KIMI_API_KEY", os.getenv("MOONSHOT_API_KEY", ""))
-    
+    openai_api_key = os.getenv("OPENAI_API_KEY", "")
+
     # Determine model: env var > yaml > default based on provider
-    if provider == "kimi":
+    if provider == "openai":
+        default_model = "gpt-4o"
+    elif provider == "kimi":
         default_model = "kimi-k2-thinking"
     elif provider == "gemini":
         default_model = "gemini-2.5-pro"
     else:
-        default_model = "kimi-k2-thinking"
+        default_model = "gpt-4o"
     
     model = os.getenv("MODEL", os.getenv("KIMI_MODEL", yaml_config.get("model", default_model)))
     max_tokens = int(os.getenv("MAX_TOKENS", yaml_config.get("max_tokens", 4096)))
@@ -145,6 +154,7 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
     config = Config(
         provider=provider,
         kimi_api_key=kimi_api_key,
+        openai_api_key=openai_api_key,
         model=model,
         max_tokens=max_tokens,
         temperature=temperature,

@@ -106,7 +106,6 @@ class GraphBuilder:
                     specialists_needed=[resolved_role],
                     messages=[HumanMessage(content=query)],
                     delegation_queries={resolved_role: query},
-                    synthesize_response=True
                 )
 
                 # The response is a list of messages. We want the content of the last one (the report).
