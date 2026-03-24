@@ -34,6 +34,7 @@ from .semantic_tool_search import search_tools_semantic, index_all_tools, get_se
 from .complete_triage_tool import complete_triage
 from .find_patient_tool import find_patient
 from .create_patient_tool import create_patient
+from .create_visit_tool import create_visit
 
 __all__ = [
     "get_current_datetime",
@@ -53,4 +54,5 @@ __all__ = [
     "complete_triage",
     "find_patient",
     "create_patient",
+    "create_visit",
 ]
