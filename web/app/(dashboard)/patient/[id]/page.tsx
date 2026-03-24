@@ -431,7 +431,6 @@ export default function PatientDetailPage() {
     groupName,
     images,
   }: {
-    groupId: string;
     groupName: string;
     images: Imaging[];
   }) => {
