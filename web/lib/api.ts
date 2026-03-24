@@ -680,3 +680,85 @@ export async function getErrorLogs(limit: number = 50): Promise<ErrorLog[]> {
   if (!res.ok) throw new Error("Failed to fetch error logs");
   return res.json();
 }
+
+// --- Visit types ---
+
+export interface Visit {
+  id: number;
+  visit_id: string;
+  patient_id: number;
+  status: string;
+  confidence: number | null;
+  routing_suggestion: string[] | null;
+  routing_decision: string[] | null;
+  chief_complaint: string | null;
+  intake_session_id: number | null;
+  reviewed_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VisitDetail extends Visit {
+  patient_name: string;
+  patient_dob: string;
+  patient_gender: string;
+  intake_notes: string | null;
+}
+
+// --- Visit API functions ---
+
+export async function createVisit(patientId: number): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ patient_id: patientId }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create visit");
+  }
+  return response.json();
+}
+
+export async function listVisits(params?: {
+  status?: string;
+  patient_id?: number;
+  limit?: number;
+  offset?: number;
+}): Promise<Visit[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.patient_id) searchParams.set("patient_id", String(params.patient_id));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  const response = await fetch(`${API_BASE_URL}/visits${qs ? `?${qs}` : ""}`);
+  if (!response.ok) throw new Error("Failed to fetch visits");
+  return response.json();
+}
+
+export async function getVisit(id: number): Promise<VisitDetail> {
+  const response = await fetch(`${API_BASE_URL}/visits/${id}`);
+  if (!response.ok) throw new Error("Failed to fetch visit");
+  return response.json();
+}
+
+export async function routeVisit(
+  id: number,
+  routingDecision: string[],
+  reviewedBy: string
+): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits/${id}/route`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      routing_decision: routingDecision,
+      reviewed_by: reviewedBy,
+    }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to route visit");
+  }
+  return response.json();
+}
