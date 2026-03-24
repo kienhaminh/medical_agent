@@ -524,18 +524,18 @@ function AgentChatPageContent() {
 
             <div className="flex items-center gap-3">
               {currentSessionId && (
-                <Badge variant="outline" className="medical-badge-text">
+                <Badge variant="clinical">
                   Session #{currentSessionId}
                 </Badge>
               )}
-              <Badge variant="secondary" className="medical-badge-text">
+              <Badge variant="clinical">
                 {messages.length} messages
               </Badge>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleNewChat}
-                className="secondary-button gap-2"
+                className="gap-2"
               >
                 <Plus className="w-3 h-3" />
                 New Chat
@@ -545,7 +545,7 @@ function AgentChatPageContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => router.push("/agent/history")}
-                  className="secondary-button gap-2"
+                  className="gap-2"
                 >
                   <History className="w-3 h-3" />
                   History
@@ -556,7 +556,7 @@ function AgentChatPageContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => setMessages([])}
-                  className="secondary-button gap-2"
+                  className="gap-2"
                 >
                   <RefreshCw className="w-3 h-3" />
                   Clear
@@ -691,7 +691,7 @@ function AgentChatPageContent() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask a medical question or describe a case... (Enter to send, Shift+Enter for new line)"
-                className="min-h-[80px] max-h-[200px] resize-none pr-16 medical-input text-sm"
+                className="min-h-[80px] max-h-[200px] resize-none pr-16 text-sm"
                 disabled={isLoading}
               />
               <div className="absolute right-3 bottom-3">
@@ -699,7 +699,7 @@ function AgentChatPageContent() {
                   type="submit"
                   size="sm"
                   disabled={!input.trim() || isLoading}
-                  className="primary-button gap-2"
+                  className="gap-2"
                 >
                   {isLoading ? (
                     <>

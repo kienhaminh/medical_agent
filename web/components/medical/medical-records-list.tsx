@@ -124,7 +124,7 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               placeholder="Search medical records..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="medical-input pl-10"
+              className="pl-10"
             />
           </div>
 
@@ -134,43 +134,27 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               variant={filterType === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("all")}
-              className={
-                filterType === "all" ? "primary-button" : "secondary-button"
-              }
             >
               All
             </Button>
             <Button
-              variant={filterType === "registration" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("registration")}
-              className={
-                filterType === "registration"
-                  ? "primary-button"
-                  : "secondary-button"
-              }
+              variant={filterType === "registration" ? "medical" : "medical-outline"}
             >
               Registration
             </Button>
             <Button
-              variant={filterType === "encounter" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("encounter")}
-              className={
-                filterType === "encounter"
-                  ? "primary-button"
-                  : "secondary-button"
-              }
+              variant={filterType === "encounter" ? "medical" : "medical-outline"}
             >
               Encounters
             </Button>
             <Button
-              variant={filterType === "labs" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilterType("labs")}
-              className={
-                filterType === "labs" ? "primary-button" : "secondary-button"
-              }
+              variant={filterType === "labs" ? "medical" : "medical-outline"}
             >
               Labs
             </Button>

@@ -96,7 +96,7 @@ export default function Home() {
                 <Link href="/patient">
                   <Button
                     size="lg"
-                    className="primary-button text-sm tracking-wider h-12 px-8"
+                    className="text-sm tracking-wider h-12 px-8"
                   >
                     ACCESS PATIENT DASHBOARD →
                   </Button>
@@ -104,7 +104,7 @@ export default function Home() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="secondary-button text-sm tracking-wider h-12 px-8"
+                  className="text-sm tracking-wider h-12 px-8"
                   asChild
                 >
                   <Link href="#features">VIEW CAPABILITIES</Link>
@@ -270,7 +270,7 @@ export default function Home() {
                 <Link href="/patient">
                   <Button
                     size="lg"
-                    className="primary-button text-sm tracking-wider h-14 px-12 text-base"
+                    className="text-sm tracking-wider h-14 px-12 text-base"
                   >
                     START MANAGING PATIENTS →
                   </Button>

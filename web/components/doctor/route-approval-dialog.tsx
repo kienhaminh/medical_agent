@@ -127,7 +127,7 @@ export function RouteApprovalDialog({
               placeholder="Dr. Smith"
               value={reviewedBy}
               onChange={(e) => setReviewedBy(e.target.value)}
-              className="medical-input"
+              
             />
           </div>
 
@@ -145,7 +145,7 @@ export function RouteApprovalDialog({
           <Button
             onClick={handleSubmit}
             disabled={saving || selected.length === 0 || !reviewedBy.trim()}
-            className="primary-button"
+            
           >
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
             Confirm Route

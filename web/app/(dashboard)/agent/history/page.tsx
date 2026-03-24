@@ -163,14 +163,13 @@ export default function ChatHistoryPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="medical-badge-text">
+              <Badge variant="clinical">
                 {filteredSessions.length} sessions
               </Badge>
               <Button
-                variant="outline"
                 size="sm"
                 onClick={() => router.push("/agent")}
-                className="secondary-button gap-2"
+                variant="outline" className="gap-2"
               >
                 <MessageSquare className="w-3 h-3" />
                 New Chat
@@ -191,7 +190,7 @@ export default function ChatHistoryPage() {
                 placeholder="Search conversations, tags..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 medical-input"
+                className="pl-10"
               />
             </div>
 
@@ -204,10 +203,7 @@ export default function ChatHistoryPage() {
                   variant={filterBy === filter ? "default" : "outline"}
                   size="sm"
                   onClick={() => setFilterBy(filter)}
-                  className={cn(
-                    filterBy === filter ? "primary-button" : "secondary-button",
-                    "capitalize"
-                  )}
+                  className="capitalize"
                 >
                   {filter}
                 </Button>
@@ -245,7 +241,7 @@ export default function ChatHistoryPage() {
                 </p>
                 <Button
                   onClick={() => router.push("/agent")}
-                  className="primary-button gap-2 mt-4"
+                  className="gap-2 mt-4"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Start New Chat
@@ -293,8 +289,7 @@ export default function ChatHistoryPage() {
                         {session.tags.map((tag) => (
                           <Badge
                             key={tag}
-                            variant="secondary"
-                            className="text-xs medical-badge-text"
+                            variant="clinical" className="text-xs"
                           >
                             {tag}
                           </Badge>

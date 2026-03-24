@@ -22,7 +22,7 @@ export function PatientLabsTab({
     <>
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-display text-xl font-semibold">Lab Results</h2>
-        <Button onClick={() => setUploadOpen(true)} className="primary-button">
+        <Button onClick={() => setUploadOpen(true)} >
           <Upload className="w-4 h-4 mr-2" />
           Upload Lab Report
         </Button>
@@ -110,7 +110,7 @@ export function PatientLabsTab({
                       <Calendar className="w-3 h-3" />
                       {new Date(record.created_at).toLocaleDateString()}
                     </span>
-                    <Badge variant="secondary" className="medical-badge-text">
+                    <Badge variant="clinical">
                       {record.file_type}
                     </Badge>
                   </div>

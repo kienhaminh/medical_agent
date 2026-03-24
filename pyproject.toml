@@ -5,6 +5,7 @@ description = "A basic personal AI agent with CLI interface"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 license = "MIT"
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -25,8 +26,8 @@ pgvector = "^0.2.0"
 langchain-core = "^0.3.0"
 langchain-openai = "^0.2.0"
 langgraph = "^0.2.0"
-langchain-postgres = "^0.0.1"
-psycopg2 = "^2.9.0"
+langchain-postgres = "^0.0.12"
+psycopg2-binary = "^2.9.0"
 celery = "^5.3.0"
 flower = "^2.0.0"
 

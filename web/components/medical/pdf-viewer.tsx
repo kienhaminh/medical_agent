@@ -2,6 +2,7 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { X, Sparkles, Download } from "lucide-react";
 import type { MedicalRecord } from "@/lib/api";
 
@@ -50,7 +51,7 @@ export function PdfViewer({
                   variant="outline"
                   size="sm"
                   onClick={() => window.open(record.file_url, "_blank")}
-                  className="secondary-button"
+
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Download
@@ -59,7 +60,7 @@ export function PdfViewer({
               {onAnalyze && (
                 <Button
                   onClick={() => onAnalyze(record)}
-                  className="primary-button"
+                  
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   Analyze with AI
@@ -87,9 +88,9 @@ export function PdfViewer({
           <div className="flex items-center gap-6 px-4 py-3 border-t border-border bg-card/30 text-xs text-muted-foreground">
             <div>
               <span className="font-medium">Type:</span>{" "}
-              <span className="medical-badge medical-badge-lab">
+              <Badge variant="lab">
                 LAB REPORT
-              </span>
+              </Badge>
             </div>
             <div>
               <span className="font-medium">Uploaded:</span>{" "}

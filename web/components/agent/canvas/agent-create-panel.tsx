@@ -166,7 +166,7 @@ export function AgentCreatePanel({
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 h-9 primary-button"
+            className="flex-1 h-9"
           >
             <Plus className="w-4 h-4 mr-2" />
             {isSubmitting ? "Creating..." : "Create"}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { ZoomIn, ZoomOut, Maximize2, Trash2 } from "lucide-react";
 import type { Imaging } from "@/lib/api";
@@ -62,7 +63,7 @@ export function ImageViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleZoomOut}
-                className="secondary-button"
+
               >
                 <ZoomOut className="w-4 h-4" />
               </Button>
@@ -73,7 +74,7 @@ export function ImageViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleZoomIn}
-                className="secondary-button"
+
               >
                 <ZoomIn className="w-4 h-4" />
               </Button>
@@ -81,7 +82,7 @@ export function ImageViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleReset}
-                className="secondary-button ml-2"
+ className="ml-2"
               >
                 <Maximize2 className="w-4 h-4 mr-2" />
                 Reset
@@ -147,13 +148,18 @@ export function ImageViewer({
             <div className="flex flex-wrap items-center gap-6 flex-1">
               <div>
                 <span className="font-medium">Type:</span>{" "}
-                <span
-                  className={`medical-badge medical-badge-${
-                    imageType || "other"
-                  }`}
+                <Badge
+                  variant={
+                    imageType === "mri" ? "mri" :
+                    imageType === "xray" ? "xray" :
+                    imageType === "lab" ? "lab" :
+                    imageType === "ct" || imageType === "ct_scan" ? "ct" :
+                    imageType === "ultrasound" ? "ultrasound" :
+                    "clinical"
+                  }
                 >
                   {imageType?.toUpperCase() || "IMAGE"}
-                </span>
+                </Badge>
               </div>
               <div>
                 <span className="font-medium">Uploaded:</span>{" "}

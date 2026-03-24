@@ -140,13 +140,11 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Describe your symptoms..."
-          className="medical-input"
           disabled={isLoading}
         />
         <Button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="primary-button"
           size="icon"
         >
           <Send className="w-4 h-4" />

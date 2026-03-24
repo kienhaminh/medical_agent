@@ -145,7 +145,7 @@ export function AiAssistantPanel({
         </div>
         {sessionId && (
           <div className="mt-3 flex items-center gap-2">
-            <Badge variant="outline" className="medical-badge-text text-xs">
+            <Badge variant="clinical" className="text-xs">
               <History className="w-3 h-3 mr-1" />
               Continuing Chat Session
             </Badge>
@@ -230,7 +230,7 @@ export function AiAssistantPanel({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about medical records... (Enter to send, Shift+Enter for new line)"
-              className="min-h-[80px] max-h-[200px] resize-none pr-12 medical-input text-sm"
+              className="min-h-[80px] max-h-[200px] resize-none pr-12 text-sm"
               disabled={isLoading}
             />
             <div className="absolute right-3 bottom-3">
@@ -238,7 +238,7 @@ export function AiAssistantPanel({
                 type="submit"
                 size="icon"
                 disabled={isLoading || !input.trim()}
-                className="primary-button h-8 w-8"
+                className="h-8 w-8"
               >
                 <Send className="w-4 h-4" />
               </Button>

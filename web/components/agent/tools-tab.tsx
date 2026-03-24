@@ -476,7 +476,7 @@ export function ToolsTab() {
             Manage and configure tools available to your agents
           </p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="primary-button">
+        <Button onClick={() => setIsCreating(true)} >
           <Plus className="w-4 h-4 mr-2" />
           Add Tool
         </Button>
@@ -594,7 +594,7 @@ export function ToolsTab() {
             {!searchQuery && activeFilterCount === 0 && (
               <Button
                 onClick={() => setIsCreating(true)}
-                className="primary-button mt-4"
+                className="mt-4"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add First Tool
@@ -1007,7 +1007,7 @@ export function ToolsTab() {
                 </Button>
                 <Button
                   type="button"
-                  className="primary-button"
+                  
                   onClick={() => handleCreate()}
                 >
                   Save Tool
@@ -1354,7 +1354,7 @@ export function ToolsTab() {
                 </Button>
                 <Button
                   type="button"
-                  className="primary-button"
+                  
                   onClick={() => handleUpdate()}
                   disabled={isUpdating}
                 >

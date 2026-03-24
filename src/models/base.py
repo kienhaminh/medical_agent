@@ -1,6 +1,9 @@
 """Database configuration and base classes."""
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
+
+load_dotenv()
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import NullPool

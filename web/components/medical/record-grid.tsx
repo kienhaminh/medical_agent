@@ -73,15 +73,14 @@ export function RecordGrid({ records, onRecordClick }: RecordGridProps) {
 
             <div className="flex items-center justify-between">
               <Badge
-                variant="secondary"
-                className={
+                variant={
                   record.file_type === "mri"
-                    ? "medical-badge-mri"
+                    ? "mri"
                     : record.file_type === "xray"
-                    ? "medical-badge-xray"
+                    ? "xray"
                     : record.file_type === "lab_report"
-                    ? "medical-badge-lab"
-                    : "medical-badge-text"
+                    ? "lab"
+                    : "text"
                 }
               >
                 {record.file_type?.toUpperCase() || record.record_type.toUpperCase()}

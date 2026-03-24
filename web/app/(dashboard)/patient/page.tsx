@@ -147,7 +147,7 @@ export default function PatientsPage() {
             </div>
             <Button
               onClick={() => setIsCreating(true)}
-              className="primary-button"
+              
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Patient
@@ -164,14 +164,14 @@ export default function PatientsPage() {
                   placeholder="Search by name, DOB, or gender..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="medical-input pl-10"
+                  className="pl-10"
                 />
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`secondary-button gap-2 ${
+                className={`gap-2 ${
                   showFilters ? "bg-cyan-500/10 text-cyan-500" : ""
                 }`}
               >
@@ -219,7 +219,7 @@ export default function PatientsPage() {
                       value={genderFilter}
                       onValueChange={setGenderFilter}
                     >
-                      <SelectTrigger className="medical-input h-9">
+                      <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -236,7 +236,7 @@ export default function PatientsPage() {
                       Sort By
                     </Label>
                     <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="medical-input h-9">
+                      <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -284,7 +284,7 @@ export default function PatientsPage() {
               {!searchQuery && (
                 <Button
                   onClick={() => setIsCreating(true)}
-                  className="primary-button mt-4"
+                  className="mt-4"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Patient
@@ -367,13 +367,12 @@ export default function PatientsPage() {
 
                         <div className="flex items-center gap-2">
                           <Badge
-                            variant="secondary"
-                            className={
+                            variant={
                               patient.gender === "Male"
-                                ? "medical-badge-mri"
+                                ? "mri"
                                 : patient.gender === "Female"
-                                ? "medical-badge-xray"
-                                : "medical-badge-text"
+                                ? "xray"
+                                : "clinical"
                             }
                           >
                             {patient.gender}
@@ -398,14 +397,14 @@ export default function PatientsPage() {
                               {patient.name}
                             </h3>
                             <Badge
-                              variant="secondary"
-                              className={`flex-shrink-0 ${
+                              variant={
                                 patient.gender === "Male"
-                                  ? "medical-badge-mri"
+                                  ? "mri"
                                   : patient.gender === "Female"
-                                  ? "medical-badge-xray"
-                                  : "medical-badge-text"
-                              }`}
+                                  ? "xray"
+                                  : "clinical"
+                              }
+                              className="flex-shrink-0"
                             >
                               {patient.gender}
                             </Badge>
@@ -465,7 +464,7 @@ export default function PatientsPage() {
                   setNewPatient({ ...newPatient, name: e.target.value })
                 }
                 placeholder="John Doe"
-                className="medical-input"
+                
               />
             </div>
 
@@ -479,7 +478,7 @@ export default function PatientsPage() {
                 onChange={(e) =>
                   setNewPatient({ ...newPatient, dob: e.target.value })
                 }
-                className="medical-input"
+                
               />
             </div>
 
@@ -491,7 +490,7 @@ export default function PatientsPage() {
                   setNewPatient({ ...newPatient, gender: value })
                 }
               >
-                <SelectTrigger id="gender" className="medical-input">
+                <SelectTrigger id="gender" >
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -507,11 +506,10 @@ export default function PatientsPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsCreating(false)}
-                className="secondary-button"
               >
                 Cancel
               </Button>
-              <Button type="submit" className="primary-button">
+              <Button type="submit" >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Patient
               </Button>

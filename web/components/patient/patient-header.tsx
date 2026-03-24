@@ -71,7 +71,7 @@ export function PatientHeader({
                   DOB: {patient.dob}
                 </span>
                 <Separator orientation="vertical" className="h-4" />
-                <Badge variant="secondary" className="medical-badge-text">
+                <Badge variant="clinical">
                   ID: #{patient.id}
                 </Badge>
               </div>
@@ -81,7 +81,7 @@ export function PatientHeader({
           <div className="flex items-center gap-3">
             <Button
               onClick={() => setAiOpen(!aiOpen)}
-              className={aiOpen ? "secondary-button" : "primary-button"}
+              variant={aiOpen ? "medical-outline" : "medical"}
             >
               <Sparkles className="w-4 h-4 mr-2" />
               {aiOpen ? "Close AI" : "AI Assistant"}

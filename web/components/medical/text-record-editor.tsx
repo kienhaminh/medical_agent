@@ -84,7 +84,7 @@ export function TextRecordEditor({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Initial Consultation Notes"
-              className="medical-input"
+              
             />
           </div>
 
@@ -95,7 +95,7 @@ export function TextRecordEditor({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g., Consultation, Follow-up, Diagnosis"
-              className="medical-input"
+              
             />
           </div>
 
@@ -107,7 +107,7 @@ export function TextRecordEditor({
               onChange={(e) => setContent(e.target.value)}
               placeholder="Enter detailed clinical notes, observations, diagnosis, treatment plan..."
               rows={12}
-              className="medical-input font-mono text-sm"
+              className="font-mono text-sm"
             />
           </div>
 
@@ -122,14 +122,13 @@ export function TextRecordEditor({
               variant="outline"
               onClick={handleClose}
               disabled={saving}
-              className="secondary-button"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={saving || !title.trim() || !content.trim()}
-              className="primary-button"
+              
             >
               {saving ? (
                 <>

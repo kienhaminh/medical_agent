@@ -115,7 +115,7 @@ export function PatientImagingTab({
               onClick={() => {
                 setUploadOpen(true);
               }}
-              className="primary-button"
+              
             >
               <ImageIcon className="w-4 h-4 mr-2" />
               Add Image
@@ -255,14 +255,14 @@ export function PatientImagingTab({
                             {uniqueTypes.slice(0, 3).map((type) => (
                               <Badge
                                 key={type}
-                                variant="secondary"
-                                className={`text-xs px-1.5 py-0.5 bg-white/20 backdrop-blur-sm text-white border-0 font-medium ${
+                                variant={
                                   type === "mri"
-                                    ? "medical-badge-mri"
+                                    ? "mri"
                                     : type === "xray"
-                                    ? "medical-badge-xray"
-                                    : "bg-white/20"
-                                }`}
+                                    ? "xray"
+                                    : "secondary"
+                                }
+                                className="text-xs px-1.5 py-0.5 font-medium"
                               >
                                 {type?.toUpperCase()}
                               </Badge>
@@ -433,14 +433,7 @@ function ImagingList({
                 <Scan className="w-5 h-5 text-purple-500" />
               </div>
               <Badge
-                variant="secondary"
-                className={
-                  record.image_type === "mri"
-                    ? "medical-badge-mri"
-                    : record.image_type === "xray"
-                    ? "medical-badge-xray"
-                    : "medical-badge-text"
-                }
+                variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "text"}
               >
                 {record.image_type?.toUpperCase()}
               </Badge>
@@ -477,14 +470,7 @@ function ImagingList({
                     {record.title}
                   </h3>
                   <Badge
-                    variant="secondary"
-                    className={
-                      record.image_type === "mri"
-                        ? "medical-badge-mri"
-                        : record.image_type === "xray"
-                        ? "medical-badge-xray"
-                        : "medical-badge-text"
-                    }
+                    variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "text"}
                   >
                     {record.image_type?.toUpperCase()}
                   </Badge>

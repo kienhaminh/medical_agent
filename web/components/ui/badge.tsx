@@ -17,6 +17,12 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        mri: "border-transparent bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+        xray: "border-transparent bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
+        lab: "border-transparent bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300",
+        clinical: "border-transparent bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300",
+        ct: "border-transparent bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
+        ultrasound: "border-transparent bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300",
       },
     },
     defaultVariants: {

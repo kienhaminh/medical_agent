@@ -4,8 +4,8 @@ These tools allow agents to discover skills on demand,
 enabling dynamic skill selection without hardcoding skill names.
 """
 
-from ..tools.registry import ToolRegistry
-from ..skills.semantic_search import (
+from ...tools.registry import ToolRegistry
+from ..semantic_search import (
     search_skills_semantic,
     get_skill_info,
     index_all_skills,

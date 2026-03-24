@@ -198,7 +198,7 @@ export default function ToolStorePage() {
             </div>
             <Button
               onClick={() => setIsCreating(true)}
-              className="primary-button"
+              
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Tool
@@ -215,14 +215,14 @@ export default function ToolStorePage() {
                   placeholder="Search tools..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="medical-input pl-10"
+                  className="pl-10"
                 />
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`secondary-button gap-2 ${
+                className={`gap-2 ${
                   showFilters ? "bg-cyan-500/10 text-cyan-500" : ""
                 }`}
               >
@@ -269,7 +269,7 @@ export default function ToolStorePage() {
                       value={categoryFilter}
                       onValueChange={setCategoryFilter}
                     >
-                      <SelectTrigger className="medical-input h-9">
+                      <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -291,7 +291,7 @@ export default function ToolStorePage() {
                       value={statusFilter}
                       onValueChange={setStatusFilter}
                     >
-                      <SelectTrigger className="medical-input h-9">
+                      <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -346,7 +346,7 @@ export default function ToolStorePage() {
               {!searchQuery && activeFilterCount === 0 && (
                 <Button
                   onClick={() => setIsCreating(true)}
-                  className="primary-button mt-4"
+                  className="mt-4"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Tool
@@ -388,8 +388,7 @@ export default function ToolStorePage() {
                       </h3>
                       {tool.category && (
                         <Badge
-                          variant="secondary"
-                          className="mt-1 text-xs medical-badge-text"
+                          variant="clinical" className="mt-1 text-xs"
                         >
                           {tool.category}
                         </Badge>
@@ -481,7 +480,7 @@ export default function ToolStorePage() {
                   setFormData({ ...formData, name: e.target.value })
                 }
                 placeholder="e.g., Medical Image Analyzer"
-                className="medical-input"
+                
               />
             </div>
 
@@ -494,7 +493,7 @@ export default function ToolStorePage() {
                   setFormData({ ...formData, description: e.target.value })
                 }
                 placeholder="Describe what this tool does..."
-                className="medical-input min-h-[100px]"
+                className="min-h-[100px]"
               />
             </div>
 
@@ -506,7 +505,7 @@ export default function ToolStorePage() {
                   setFormData({ ...formData, category: value })
                 }
               >
-                <SelectTrigger id="category" className="medical-input">
+                <SelectTrigger id="category" >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -531,11 +530,10 @@ export default function ToolStorePage() {
                     category: "medical",
                   });
                 }}
-                className="secondary-button"
-              >
+                >
                 Cancel
               </Button>
-              <Button type="submit" className="primary-button">
+              <Button type="submit" >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Tool
               </Button>
@@ -568,7 +566,7 @@ export default function ToolStorePage() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="medical-input"
+                
               />
             </div>
 
@@ -581,7 +579,7 @@ export default function ToolStorePage() {
                   setFormData({ ...formData, description: e.target.value })
                 }
                 placeholder="Describe what this tool does..."
-                className="medical-input min-h-[100px]"
+                className="min-h-[100px]"
               />
             </div>
 
@@ -593,7 +591,7 @@ export default function ToolStorePage() {
                   setFormData({ ...formData, category: value })
                 }
               >
-                <SelectTrigger id="edit-category" className="medical-input">
+                <SelectTrigger id="edit-category" >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -618,11 +616,10 @@ export default function ToolStorePage() {
                     category: "medical",
                   });
                 }}
-                className="secondary-button"
-              >
+                >
                 Cancel
               </Button>
-              <Button type="submit" className="primary-button">
+              <Button type="submit" >
                 <Edit className="w-4 h-4 mr-2" />
                 Save Changes
               </Button>
@@ -649,7 +646,7 @@ export default function ToolStorePage() {
             <Button
               variant="outline"
               onClick={() => setDeletingTool(null)}
-              className="secondary-button"
+
             >
               Cancel
             </Button>

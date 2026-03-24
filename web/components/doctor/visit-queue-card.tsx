@@ -95,7 +95,7 @@ export function VisitQueueCard({
               <Button
                 size="sm"
                 onClick={() => onApprove(visit)}
-                className="primary-button text-xs"
+                className="text-xs"
               >
                 <Check className="w-3.5 h-3.5 mr-1" />
                 Approve Route

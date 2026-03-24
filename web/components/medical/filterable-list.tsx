@@ -93,7 +93,7 @@ export function FilterableList<T extends Record<string, any>>({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="medical-input pl-10"
+            className="pl-10"
           />
         </div>
         {filterOptions.length > 0 && (
@@ -101,7 +101,7 @@ export function FilterableList<T extends Record<string, any>>({
             variant="outline"
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
-            className={`secondary-button gap-2 ${showFilters ? "bg-cyan-500/10 text-cyan-500" : ""}`}
+            className={`gap-2 ${showFilters ? "bg-cyan-500/10 text-cyan-500" : ""}`}
           >
             <Filter className="w-4 h-4" />
             Filters
@@ -140,7 +140,7 @@ export function FilterableList<T extends Record<string, any>>({
                     setFilters((prev) => ({ ...prev, [String(filterOpt.field)]: value }))
                   }
                 >
-                  <SelectTrigger className="medical-input h-9">
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -157,7 +157,7 @@ export function FilterableList<T extends Record<string, any>>({
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Sort By</Label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="medical-input h-9">
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -223,7 +223,7 @@ export function FilterableList<T extends Record<string, any>>({
                   setSearchQuery("");
                   clearFilters();
                 }}
-                className="secondary-button mt-4"
+                className="mt-4"
               >
                 Clear filters
               </Button>

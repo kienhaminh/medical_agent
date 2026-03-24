@@ -49,7 +49,7 @@ export function PatientSelector({ onVisitCreated, disabled }: PatientSelectorPro
           placeholder="Search patients..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 medical-input"
+          className="pl-9"
           disabled={disabled}
         />
       </div>
@@ -89,7 +89,7 @@ export function PatientSelector({ onVisitCreated, disabled }: PatientSelectorPro
       <Button
         onClick={handleStartVisit}
         disabled={!selectedPatient || creating || disabled}
-        className="w-full primary-button"
+        className="w-full"
       >
         {creating ? (
           <>

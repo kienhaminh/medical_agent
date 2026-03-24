@@ -89,7 +89,7 @@ export default function UsagePage() {
                   <div className="p-3 rounded-xl bg-cyan-500/10">
                     <Activity className="w-6 h-6 text-cyan-500" />
                   </div>
-                  <Badge variant="secondary" className="medical-badge-text">
+                  <Badge variant="clinical">
                     Total
                   </Badge>
                 </div>
@@ -121,7 +121,7 @@ export default function UsagePage() {
                   <div className="p-3 rounded-xl bg-green-500/10">
                     <DollarSign className="w-6 h-6 text-green-500" />
                   </div>
-                  <Badge variant="secondary" className="medical-badge-xray">
+                  <Badge variant="xray">
                     Estimate
                   </Badge>
                 </div>
@@ -145,7 +145,7 @@ export default function UsagePage() {
                   <div className="p-3 rounded-xl bg-purple-500/10">
                     <Database className="w-6 h-6 text-purple-500" />
                   </div>
-                  <Badge variant="secondary" className="medical-badge-lab">
+                  <Badge variant="lab">
                     Activity
                   </Badge>
                 </div>

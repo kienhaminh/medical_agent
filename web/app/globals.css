@@ -61,8 +61,8 @@
   --card-foreground: oklch(0.09 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.09 0 0);
-  --primary: oklch(0.145 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.65 0.17 195);
+  --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.95 0 0);
   --secondary-foreground: oklch(0.145 0 0);
   --muted: oklch(0.95 0 0);
@@ -72,7 +72,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.89 0 0);
   --input: oklch(0.89 0 0);
-  --ring: oklch(0.4 0 0);
+  --ring: oklch(0.65 0.17 195);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -96,8 +96,8 @@
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.11 0 0);
   --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.88 0 0);
-  --primary-foreground: oklch(0.09 0 0);
+  --primary: oklch(0.75 0.17 195);
+  --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.16 0 0);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.16 0 0);
@@ -107,7 +107,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(0.2 0 0);
   --input: oklch(0.2 0 0);
-  --ring: oklch(0.75 0 0);
+  --ring: oklch(0.75 0.17 195);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -273,39 +273,6 @@
     }
   }
 
-  .medical-badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium;
-  }
-
-  .medical-badge-mri {
-    @apply bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300;
-  }
-
-  .medical-badge-xray {
-    @apply bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300;
-  }
-
-  .medical-badge-lab {
-    @apply bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300;
-  }
-
-  .medical-badge-text {
-    @apply bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300;
-  }
-
-  .medical-badge-ct {
-    @apply bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300;
-  }
-
-  .medical-badge-ultrasound {
-    @apply bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300;
-  }
-
-  .medical-badge-other,
-  .medical-badge-default {
-    @apply bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300;
-  }
-
   .record-card {
     @apply relative rounded-xl border border-border bg-card p-6 transition-all duration-300;
   }
@@ -315,18 +282,4 @@
     box-shadow: 0 4px 24px rgba(0, 217, 255, 0.1);
   }
 
-  .medical-input {
-    @apply w-full rounded-lg border border-border bg-background px-4 py-2 text-foreground transition-all;
-    @apply focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none;
-  }
-
-  .primary-button {
-    @apply relative overflow-hidden rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-3 font-medium text-white transition-all;
-    @apply hover:shadow-lg hover:shadow-cyan-500/30 active:scale-95;
-  }
-
-  .secondary-button {
-    @apply rounded-lg border border-border bg-card px-6 py-3 font-medium text-foreground transition-all;
-    @apply hover:border-cyan-500/50 hover:bg-cyan-500/5 active:scale-95;
-  }
 }

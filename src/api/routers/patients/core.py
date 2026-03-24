@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, MedicalRecord, Imaging
-from ..models import (
+from ...models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
     RecordResponse, ImagingResponse
 )

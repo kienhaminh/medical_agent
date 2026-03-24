@@ -60,8 +60,8 @@ config/local.yaml
 
 # Claude
 .claude/*
-.repomixignore
-CLAUDE.md
 .agent/*
 .shared/*
 .cursor/*
+.gitnexus
+.superpowers/

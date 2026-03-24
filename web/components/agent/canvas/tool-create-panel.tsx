@@ -440,7 +440,7 @@ export function ToolCreatePanel({
               type="button"
               disabled={isSubmitting}
               onClick={() => handleSubmit()}
-              className="flex-1 h-9 primary-button"
+              className="flex-1 h-9"
             >
               <Plus className="w-4 h-4 mr-2" />
               {isSubmitting ? "Creating..." : "Save Tool"}

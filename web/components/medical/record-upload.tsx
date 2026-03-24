@@ -211,7 +211,7 @@ export function RecordUpload({
               value={previewUrl}
               onChange={(e) => setPreviewUrl(e.target.value)}
               placeholder="https://example.com/image-preview.jpg"
-              className="medical-input"
+              
             />
             <p className="text-xs text-muted-foreground">
               URL to the preview/thumbnail image
@@ -226,7 +226,7 @@ export function RecordUpload({
               value={originUrl}
               onChange={(e) => setOriginUrl(e.target.value)}
               placeholder="https://example.com/full-resolution-image.jpg"
-              className="medical-input"
+              
             />
             <p className="text-xs text-muted-foreground">
               URL to the original/full resolution image
@@ -258,14 +258,14 @@ export function RecordUpload({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Brain MRI Scan"
-                className="medical-input"
+                
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="fileType">File Type</Label>
               <Select value={fileType} onValueChange={setFileType}>
-                <SelectTrigger id="fileType" className="medical-input">
+                <SelectTrigger id="fileType" >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -291,7 +291,7 @@ export function RecordUpload({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Additional notes about this record..."
                 rows={3}
-                className="medical-input"
+                
               />
             </div>
 
@@ -321,7 +321,7 @@ export function RecordUpload({
                       }
                     }}
                   >
-                    <SelectTrigger id="group" className="medical-input flex-1">
+                    <SelectTrigger id="group" className="flex-1">
                       <SelectValue placeholder="Select a group..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -347,13 +347,13 @@ export function RecordUpload({
                       placeholder="Enter group name..."
                       value={newGroupName}
                       onChange={(e) => setNewGroupName(e.target.value)}
-                      className="medical-input"
+                      
                     />
                     <Button
                       type="button"
                       onClick={handleCreateGroup}
                       disabled={!newGroupName.trim() || isSavingGroup}
-                      className="primary-button whitespace-nowrap"
+                      className="whitespace-nowrap"
                     >
                       {isSavingGroup ? (
                         <>
@@ -393,14 +393,13 @@ export function RecordUpload({
               variant="outline"
               onClick={handleClose}
               disabled={uploading}
-              className="secondary-button"
             >
               Cancel
             </Button>
             <Button
               onClick={handleUpload}
               disabled={uploading || !title.trim() || !previewUrl.trim() || !originUrl.trim()}
-              className="primary-button"
+              
             >
               {uploading ? (
                 <>
