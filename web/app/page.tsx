@@ -93,22 +93,23 @@ export default function Home() {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500">
-                <Link href="/patient">
+                <Link href="/intake">
                   <Button
+                    size="lg"
+                    className="text-sm tracking-wider h-12 px-8 bg-linear-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white shadow-lg shadow-cyan-500/20"
+                  >
+                    CHECK IN AS PATIENT →
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button
+                    variant="outline"
                     size="lg"
                     className="text-sm tracking-wider h-12 px-8"
                   >
-                    ACCESS PATIENT DASHBOARD →
+                    STAFF LOGIN
                   </Button>
                 </Link>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="text-sm tracking-wider h-12 px-8"
-                  asChild
-                >
-                  <Link href="#features">VIEW CAPABILITIES</Link>
-                </Button>
               </div>
 
               {/* Stats */}
