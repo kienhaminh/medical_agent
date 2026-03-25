@@ -2,40 +2,23 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { RotateCcw } from "lucide-react";
-import { useHospitalCanvas } from "@/components/operations/use-hospital-canvas";
-import { HospitalCanvas } from "@/components/operations/hospital-canvas";
+import { useOperationsDashboard } from "@/components/operations/use-operations-dashboard";
 import { KpiBar } from "@/components/operations/kpi-bar";
+import { ReceptionBanner } from "@/components/operations/reception-banner";
+import { DepartmentGrid } from "@/components/operations/department-grid";
 import { ReceptionDialog } from "@/components/operations/dialogs/reception-dialog";
 import { DepartmentDialog } from "@/components/operations/dialogs/department-dialog";
-import { transferVisit } from "@/lib/api";
 
 export default function OperationsPage() {
   const [receptionOpen, setReceptionOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
 
-  // Wire transfer handler at the page level so the hook can pass it into node data
-  const handleTransfer = useCallback(async (visitId: number, targetDept: string) => {
-    try {
-      await transferVisit(visitId, targetDept);
-    } catch (err) {
-      console.error("Transfer failed:", err instanceof Error ? err.message : "Transfer failed");
-    }
+  const { departments, stats, receptionVisits, departmentVisits, loading, error, refresh } =
+    useOperationsDashboard();
+
+  const handleDeptClick = useCallback((deptName: string) => {
+    setSelectedDept(deptName);
   }, []);
-
-  const { nodes, edges, stats, departments, receptionVisits, departmentVisits, loading, error, refresh, resetPositions } =
-    useHospitalCanvas(handleTransfer);
-
-  const handleNodeClick = useCallback(
-    (nodeId: string) => {
-      if (nodeId === "reception") {
-        setReceptionOpen(true);
-      } else if (nodeId !== "discharge") {
-        setSelectedDept(nodeId);
-      }
-    },
-    []
-  );
 
   const selectedDepartment = departments.find((d) => d.name === selectedDept) ?? null;
 
@@ -57,30 +40,32 @@ export default function OperationsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-white/[0.06]">
+      {/* KPI bar */}
+      <div className="border-b border-white/[0.06]">
         <KpiBar stats={stats} />
-        <button
-          onClick={resetPositions}
-          className="flex items-center gap-1.5 px-3 py-1.5 mr-3 rounded-lg text-xs font-mono text-[#8b949e] hover:text-white border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-all shrink-0"
-          title="Reset node positions to default layout"
-        >
-          <RotateCcw size={12} />
-          Reset Layout
-        </button>
       </div>
-      <div className="flex-1 min-h-0">
-        <HospitalCanvas
-          initialNodes={nodes}
-          initialEdges={edges}
-          onNodeClick={handleNodeClick}
-          onRefresh={refresh}
+
+      {/* Dashboard content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Reception banner */}
+        <ReceptionBanner
+          visits={receptionVisits}
+          onClick={() => setReceptionOpen(true)}
+        />
+
+        {/* Department grid */}
+        <DepartmentGrid
+          departments={departments}
+          onDeptClick={handleDeptClick}
         />
       </div>
 
+      {/* Dialogs */}
       <ReceptionDialog
         open={receptionOpen}
         onOpenChange={setReceptionOpen}
         visits={receptionVisits}
+        departments={departments}
         onVisitUpdated={refresh}
       />
 
