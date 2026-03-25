@@ -1,15 +1,16 @@
 // web/components/operations/department-grid.tsx
 "use client";
 
-import type { DepartmentInfo } from "@/lib/api";
+import type { DepartmentInfo, VisitListItem } from "@/lib/api";
 import { DepartmentCard } from "./department-card";
 
 interface DepartmentGridProps {
   departments: DepartmentInfo[];
+  departmentVisits: Record<string, VisitListItem[]>;
   onDeptClick: (deptName: string) => void;
 }
 
-export function DepartmentGrid({ departments, onDeptClick }: DepartmentGridProps) {
+export function DepartmentGrid({ departments, departmentVisits, onDeptClick }: DepartmentGridProps) {
   const sorted = [...departments].sort((a, b) => a.label.localeCompare(b.label));
 
   if (sorted.length === 0) {
@@ -21,11 +22,12 @@ export function DepartmentGrid({ departments, onDeptClick }: DepartmentGridProps
   }
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
       {sorted.map((dept) => (
         <DepartmentCard
           key={dept.name}
           dept={dept}
+          visits={departmentVisits[dept.name] ?? []}
           onClick={() => onDeptClick(dept.name)}
         />
       ))}

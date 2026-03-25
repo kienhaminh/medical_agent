@@ -52,6 +52,7 @@ export default function OperationsPage() {
         {/* Department grid */}
         <DepartmentGrid
           departments={departments}
+          departmentVisits={departmentVisits}
           onDeptClick={setSelectedDept}
         />
       </div>
