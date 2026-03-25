@@ -169,7 +169,20 @@ async def check_in_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Visit cannot be checked in from status '{visit.status}'. Must be 'routed'.")
     visit.status = VisitStatus.IN_DEPARTMENT.value
     if visit.routing_decision:
-        visit.current_department = visit.routing_decision[0]
+        target_dept = visit.routing_decision[0]
+        # Normalize: AI may have stored label ("Pulmonology") instead of name ("pulmonology")
+        dept_result = await db.execute(select(Department).where(Department.name == target_dept))
+        if not dept_result.scalar_one_or_none():
+            # Try matching by label
+            dept_by_label = await db.execute(
+                select(Department).where(func.lower(Department.label) == func.lower(target_dept))
+            )
+            matched = dept_by_label.scalar_one_or_none()
+            if matched:
+                target_dept = matched.name
+            else:
+                raise HTTPException(status_code=400, detail=f"Department '{target_dept}' not found.")
+        visit.current_department = target_dept
     max_pos_result = await db.execute(
         select(func.max(Visit.queue_position))
         .where(Visit.current_department == visit.current_department)

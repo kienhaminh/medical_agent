@@ -207,7 +207,8 @@ class LangGraphAgent:
         stream: bool = False,
         chat_history: list = None,
         patient_id: int = None,
-        patient_name: str = None
+        patient_name: str = None,
+        system_prompt_override: str = None,
     ) -> Union[str, AsyncGenerator[dict, None]]:
         """Process user message through unified agent.
 
@@ -217,6 +218,7 @@ class LangGraphAgent:
             chat_history: Optional list of previous messages with 'role' and 'content' keys
             patient_id: Optional patient ID for context
             patient_name: Optional patient name for context
+            system_prompt_override: Optional system prompt to use instead of the agent's default
 
         Returns:
             Response string (non-streaming) or generator (streaming)
@@ -252,8 +254,10 @@ class LangGraphAgent:
         messages = []
 
         # 1. Static system prompt (never changes — provider caches this prefix)
-        if self.system_prompt:
-            messages.append(SystemMessage(content=self.system_prompt))
+        # Use override if provided (e.g. session-linked agent prompt), else fall back to default
+        active_system_prompt = system_prompt_override or self.system_prompt
+        if active_system_prompt:
+            messages.append(SystemMessage(content=active_system_prompt))
 
         # 2. Specialist list (separate message so static prefix stays cacheable)
         if sub_agents:

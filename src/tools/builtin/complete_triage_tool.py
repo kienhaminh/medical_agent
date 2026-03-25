@@ -8,6 +8,7 @@ from typing import List
 from sqlalchemy import select
 
 from src.models import SessionLocal
+from src.models.department import Department
 from src.models.visit import Visit, VisitStatus, AUTO_ROUTE_THRESHOLD
 from src.tools.registry import ToolRegistry
 
@@ -48,13 +49,22 @@ def complete_triage(
         if visit.status != VisitStatus.INTAKE.value:
             return f"Error: Visit is not in intake status (current: {visit.status})."
 
+        # Normalize department names: AI may produce labels like "Pulmonology"
+        # but the DB FK expects the name key like "pulmonology"
+        departments = db.execute(select(Department)).scalars().all()
+        dept_lookup: dict[str, str] = {}
+        for dept in departments:
+            dept_lookup[dept.name.lower()] = dept.name
+            dept_lookup[dept.label.lower()] = dept.name
+        normalized = [dept_lookup.get(s.lower(), s) for s in routing_suggestion]
+
         visit.chief_complaint = chief_complaint
         visit.intake_notes = intake_notes
-        visit.routing_suggestion = routing_suggestion
+        visit.routing_suggestion = normalized
         visit.confidence = confidence
 
         if confidence >= AUTO_ROUTE_THRESHOLD:
-            visit.routing_decision = routing_suggestion
+            visit.routing_decision = normalized
             visit.status = VisitStatus.AUTO_ROUTED.value
             route_msg = f"Auto-routed to: {', '.join(routing_suggestion)} (confidence: {confidence:.2f})"
         else:

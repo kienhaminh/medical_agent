@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send, RotateCcw } from "lucide-react";
 import { AnswerContent } from "@/components/agent/answer-content";
 
@@ -174,7 +173,7 @@ export default function PatientIntakePage() {
 
       {/* Chat area */}
       <div className="relative z-10 flex-1 flex flex-col min-h-0 max-w-3xl mx-auto w-full px-4">
-        <ScrollArea className="flex-1 py-4">
+        <div className="flex-1 overflow-y-auto py-4">
           <div className="space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
@@ -242,7 +241,7 @@ export default function PatientIntakePage() {
             ))}
             <div ref={messagesEndRef} />
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Input */}
         <form
