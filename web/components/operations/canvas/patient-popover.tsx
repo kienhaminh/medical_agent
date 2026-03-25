@@ -8,9 +8,10 @@ import { formatTimeAgo, getWaitTimeColor } from "../operations-constants";
 interface PatientPopoverProps {
   visit: VisitListItem;
   onClose: () => void;
+  onViewDetails?: (visitId: number) => void;
 }
 
-export function PatientPopover({ visit, onClose }: PatientPopoverProps) {
+export function PatientPopover({ visit, onClose, onViewDetails }: PatientPopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +51,14 @@ export function PatientPopover({ visit, onClose }: PatientPopoverProps) {
         <span style={{ color: waitColor }}>{formatTimeAgo(visit.created_at)}</span>
         <span className="text-[#8b949e] capitalize">{visit.status.replace("_", " ")}</span>
       </div>
+      {onViewDetails && (
+        <button
+          onClick={() => { onViewDetails(visit.id); onClose(); }}
+          className="text-[10px] font-mono text-[#00d9ff] hover:underline mt-1 block"
+        >
+          View Details →
+        </button>
+      )}
     </div>
   );
 }
