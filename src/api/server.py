@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config.database import init_db
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat, usage, skills, visits
+from .routers import patients, agents, tools, chat, usage, skills, visits, departments
 import src.tools.builtin  # Register builtin tools
 import src.skills.builtin  # Register skill search tools
 
@@ -119,6 +119,7 @@ app.include_router(chat.router)
 app.include_router(usage.router)
 app.include_router(skills.router)
 app.include_router(visits.router)
+app.include_router(departments.router)
 
 @app.get("/")
 async def root():

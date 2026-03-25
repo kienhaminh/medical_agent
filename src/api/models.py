@@ -309,3 +309,21 @@ class VisitDetailResponse(VisitResponse):
     patient_dob: str
     patient_gender: str
     intake_notes: Optional[str] = None
+
+
+# --- Department schemas ---
+
+class DepartmentResponse(BaseModel):
+    name: str
+    label: str
+    capacity: int
+    is_open: bool
+    color: str
+    icon: str
+    current_patient_count: int = 0
+    queue_length: int = 0
+    status: str = "IDLE"
+
+class DepartmentUpdate(BaseModel):
+    capacity: int | None = None
+    is_open: bool | None = None
