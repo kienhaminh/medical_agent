@@ -1,18 +1,29 @@
 // web/components/operations/department-card.tsx
 "use client";
 
-import type { DepartmentInfo } from "@/lib/api";
-import { DEPARTMENT_STATUS_COLORS } from "./operations-constants";
+import type { DepartmentInfo, VisitListItem } from "@/lib/api";
+import { DEPARTMENT_STATUS_COLORS, getWaitTimeColor, formatTimeAgo } from "./operations-constants";
 
 interface DepartmentCardProps {
   dept: DepartmentInfo;
+  visits: VisitListItem[];
   onClick: () => void;
 }
 
 // Circumference of r=20 circle
 const CIRCUMFERENCE = 125.66;
+const MAX_VISIBLE = 5;
 
-export function DepartmentCard({ dept, onClick }: DepartmentCardProps) {
+function sortVisits(visits: VisitListItem[]): VisitListItem[] {
+  return [...visits].sort((a, b) => {
+    const posA = a.queue_position ?? Infinity;
+    const posB = b.queue_position ?? Infinity;
+    if (posA !== posB) return posA - posB;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+}
+
+export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
   const statusColor =
     DEPARTMENT_STATUS_COLORS[dept.status as keyof typeof DEPARTMENT_STATUS_COLORS] ||
     "#6b7280";
@@ -25,6 +36,10 @@ export function DepartmentCard({ dept, onClick }: DepartmentCardProps) {
 
   const isClosed = !dept.is_open;
   const isCritical = dept.status === "CRITICAL";
+
+  const sorted = sortVisits(visits);
+  const visible = sorted.slice(0, MAX_VISIBLE);
+  const overflow = sorted.length - MAX_VISIBLE;
 
   return (
     <button
@@ -66,14 +81,12 @@ export function DepartmentCard({ dept, onClick }: DepartmentCardProps) {
       {/* Utilization ring + slot count */}
       <div className="flex items-center gap-3">
         <svg width="44" height="44" className="flex-shrink-0">
-          {/* Background track */}
           <circle
             cx="22" cy="22" r="20"
             fill="none"
             stroke={isClosed ? "rgba(255,255,255,0.06)" : `${statusColor}20`}
             strokeWidth="3"
           />
-          {/* Filled arc — skip if capacity is 0 */}
           {dept.capacity > 0 && (
             <circle
               cx="22" cy="22" r="20"
@@ -108,6 +121,45 @@ export function DepartmentCard({ dept, onClick }: DepartmentCardProps) {
           )}
         </div>
       </div>
+
+      {/* Patient list */}
+      {visible.length > 0 && (
+        <>
+          <hr className="border-none border-t border-white/[0.06] my-2" style={{ borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "rgba(255,255,255,0.06)" }} />
+          <div className="space-y-1.5">
+            {visible.map((v) => {
+              const waitColor = getWaitTimeColor(v.created_at);
+              return (
+                <div key={v.visit_id} className="rounded-md px-2 py-1.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div className="text-[11px] font-bold font-mono text-[#c9d1d9] truncate">
+                    {v.patient_name}
+                  </div>
+                  {v.chief_complaint && (
+                    <div className="text-[10px] font-mono text-[#8b949e] truncate mt-0.5">
+                      {v.chief_complaint}
+                    </div>
+                  )}
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] font-mono" style={{ color: waitColor }}>
+                      {formatTimeAgo(v.created_at)}
+                    </span>
+                    {v.queue_position != null && (
+                      <span className="text-[10px] font-mono text-[#8b949e]">
+                        #{v.queue_position}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {overflow > 0 && (
+              <div className="text-[10px] font-mono text-[#8b949e] text-center pt-1">
+                +{overflow} more
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </button>
   );
 }
