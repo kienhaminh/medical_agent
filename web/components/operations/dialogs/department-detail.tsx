@@ -1,17 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { VisitDetail, completeVisit } from "@/lib/api";
+import { DepartmentInfo, VisitDetail, completeVisit } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2 } from "lucide-react";
 
 interface DepartmentDetailProps {
   visit: VisitDetail;
+  departments: DepartmentInfo[];
   onVisitUpdated: () => void;
 }
 
-export function DepartmentDetail({ visit, onVisitUpdated }: DepartmentDetailProps) {
+function deptLabel(name: string, departments: DepartmentInfo[]): string {
+  return departments.find((d) => d.name === name)?.label ?? name;
+}
+
+export function DepartmentDetail({ visit, departments, onVisitUpdated }: DepartmentDetailProps) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +61,7 @@ export function DepartmentDetail({ visit, onVisitUpdated }: DepartmentDetailProp
         <div className="flex flex-wrap gap-1.5">
           {visit.routing_decision?.map((dept) => (
             <Badge key={dept} variant="secondary" className="text-xs">
-              {dept}
+              {deptLabel(dept, departments)}
             </Badge>
           ))}
         </div>

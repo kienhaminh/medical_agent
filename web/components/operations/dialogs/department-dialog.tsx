@@ -13,11 +13,12 @@ interface DepartmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   department: DepartmentInfo | null;
+  departments: DepartmentInfo[];
   visits: VisitListItem[];
   onUpdated: () => void;
 }
 
-export function DepartmentDialog({ open, onOpenChange, department, visits, onUpdated }: DepartmentDialogProps) {
+export function DepartmentDialog({ open, onOpenChange, department, departments, visits, onUpdated }: DepartmentDialogProps) {
   const [capacity, setCapacity] = useState(department?.capacity ?? 3);
   const [saving, setSaving] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
@@ -86,7 +87,7 @@ export function DepartmentDialog({ open, onOpenChange, department, visits, onUpd
 
         {selectedVisit ? (
           <div className="flex-1 overflow-y-auto">
-            <DepartmentDetail visit={selectedVisit} onVisitUpdated={handleVisitUpdated} />
+            <DepartmentDetail visit={selectedVisit} departments={departments} onVisitUpdated={handleVisitUpdated} />
           </div>
         ) : (
           <>

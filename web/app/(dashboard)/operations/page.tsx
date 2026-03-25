@@ -70,6 +70,7 @@ export default function OperationsPage() {
         open={!!selectedDept}
         onOpenChange={(open) => !open && setSelectedDept(null)}
         department={selectedDepartment}
+        departments={departments}
         visits={selectedDept ? (departmentVisits[selectedDept] ?? []) : []}
         onUpdated={refresh}
       />
