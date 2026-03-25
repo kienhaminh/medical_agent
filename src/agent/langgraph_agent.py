@@ -256,8 +256,9 @@ class LangGraphAgent:
             messages.append(SystemMessage(content=self.system_prompt))
 
         # 2. Specialist list (separate message so static prefix stays cacheable)
-        specialist_list_content = build_specialist_list_message(sub_agents)
-        messages.append(SystemMessage(content=specialist_list_content))
+        if sub_agents:
+            specialist_list_content = build_specialist_list_message(sub_agents)
+            messages.append(SystemMessage(content=specialist_list_content))
 
         # 3. Memory context — deduplicated and capped at 500 tokens
         if memories:
