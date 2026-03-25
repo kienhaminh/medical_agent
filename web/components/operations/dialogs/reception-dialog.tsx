@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { DepartmentInfo, VisitDetail, VisitListItem } from "@/lib/api";
 import { getVisit } from "@/lib/api";
 import { formatTimeAgo } from "../operations-constants";
+import { IntakeDetail } from "./intake-detail";
 import { ReviewDetail } from "./review-detail";
 
 interface ReceptionDialogProps {
@@ -81,7 +82,11 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
 
         {selectedVisit ? (
           <div className="flex-1 overflow-y-auto">
-            <ReviewDetail visit={selectedVisit} departments={departments} onVisitUpdated={handleVisitUpdated} />
+            {["intake", "triaged"].includes(selectedVisit.status) ? (
+              <IntakeDetail visit={selectedVisit} />
+            ) : (
+              <ReviewDetail visit={selectedVisit} departments={departments} onVisitUpdated={handleVisitUpdated} />
+            )}
           </div>
         ) : (
           <>
