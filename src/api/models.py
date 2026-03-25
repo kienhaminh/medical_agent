@@ -284,6 +284,9 @@ class VisitRouteUpdate(BaseModel):
     routing_decision: list[str]
     reviewed_by: str
 
+class VisitTransferRequest(BaseModel):
+    target_department: str
+
 class VisitResponse(BaseModel):
     """Visit response for list and detail views."""
     id: int
@@ -296,6 +299,8 @@ class VisitResponse(BaseModel):
     chief_complaint: Optional[str] = None
     intake_session_id: Optional[int] = None
     reviewed_by: Optional[str] = None
+    current_department: Optional[str] = None
+    queue_position: Optional[int] = None
     created_at: str
     updated_at: str
 

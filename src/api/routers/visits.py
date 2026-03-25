@@ -3,12 +3,13 @@ import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import get_db, Visit, Patient, ChatSession, SubAgent
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest
+from src.models.department import Department
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,8 @@ def _visit_to_response(v: Visit) -> VisitResponse:
         chief_complaint=v.chief_complaint,
         intake_session_id=v.intake_session_id,
         reviewed_by=v.reviewed_by,
+        current_department=v.current_department,
+        queue_position=v.queue_position,
         created_at=v.created_at.isoformat(),
         updated_at=v.updated_at.isoformat(),
     )
@@ -165,6 +168,15 @@ async def check_in_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
     if visit.status != VisitStatus.ROUTED.value:
         raise HTTPException(status_code=400, detail=f"Visit cannot be checked in from status '{visit.status}'. Must be 'routed'.")
     visit.status = VisitStatus.IN_DEPARTMENT.value
+    if visit.routing_decision:
+        visit.current_department = visit.routing_decision[0]
+    max_pos_result = await db.execute(
+        select(func.max(Visit.queue_position))
+        .where(Visit.current_department == visit.current_department)
+        .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+    )
+    max_pos = max_pos_result.scalar() or 0
+    visit.queue_position = max_pos + 1
     await db.commit()
     await db.refresh(visit)
     return _visit_to_response(visit)
@@ -179,7 +191,65 @@ async def complete_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Visit not found")
     if visit.status != VisitStatus.IN_DEPARTMENT.value:
         raise HTTPException(status_code=400, detail=f"Visit cannot be completed from status '{visit.status}'. Must be 'in_department'.")
+    if visit.current_department and visit.queue_position:
+        source_visits_result = await db.execute(
+            select(Visit)
+            .where(Visit.current_department == visit.current_department)
+            .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+            .where(Visit.queue_position > visit.queue_position)
+            .order_by(Visit.queue_position)
+        )
+        for v in source_visits_result.scalars().all():
+            v.queue_position -= 1
     visit.status = VisitStatus.COMPLETED.value
+    visit.current_department = None
+    visit.queue_position = None
+    await db.commit()
+    await db.refresh(visit)
+    return _visit_to_response(visit)
+
+
+@router.post("/api/visits/{visit_id}/transfer", response_model=VisitResponse)
+async def transfer_visit(visit_id: int, transfer: VisitTransferRequest, db: AsyncSession = Depends(get_db)):
+    """Transfer a patient between departments."""
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    if visit.status != VisitStatus.IN_DEPARTMENT.value:
+        raise HTTPException(status_code=400, detail="Visit must be in_department to transfer")
+    dept_result = await db.execute(select(Department).where(Department.name == transfer.target_department))
+    target_dept = dept_result.scalar_one_or_none()
+    if not target_dept:
+        raise HTTPException(status_code=404, detail="Target department not found")
+    if not target_dept.is_open:
+        raise HTTPException(status_code=400, detail="Target department is closed")
+    count_result = await db.execute(
+        select(func.count(Visit.id))
+        .where(Visit.current_department == transfer.target_department)
+        .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+    )
+    current_count = count_result.scalar() or 0
+    if current_count >= target_dept.capacity:
+        raise HTTPException(status_code=400, detail="Target department is at capacity")
+    source_dept = visit.current_department
+    source_visits_result = await db.execute(
+        select(Visit)
+        .where(Visit.current_department == source_dept)
+        .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+        .where(Visit.queue_position > visit.queue_position)
+        .order_by(Visit.queue_position)
+    )
+    for v in source_visits_result.scalars().all():
+        v.queue_position -= 1
+    max_pos_result = await db.execute(
+        select(func.max(Visit.queue_position))
+        .where(Visit.current_department == transfer.target_department)
+        .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+    )
+    max_pos = max_pos_result.scalar() or 0
+    visit.current_department = transfer.target_department
+    visit.queue_position = max_pos + 1
     await db.commit()
     await db.refresh(visit)
     return _visit_to_response(visit)
