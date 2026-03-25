@@ -142,7 +142,7 @@ function DepartmentNodeComponent({ data }: NodeProps) {
           </svg>
           <div>
             <div className="text-xs font-mono" style={{ color: "#8b949e" }}>
-              {department.current_patient_count}/{department.capacity} beds
+              {department.current_patient_count}/{department.capacity} slots
             </div>
             {!department.is_open && (
               <div className="text-[10px] font-mono text-red-400 mt-0.5">CLOSED</div>
