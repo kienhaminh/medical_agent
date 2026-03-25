@@ -1,7 +1,6 @@
 // web/components/operations/canvas/patient-popover.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
 import type { VisitListItem } from "@/lib/api";
 import { formatTimeAgo, getWaitTimeColor } from "../operations-constants";
 
@@ -12,24 +11,11 @@ interface PatientPopoverProps {
 }
 
 export function PatientPopover({ visit, onClose, onViewDetails }: PatientPopoverProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose]);
-
   const waitColor = getWaitTimeColor(visit.created_at);
 
   return (
     <div
-      ref={ref}
-      className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-2 rounded-lg border px-3 py-2 min-w-[200px] shadow-xl"
+      className="absolute z-50 left-1/2 -translate-x-1/2 bottom-full mb-2 rounded-lg border px-3 py-2 min-w-[200px] shadow-xl pointer-events-auto"
       style={{
         background: "#161b22",
         borderColor: "rgba(255,255,255,0.1)",

@@ -1,7 +1,7 @@
 // web/components/operations/canvas/patient-dot.tsx
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { VisitListItem } from "@/lib/api";
 import { getWaitTimeColor } from "../operations-constants";
 import { PatientPopover } from "./patient-popover";
@@ -15,6 +15,7 @@ interface PatientDotProps {
 
 export function PatientDot({ visit, index, draggable = false }: PatientDotProps) {
   const [showPopover, setShowPopover] = useState(false);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const color = getWaitTimeColor(visit.created_at);
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -23,15 +24,25 @@ export function PatientDot({ visit, index, draggable = false }: PatientDotProps)
     e.dataTransfer.effectAllowed = "move";
   };
 
+  const handleMouseEnter = () => {
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    setShowPopover(true);
+  };
+
+  const handleMouseLeave = () => {
+    hideTimeoutRef.current = setTimeout(() => setShowPopover(false), 200);
+  };
+
   return (
-    <div className="relative" style={{ marginLeft: index === 0 ? 0 : -4 }}>
+    <div
+      className="relative"
+      style={{ marginLeft: index === 0 ? 0 : -4 }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         draggable={draggable}
         onDragStart={draggable ? handleDragStart : undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowPopover(!showPopover);
-        }}
         className="relative flex items-center justify-center rounded-full transition-transform hover:scale-125"
         style={{
           width: 14,
