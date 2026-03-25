@@ -3,7 +3,7 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Index, JSON, String, Text, func
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Index, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -44,6 +44,11 @@ class Visit(Base):
         ForeignKey("chat_sessions.id"), nullable=True
     )
     reviewed_by: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    # Department tracking — which department the patient is currently in and their queue position
+    current_department: Mapped[Optional[str]] = mapped_column(
+        String(50), ForeignKey("departments.name"), nullable=True
+    )
+    queue_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.now(), onupdate=func.now()

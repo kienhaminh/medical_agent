@@ -4,6 +4,8 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.department import Department
+from src.models.visit import Visit, VisitStatus
+from src.models.patient import Patient
 
 
 @pytest_asyncio.fixture
@@ -46,3 +48,46 @@ async def test_department_name_is_unique(db_session: AsyncSession, sample_depart
     db_session.add(duplicate)
     with pytest.raises(Exception):  # IntegrityError
         await db_session.commit()
+
+
+@pytest_asyncio.fixture
+async def sample_patient(db_session: AsyncSession) -> Patient:
+    patient = Patient(name="Test Patient", dob="1990-01-01", gender="male")
+    db_session.add(patient)
+    await db_session.commit()
+    await db_session.refresh(patient)
+    return patient
+
+
+@pytest.mark.asyncio
+async def test_visit_current_department_field(
+    db_session: AsyncSession, sample_patient: Patient, sample_department: Department
+):
+    visit = Visit(
+        visit_id="VIS-20260325-001",
+        patient_id=sample_patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="cardiology",
+        queue_position=1,
+    )
+    db_session.add(visit)
+    await db_session.commit()
+    await db_session.refresh(visit)
+    assert visit.current_department == "cardiology"
+    assert visit.queue_position == 1
+
+
+@pytest.mark.asyncio
+async def test_visit_current_department_nullable(
+    db_session: AsyncSession, sample_patient: Patient
+):
+    visit = Visit(
+        visit_id="VIS-20260325-002",
+        patient_id=sample_patient.id,
+        status=VisitStatus.INTAKE.value,
+    )
+    db_session.add(visit)
+    await db_session.commit()
+    await db_session.refresh(visit)
+    assert visit.current_department is None
+    assert visit.queue_position is None
