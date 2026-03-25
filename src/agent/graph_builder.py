@@ -5,7 +5,7 @@ Handles construction of the state graph with nodes and edges for agent orchestra
 
 import logging
 
-from langchain_core.messages import BaseMessage, SystemMessage, AIMessage, HumanMessage
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
@@ -143,9 +143,7 @@ class GraphBuilder:
             agent_llm = self.llm.bind_tools(all_tools)
             
             # Invoke LLM
-            response = await agent_llm.ainvoke(
-                [SystemMessage(content=self.system_prompt)] + messages
-            )
+            response = await agent_llm.ainvoke(messages)
             
             return {"messages": [response]}
 
