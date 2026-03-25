@@ -1,7 +1,7 @@
 // web/app/(dashboard)/operations/page.tsx
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useOperationsDashboard } from "@/components/operations/use-operations-dashboard";
 import { KpiBar } from "@/components/operations/kpi-bar";
 import { ReceptionBanner } from "@/components/operations/reception-banner";
@@ -15,10 +15,6 @@ export default function OperationsPage() {
 
   const { departments, stats, receptionVisits, departmentVisits, loading, error, refresh } =
     useOperationsDashboard();
-
-  const handleDeptClick = useCallback((deptName: string) => {
-    setSelectedDept(deptName);
-  }, []);
 
   const selectedDepartment = departments.find((d) => d.name === selectedDept) ?? null;
 
@@ -56,7 +52,7 @@ export default function OperationsPage() {
         {/* Department grid */}
         <DepartmentGrid
           departments={departments}
-          onDeptClick={handleDeptClick}
+          onDeptClick={setSelectedDept}
         />
       </div>
 

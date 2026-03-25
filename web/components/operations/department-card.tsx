@@ -29,13 +29,12 @@ export function DepartmentCard({ dept, onClick }: DepartmentCardProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-xl border px-4 py-3 transition-all hover:brightness-110 focus:outline-none"
+      className={`w-full text-left rounded-xl border px-4 py-3 transition-all hover:brightness-110 focus:outline-none ${isCritical ? "animate-pulse" : ""}`}
       style={{
         background: isClosed ? "rgba(255,255,255,0.02)" : `${statusColor}08`,
         borderColor: isClosed ? "rgba(255,255,255,0.08)" : `${statusColor}40`,
         boxShadow: isCritical ? `0 0 20px ${statusColor}30` : "none",
         opacity: isClosed ? 0.55 : 1,
-        animation: isCritical ? "pulse 1.5s ease-in-out infinite" : "none",
       }}
     >
       {/* Header */}

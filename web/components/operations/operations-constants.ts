@@ -1,6 +1,6 @@
 // web/components/operations/operations-constants.ts
 
-/** Status colors and labels for the operations canvas. */
+/** Status colors, labels, and time helpers for the operations dashboard. */
 
 export const RECEPTION_STATUSES = ["intake", "triaged", "auto_routed", "pending_review", "routed"] as const;
 export const DEPARTMENT_STATUS = "in_department" as const;
