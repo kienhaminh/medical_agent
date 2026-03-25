@@ -35,14 +35,3 @@ export const DEPARTMENT_STATUS_COLORS = {
   BUSY: "#f59e0b",
   CRITICAL: "#ef4444",
 } as const;
-
-/** Default canvas layout positions. */
-export const CANVAS_LAYOUT = {
-  RECEPTION_Y: 50,
-  DEPARTMENT_START_Y: 250,
-  DEPARTMENT_ROW_GAP: 220,
-  DEPARTMENT_COL_GAP: 200,
-  DEPARTMENTS_PER_ROW: 7,
-  DISCHARGE_Y: 750,
-  CENTER_X: 700,
-} as const;
