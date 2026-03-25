@@ -284,6 +284,9 @@ class VisitRouteUpdate(BaseModel):
     routing_decision: list[str]
     reviewed_by: str
 
+class VisitTransferRequest(BaseModel):
+    target_department: str
+
 class VisitResponse(BaseModel):
     """Visit response for list and detail views."""
     id: int
@@ -296,6 +299,8 @@ class VisitResponse(BaseModel):
     chief_complaint: Optional[str] = None
     intake_session_id: Optional[int] = None
     reviewed_by: Optional[str] = None
+    current_department: Optional[str] = None
+    queue_position: Optional[int] = None
     created_at: str
     updated_at: str
 
@@ -309,3 +314,21 @@ class VisitDetailResponse(VisitResponse):
     patient_dob: str
     patient_gender: str
     intake_notes: Optional[str] = None
+
+
+# --- Department schemas ---
+
+class DepartmentResponse(BaseModel):
+    name: str
+    label: str
+    capacity: int
+    is_open: bool
+    color: str
+    icon: str
+    current_patient_count: int = 0
+    queue_length: int = 0
+    status: str = "IDLE"
+
+class DepartmentUpdate(BaseModel):
+    capacity: int | None = None
+    is_open: bool | None = None

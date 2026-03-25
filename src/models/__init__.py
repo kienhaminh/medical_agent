@@ -19,6 +19,7 @@ from .agent import SubAgent
 from .tool import CustomTool
 from .skill import Skill, SkillTool, AgentSkill
 from .visit import Visit, VisitStatus
+from .department import Department
 
 __all__ = [
     # Base
@@ -48,4 +49,6 @@ __all__ = [
     # Visit models
     "Visit",
     "VisitStatus",
+    # Department models
+    "Department",
 ]
