@@ -23,6 +23,7 @@ import { DischargeNode } from "./canvas/discharge-node";
 import { FlowEdge } from "./canvas/flow-edge";
 import { TransferEdge } from "./canvas/transfer-edge";
 import { onNodeDragStop } from "./use-hospital-canvas";
+import { transferVisit } from "@/lib/api";
 
 const nodeTypes: NodeTypes = {
   reception: ReceptionNode,
@@ -39,9 +40,10 @@ interface HospitalCanvasProps {
   initialNodes: Node[];
   initialEdges: Edge[];
   onNodeClick?: (nodeId: string) => void;
+  onRefresh?: () => void;
 }
 
-export function HospitalCanvas({ initialNodes, initialEdges, onNodeClick }: HospitalCanvasProps) {
+export function HospitalCanvas({ initialNodes, initialEdges, onNodeClick, onRefresh }: HospitalCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
@@ -61,6 +63,16 @@ export function HospitalCanvas({ initialNodes, initialEdges, onNodeClick }: Hosp
     },
     [onNodeClick]
   );
+
+  const handleTransfer = useCallback(async (visitId: number, targetDept: string) => {
+    try {
+      await transferVisit(visitId, targetDept);
+      onRefresh?.();
+    } catch (err) {
+      console.error("Transfer failed:", err instanceof Error ? err.message : "Transfer failed");
+      onRefresh?.(); // snap back by re-fetching
+    }
+  }, [onRefresh]);
 
   return (
     <div className="w-full h-full">

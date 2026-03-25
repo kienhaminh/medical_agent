@@ -6,11 +6,13 @@ import { PatientDot } from "./patient-dot";
 
 interface QueueTailProps {
   visits: VisitListItem[];
+  /** Allow drag-and-drop for department patient dots */
+  draggable?: boolean;
 }
 
 const MAX_VISIBLE = 6;
 
-export function QueueTail({ visits }: QueueTailProps) {
+export function QueueTail({ visits, draggable = false }: QueueTailProps) {
   if (visits.length === 0) return null;
 
   const sorted = [...visits].sort(
@@ -23,7 +25,7 @@ export function QueueTail({ visits }: QueueTailProps) {
     <div className="flex items-center gap-0.5 absolute -left-2 top-1/2 -translate-x-full -translate-y-1/2">
       <div className="flex items-center flex-row-reverse gap-0.5">
         {visible.map((visit, i) => (
-          <PatientDot key={visit.id} visit={visit} index={i} />
+          <PatientDot key={visit.id} visit={visit} index={i} draggable={draggable} />
         ))}
       </div>
       {overflow > 0 && (

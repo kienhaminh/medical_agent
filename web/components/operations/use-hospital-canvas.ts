@@ -25,6 +25,7 @@ export interface CanvasData {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  onTransfer?: (visitId: number, targetDept: string) => void;
 }
 
 const POLL_INTERVAL = 5000;
@@ -71,6 +72,7 @@ function buildNodes(
   departments: DepartmentInfo[],
   visits: VisitListItem[],
   positions: Record<string, { x: number; y: number }>,
+  onTransfer?: (visitId: number, targetDept: string) => void,
 ): Node[] {
   const receptionVisits = visits.filter((v) =>
     (RECEPTION_STATUSES as readonly string[]).includes(v.status)
@@ -103,6 +105,7 @@ function buildNodes(
       data: {
         department: dept,
         visits: departmentVisits[dept.name] || [],
+        onTransfer,
       },
     });
   }
@@ -138,7 +141,9 @@ function buildEdges(departments: DepartmentInfo[], departmentVisits: Record<stri
   return edges;
 }
 
-export function useHospitalCanvas(): CanvasData {
+export function useHospitalCanvas(
+  onTransfer?: (visitId: number, targetDept: string) => void,
+): CanvasData {
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
   const [visits, setVisits] = useState<VisitListItem[]>([]);
   const [stats, setStats] = useState<HospitalStats>({
@@ -195,7 +200,7 @@ export function useHospitalCanvas(): CanvasData {
       departmentVisits[dept].push(v);
     });
 
-  const nodes = buildNodes(departments, visits, positionsRef.current);
+  const nodes = buildNodes(departments, visits, positionsRef.current, onTransfer);
   const edges = buildEdges(departments, departmentVisits);
 
   return {
