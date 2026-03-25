@@ -13,7 +13,8 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from .state import AgentState
 from .agent_config import AgentConfig
-from ..prompt.system import get_default_system_prompt
+from ..prompt.system import get_default_system_prompt, build_specialist_list_message
+from ..utils.token_budget import trim_to_token_budget, count_message_tokens, count_text_tokens
 from .agent_loader import AgentLoader
 from .specialist_handler import SpecialistHandler
 from .graph_builder import GraphBuilder
@@ -246,30 +247,58 @@ class LangGraphAgent:
                 logger.debug("Retrieved %d relevant memories", len(memories))
 
         # Build initial state with messages
+        # Order: static system prompt → specialist list → memory → history → user message
+        # Static prefix is byte-identical across requests → provider caches it.
         messages = []
 
-        # Add system prompt
+        # 1. Static system prompt (never changes — provider caches this prefix)
         if self.system_prompt:
             messages.append(SystemMessage(content=self.system_prompt))
 
-        # Add memory context if available
+        # 2. Specialist list (separate message so static prefix stays cacheable)
+        specialist_list_content = build_specialist_list_message(sub_agents)
+        messages.append(SystemMessage(content=specialist_list_content))
+
+        # 3. Memory context — deduplicated and capped at 500 tokens
         if memories:
-            memory_context = "\n".join([f"- {m}" for m in memories])
-            messages.append(
-                SystemMessage(
-                    content=f"Relevant information from past:\n{memory_context}"
+            # Deduplicate: keep first occurrence of each unique memory (relevance-ordered)
+            seen: set = set()
+            unique_memories = []
+            for m in memories:
+                key = m.strip().lower()
+                if key not in seen:
+                    seen.add(key)
+                    unique_memories.append(m)
+
+            # Cap at 500 tokens — drop lowest-relevance (end of list) first
+            capped_memories = []
+            token_total = 0
+            for m in unique_memories:
+                t = count_text_tokens(m)
+                if token_total + t <= 500:
+                    capped_memories.append(m)
+                    token_total += t
+                else:
+                    break
+
+            if capped_memories:
+                memory_context = "\n".join([f"- {m}" for m in capped_memories])
+                messages.append(
+                    SystemMessage(content=f"Relevant information from past:\n{memory_context}")
                 )
-            )
-        
-        # Add chat history if provided
+
+        # 4. Chat history — trimmed to 2,000-token budget
         if chat_history:
+            history_messages = []
             for msg in chat_history:
                 if msg["role"] == "user":
-                    messages.append(HumanMessage(content=msg["content"]))
+                    history_messages.append(HumanMessage(content=msg["content"]))
                 elif msg["role"] == "assistant":
-                    messages.append(AIMessage(content=msg["content"]))
+                    history_messages.append(AIMessage(content=msg["content"]))
+            history_messages = trim_to_token_budget(history_messages, budget=2000)
+            messages.extend(history_messages)
 
-        # Add user message
+        # 5. Current user message
         messages.append(HumanMessage(content=user_message))
 
         # Build patient profile if provided
