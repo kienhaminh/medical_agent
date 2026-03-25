@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { RotateCcw } from "lucide-react";
 import { useHospitalCanvas } from "@/components/operations/use-hospital-canvas";
 import { HospitalCanvas } from "@/components/operations/hospital-canvas";
 import { KpiBar } from "@/components/operations/kpi-bar";
@@ -22,7 +23,7 @@ export default function OperationsPage() {
     }
   }, []);
 
-  const { nodes, edges, stats, departments, receptionVisits, departmentVisits, loading, error, refresh } =
+  const { nodes, edges, stats, departments, receptionVisits, departmentVisits, loading, error, refresh, resetPositions } =
     useHospitalCanvas(handleTransfer);
 
   const handleNodeClick = useCallback(
@@ -56,7 +57,17 @@ export default function OperationsPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <KpiBar stats={stats} />
+      <div className="flex items-center gap-2 border-b border-white/[0.06]">
+        <KpiBar stats={stats} />
+        <button
+          onClick={resetPositions}
+          className="flex items-center gap-1.5 px-3 py-1.5 mr-3 rounded-lg text-xs font-mono text-[#8b949e] hover:text-white border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] transition-all shrink-0"
+          title="Reset node positions to default layout"
+        >
+          <RotateCcw size={12} />
+          Reset Layout
+        </button>
+      </div>
       <div className="flex-1 min-h-0">
         <HospitalCanvas
           initialNodes={nodes}

@@ -88,6 +88,7 @@ export function HospitalCanvas({ initialNodes, initialEdges, onNodeClick, onRefr
         fitView
         minZoom={0.3}
         maxZoom={1.5}
+        colorMode="dark"
         proOptions={{ hideAttribution: true }}
       >
         <Controls

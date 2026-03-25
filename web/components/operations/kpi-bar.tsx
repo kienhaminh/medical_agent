@@ -38,7 +38,7 @@ const KPI_ITEMS = [
 
 export function KpiBar({ stats }: KpiBarProps) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+    <div className="flex items-center gap-3 px-4 py-2 flex-1 min-w-0">
       {KPI_ITEMS.map((item) => {
         const Icon = item.icon;
         const value = stats[item.key];

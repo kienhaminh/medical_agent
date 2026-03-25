@@ -25,6 +25,7 @@ export interface CanvasData {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  resetPositions: () => void;
   onTransfer?: (visitId: number, targetDept: string) => void;
 }
 
@@ -200,6 +201,14 @@ export function useHospitalCanvas(
       departmentVisits[dept].push(v);
     });
 
+  const resetPositions = useCallback(() => {
+    const defaults = buildDefaultLayout(departments);
+    positionsRef.current = defaults;
+    savePositions(defaults);
+    // Force a re-render by triggering refresh
+    fetchData();
+  }, [departments, fetchData]);
+
   const nodes = buildNodes(departments, visits, positionsRef.current, onTransfer);
   const edges = buildEdges(departments, departmentVisits);
 
@@ -214,6 +223,7 @@ export function useHospitalCanvas(
     loading,
     error,
     refresh: fetchData,
+    resetPositions,
   };
 }
 

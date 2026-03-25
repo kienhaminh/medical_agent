@@ -17,8 +17,9 @@ function TransferEdgeComponent(props: EdgeProps) {
 
   return (
     <BaseEdge
-      {...props}
+      id={props.id}
       path={edgePath}
+      markerEnd={props.markerEnd}
       style={{
         stroke: "#f59e0b",
         strokeWidth: 2,
