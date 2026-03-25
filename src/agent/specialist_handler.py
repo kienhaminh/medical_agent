@@ -15,6 +15,7 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 from ..tools.registry import ToolRegistry
 from ..tools.executor import ToolExecutor
 from ..tools.base import ToolResult
+from ..utils.token_budget import count_text_tokens
 from ..prompt.templates import (
     format_specialist_report,
     format_specialist_error,
@@ -227,7 +228,17 @@ class SpecialistHandler:
             try:
                 # Create specialist prompt
                 specialist_prompt = SystemMessage(content=agent_info["system_prompt"])
-                
+
+                # Warn if specialist prompt is too long for provider caching
+                _prompt_tokens = count_text_tokens(agent_info["system_prompt"])
+                if _prompt_tokens > 300:
+                    logger.warning(
+                        "Specialist '%s' system_prompt is %d tokens (recommended max: 300). "
+                        "Shorten it in the agent config to enable provider-side prompt caching.",
+                        specialist_role,
+                        _prompt_tokens,
+                    )
+
                 # Dynamically fetch agent's tools
                 t0 = time.time()
                 agent_tools = []
