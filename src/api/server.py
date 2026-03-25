@@ -12,7 +12,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import func, select
+
 from ..config.database import init_db
+from ..models.base import AsyncSessionLocal
+from ..models.department import Department
+from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital
 import src.tools.builtin  # Register builtin tools
@@ -84,10 +89,20 @@ async def lifespan(app: FastAPI):
     # Startup: Initialize database
     await init_db()
     logger.info("Database initialized")
-    
+
+    # Seed departments if empty
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(func.count(Department.id)))
+        count = result.scalar() or 0
+        if count == 0:
+            for data in DEPARTMENT_SEED_DATA:
+                session.add(Department(**data, is_open=True))
+            await session.commit()
+            logger.info(f"Seeded {len(DEPARTMENT_SEED_DATA)} departments")
+
     # Startup: Discover skills
     await discover_skills_on_startup()
-    
+
     yield
 
 app = FastAPI(
