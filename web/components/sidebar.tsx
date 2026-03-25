@@ -17,7 +17,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   Palette,
-  Workflow,
+  Monitor,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,9 +36,9 @@ const navigation: NavItem[] = [
     icon: Users,
   },
   {
-    name: "Pipeline",
-    href: "/pipeline",
-    icon: Workflow,
+    name: "Operations",
+    href: "/operations",
+    icon: Monitor,
   },
   {
     name: "Agent",
