@@ -125,7 +125,7 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
       {/* Patient list */}
       {visible.length > 0 && (
         <>
-          <hr className="border-none border-t border-white/[0.06] my-2" style={{ borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "rgba(255,255,255,0.06)" }} />
+          <hr className="border-0 border-t border-white/[0.06] my-2" />
           <div className="space-y-1.5">
             {visible.map((v) => {
               const waitColor = getWaitTimeColor(v.created_at);
