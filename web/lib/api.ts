@@ -683,6 +683,25 @@ export async function getErrorLogs(limit: number = 50): Promise<ErrorLog[]> {
 
 // --- Visit types ---
 
+export interface DepartmentInfo {
+  name: string;
+  label: string;
+  capacity: number;
+  is_open: boolean;
+  color: string;
+  icon: string;
+  current_patient_count: number;
+  queue_length: number;
+  status: "IDLE" | "OK" | "BUSY" | "CRITICAL";
+}
+
+export interface HospitalStats {
+  active_patients: number;
+  departments_at_capacity: number;
+  avg_wait_minutes: number;
+  discharged_today: number;
+}
+
 export interface Visit {
   id: number;
   visit_id: string;
@@ -696,6 +715,8 @@ export interface Visit {
   reviewed_by: string | null;
   created_at: string;
   updated_at: string;
+  current_department: string | null;
+  queue_position: number | null;
 }
 
 export interface VisitDetail extends Visit {
@@ -793,6 +814,58 @@ export async function completeVisit(id: number): Promise<Visit> {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to complete visit");
+  }
+  return response.json();
+}
+
+// --- Department API ---
+
+export async function listDepartments(): Promise<DepartmentInfo[]> {
+  const response = await fetch(`${API_BASE_URL}/departments`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch departments");
+  }
+  return response.json();
+}
+
+export async function updateDepartment(
+  name: string,
+  update: { capacity?: number; is_open?: boolean }
+): Promise<DepartmentInfo> {
+  const response = await fetch(`${API_BASE_URL}/departments/${name}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to update department");
+  }
+  return response.json();
+}
+
+export async function transferVisit(
+  visitId: number,
+  targetDepartment: string
+): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/transfer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_department: targetDepartment }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to transfer visit");
+  }
+  return response.json();
+}
+
+export async function getHospitalStats(): Promise<HospitalStats> {
+  const response = await fetch(`${API_BASE_URL}/hospital/stats`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch hospital stats");
   }
   return response.json();
 }
