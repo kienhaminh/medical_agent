@@ -44,15 +44,27 @@ async def test_engine():
 
 @pytest_asyncio.fixture
 async def db_session(test_engine):
-    """Create a fresh database session for each test."""
-    async_session = async_sessionmaker(
-        test_engine, class_=AsyncSession, expire_on_commit=False
-    )
-    
-    async with async_session() as session:
-        yield session
-        # Rollback after each test
-        await session.rollback()
+    """Create a fresh database session for each test with savepoint-based isolation.
+
+    Uses a nested transaction (SAVEPOINT) so that commits inside tests only
+    flush to the savepoint. The outer transaction is rolled back after each
+    test, keeping the database clean for the next test.
+    """
+    async with test_engine.connect() as conn:
+        # Begin an outer transaction that will be rolled back after the test
+        await conn.begin()
+        # Open a SAVEPOINT so that session.commit() only flushes to it
+        await conn.begin_nested()
+
+        async_session = async_sessionmaker(
+            bind=conn, class_=AsyncSession, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+
+        async with async_session() as session:
+            yield session
+
+        # Roll back the outer transaction — undoes everything done in this test
+        await conn.rollback()
 
 
 @pytest_asyncio.fixture
