@@ -12,6 +12,7 @@ import {
   type ImageGroup,
 } from "@/lib/api";
 import { getMockPatientById, type PatientWithDetails } from "@/lib/mock-data";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecordUpload } from "@/components/medical/record-upload";
 import { RecordViewer } from "@/components/medical/record-viewer";
@@ -105,7 +106,7 @@ export default function PatientDetailPage() {
         setMessages(convertedMessages);
         sessionIdRef.current = sessionId;
       } catch (error) {
-        console.error("Failed to load session:", error);
+        toast.error("Failed to load chat session");
       } finally {
         setLoadingSession(false);
       }
@@ -334,8 +335,7 @@ export default function PatientDetailPage() {
           }
         }
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
@@ -421,7 +421,7 @@ export default function PatientDetailPage() {
       setDeleteDialogOpen(false);
       setPendingDelete(null);
     } catch (error) {
-      console.error("Failed to delete imaging record:", error);
+      toast.error("Failed to delete imaging record");
     } finally {
       setIsDeletingImaging(false);
     }

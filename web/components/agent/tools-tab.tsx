@@ -337,7 +337,6 @@ export function ToolsTab() {
   }
 
   async function handleUpdate() {
-    console.log("handleUpdate", editingTool);
     if (!editingTool) return;
     if (!editingTool.id) {
       setFormError(

@@ -35,6 +35,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const toolCategories = [
   { value: "medical", label: "Medical" },
@@ -102,7 +103,7 @@ export default function ToolStorePage() {
       setTools(data);
       setFilteredTools(data);
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to load tools");
     } finally {
       setLoading(false);
     }
@@ -112,8 +113,9 @@ export default function ToolStorePage() {
     try {
       const updatedTool = await updateTool(id, { enabled: !currentStatus });
       setTools((prev) => prev.map((t) => (t.id === id ? updatedTool : t)));
+      toast.success(`Tool ${!currentStatus ? "enabled" : "disabled"}`);
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to update tool status");
     }
   }
 
@@ -128,8 +130,9 @@ export default function ToolStorePage() {
       setTools((prev) => [...prev, newTool]);
       setIsCreating(false);
       setFormData({ name: "", description: "", category: "medical" });
+      toast.success("Tool created successfully");
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to create tool");
     }
   }
 
@@ -137,7 +140,7 @@ export default function ToolStorePage() {
     e.preventDefault();
     if (!editingTool) return;
     if (!editingTool.id) {
-      console.error("Tool ID is missing. Please refresh the page.");
+      toast.error("Tool ID is missing. Please refresh the page.");
       return;
     }
 
@@ -148,15 +151,16 @@ export default function ToolStorePage() {
       );
       setEditingTool(null);
       setFormData({ name: "", description: "", category: "medical" });
+      toast.success("Tool updated successfully");
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to update tool");
     }
   }
 
   async function handleDelete() {
     if (!deletingTool) return;
     if (!deletingTool.id) {
-      console.error("Tool ID is missing. Please refresh the page.");
+      toast.error("Tool ID is missing. Please refresh the page.");
       return;
     }
 
@@ -164,8 +168,9 @@ export default function ToolStorePage() {
       await deleteTool(deletingTool.id);
       setTools((prev) => prev.filter((t) => t.id !== deletingTool.id));
       setDeletingTool(null);
+      toast.success("Tool deleted");
     } catch (error) {
-      console.error(error);
+      toast.error("Failed to delete tool");
     }
   }
 

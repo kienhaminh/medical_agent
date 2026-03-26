@@ -125,8 +125,6 @@ function AgentChatPageContent() {
             : undefined,
         }));
 
-        console.log("convertedMessages", convertedMessages);
-
         setMessages(convertedMessages);
 
         // Check for any in-progress messages and resume polling
@@ -137,7 +135,6 @@ function AgentChatPageContent() {
         );
 
         if (inProgressMsg) {
-          console.log("Resuming streaming for message", inProgressMsg.id);
           setIsLoading(true);
           setCurrentActivity("thinking");
           setActivityDetails("Resuming processing...");
@@ -191,7 +188,6 @@ function AgentChatPageContent() {
                 // For now, let's rely on status updates or logs for detailed tool info
                 // Or we can append to toolCalls if we have the full object
               } else if (event.type === "done") {
-                console.log("Resumed message completed!");
                 setIsLoading(false);
                 setCurrentActivity(null);
                 setActivityDetails("");
@@ -206,7 +202,6 @@ function AgentChatPageContent() {
                   )
                 );
               } else if (event.type === "error") {
-                console.error("Streaming error:", event.message);
                 toast.error(event.message);
                 setIsLoading(false);
                 setCurrentActivity(null);
@@ -215,7 +210,6 @@ function AgentChatPageContent() {
               }
             },
             (error: Error) => {
-              console.error("Streaming connection error:", error);
               toast.error(error.message);
               setIsLoading(false);
               setCurrentActivity(null);
@@ -226,8 +220,7 @@ function AgentChatPageContent() {
 
           cancelPollRef.current = cancelStream;
         }
-      } catch (error) {
-        console.error("Failed to load session:", error);
+      } catch {
         toast.error("Failed to load chat session");
       } finally {
         setLoadingSession(false);
@@ -270,7 +263,6 @@ function AgentChatPageContent() {
         session_id: activeSessionId ? parseInt(activeSessionId) : undefined,
       });
 
-      console.log("Received response:", response);
 
       // Update session if new
       if (!currentSessionIdRef.current && response.session_id) {
@@ -389,7 +381,6 @@ function AgentChatPageContent() {
               )
             );
           } else if (event.type === "done") {
-            console.log("Message completed!");
             setIsLoading(false);
             setCurrentActivity(null);
             setActivityDetails("");
@@ -404,7 +395,6 @@ function AgentChatPageContent() {
               )
             );
           } else if (event.type === "error") {
-            console.error("Streaming error:", event.message);
             toast.error(event.message);
             setIsLoading(false);
             setCurrentActivity(null);
@@ -425,7 +415,6 @@ function AgentChatPageContent() {
           }
         },
         (error: Error) => {
-          console.error("Streaming connection error:", error);
           toast.error(error.message);
           setIsLoading(false);
           setCurrentActivity(null);
@@ -435,8 +424,7 @@ function AgentChatPageContent() {
       );
 
       cancelPollRef.current = cancelStream;
-    } catch (error) {
-      console.error("Chat error:", error);
+    } catch {
       toast.error("Failed to send message");
       setIsLoading(false);
       setCurrentActivity(null);

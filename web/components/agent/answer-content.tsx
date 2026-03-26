@@ -33,8 +33,6 @@ export function AnswerContent({
       return text;
     }
 
-    console.log("AnswerContent - patientReferences:", patientReferences);
-
     // Sort references by start_index to process them in order
     const sortedReferences = [...patientReferences].sort(
       (a, b) => a.start_index - b.start_index
