@@ -336,6 +336,99 @@ class FlowTester:
         except Exception as e:
             return StageResult(name, False, str(e), time.monotonic() - t0)
 
+    # ------------------------------------------------------------------
+    # Stage 3: verify patient was created in DB
+    # ------------------------------------------------------------------
+
+    async def stage_3_verify_patient_created(self, client: httpx.AsyncClient) -> StageResult:
+        t0 = time.monotonic()
+        name = "Stage 3: Patient created"
+        expected_name = self.scenario["responses"]["name"].lower()
+        try:
+            resp = await client.get(f"{self.base_url}/api/patients", timeout=30.0)
+            resp.raise_for_status()
+            patients = resp.json()
+            match = next(
+                (p for p in patients if expected_name in p["name"].lower()),
+                None,
+            )
+            if match is None:
+                return StageResult(name, False, f"no patient matching '{expected_name}' found", time.monotonic() - t0)
+            self.patient_id = match["id"]
+            return StageResult(name, True, f"patient_id={self.patient_id}, name={match['name']}", time.monotonic() - t0)
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    # ------------------------------------------------------------------
+    # Stage 4: verify visit was created for the patient
+    # ------------------------------------------------------------------
+
+    async def stage_4_verify_visit_created(self, client: httpx.AsyncClient) -> StageResult:
+        t0 = time.monotonic()
+        name = "Stage 4: Visit created"
+        if self.patient_id is None:
+            return StageResult(name, False, "skipped — patient_id unknown (Stage 3 failed)", time.monotonic() - t0)
+        try:
+            resp = await client.get(
+                f"{self.base_url}/api/visits",
+                params={"patient_id": self.patient_id},
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            visits = resp.json()
+            if not visits:
+                return StageResult(name, False, f"no visit found for patient_id={self.patient_id}", time.monotonic() - t0)
+            self.visit_id = visits[0]["id"]
+            visit_ref = visits[0].get("visit_id", self.visit_id)
+            return StageResult(name, True, f"visit_id={visit_ref}", time.monotonic() - t0)
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    # ------------------------------------------------------------------
+    # Stage 5: verify routing suggestion
+    # ------------------------------------------------------------------
+
+    async def stage_5_verify_routing(self, client: httpx.AsyncClient) -> StageResult:
+        t0 = time.monotonic()
+        name = "Stage 5: Routing suggestion"
+        if self.visit_id is None:
+            return StageResult(name, False, "skipped — visit_id unknown (Stage 4 failed)", time.monotonic() - t0)
+        expected = self.scenario["expected_department"]
+        try:
+            resp = await client.get(f"{self.base_url}/api/visits/{self.visit_id}", timeout=30.0)
+            resp.raise_for_status()
+            visit = resp.json()
+            suggestion = visit.get("routing_suggestion")
+            if suggestion is None:
+                return StageResult(name, False, "routing_suggestion is null", time.monotonic() - t0)
+            if suggestion not in expected:
+                return StageResult(
+                    name, False,
+                    f"got '{suggestion}', expected one of {expected}",
+                    time.monotonic() - t0,
+                )
+            return StageResult(name, True, f"department={suggestion}", time.monotonic() - t0)
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    # ------------------------------------------------------------------
+    # Cleanup
+    # ------------------------------------------------------------------
+
+    async def cleanup_resources(self, client: httpx.AsyncClient) -> None:
+        """Delete the chat session. Patient records persist (no delete endpoint)."""
+        if self.session_id is not None:
+            try:
+                await client.delete(
+                    f"{self.base_url}/api/chat/sessions/{self.session_id}",
+                    timeout=15.0,
+                )
+            except Exception as e:
+                print(f"    ⚠ Cleanup warning: could not delete session {self.session_id}: {e}")
+        if self.patient_id is not None:
+            print(f"    ℹ Patient id={self.patient_id} persists (no delete endpoint). "
+                  "Name is prefixed with [FLOWTEST] for easy manual cleanup.")
+
 
 # ---------------------------------------------------------------------------
 # CLI
