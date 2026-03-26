@@ -2,10 +2,11 @@
 "use client";
 
 import type { HospitalStats } from "@/lib/api";
-import { Activity, AlertTriangle, Clock, LogOut } from "lucide-react";
+import { Activity, AlertTriangle, Clock, LogOut, Wifi } from "lucide-react";
 
 interface KpiBarProps {
   stats: HospitalStats;
+  lastUpdated: Date | null;
 }
 
 const KPI_ITEMS = [
@@ -36,7 +37,14 @@ const KPI_ITEMS = [
   },
 ];
 
-export function KpiBar({ stats }: KpiBarProps) {
+function formatSyncAge(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  return `${Math.floor(seconds / 60)}m ago`;
+}
+
+export function KpiBar({ stats, lastUpdated }: KpiBarProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-2 flex-1 min-w-0">
       {KPI_ITEMS.map((item) => {
@@ -58,6 +66,13 @@ export function KpiBar({ stats }: KpiBarProps) {
           </div>
         );
       })}
+
+      {lastUpdated && (
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] font-mono text-[#8b949e]">
+          <Wifi size={10} className="text-emerald-500" />
+          {formatSyncAge(lastUpdated)}
+        </div>
+      )}
     </div>
   );
 }

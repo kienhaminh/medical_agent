@@ -1,7 +1,7 @@
 // web/components/operations/use-operations-dashboard.ts
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listDepartments,
   listActiveVisits,
@@ -19,6 +19,7 @@ export interface DashboardData {
   departmentVisits: Record<string, VisitListItem[]>;
   loading: boolean;
   error: string | null;
+  lastUpdated: Date | null;
   refresh: () => Promise<void>;
 }
 
@@ -35,6 +36,9 @@ export function useOperationsDashboard(): DashboardData {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  // Track whether we've had at least one successful load
+  const hasLoadedRef = useRef(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -47,8 +51,13 @@ export function useOperationsDashboard(): DashboardData {
       setVisits(vis);
       setStats(st);
       setError(null);
+      setLastUpdated(new Date());
+      hasLoadedRef.current = true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
+      // Only surface error on first load; keep stale data on poll failures
+      if (!hasLoadedRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to fetch data");
+      }
     } finally {
       setLoading(false);
     }
@@ -80,6 +89,7 @@ export function useOperationsDashboard(): DashboardData {
     departmentVisits,
     loading,
     error,
+    lastUpdated,
     refresh: fetchData,
   };
 }

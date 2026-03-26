@@ -13,7 +13,7 @@ export default function OperationsPage() {
   const [receptionOpen, setReceptionOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
 
-  const { departments, stats, receptionVisits, departmentVisits, loading, error, refresh } =
+  const { departments, stats, receptionVisits, departmentVisits, loading, error, lastUpdated, refresh } =
     useOperationsDashboard();
 
   const selectedDepartment = departments.find((d) => d.name === selectedDept) ?? null;
@@ -38,7 +38,7 @@ export default function OperationsPage() {
     <div className="flex flex-col h-full overflow-hidden">
       {/* KPI bar */}
       <div className="border-b border-white/[0.06]">
-        <KpiBar stats={stats} />
+        <KpiBar stats={stats} lastUpdated={lastUpdated} />
       </div>
 
       {/* Dashboard content */}
