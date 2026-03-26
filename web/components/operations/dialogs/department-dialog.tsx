@@ -21,6 +21,7 @@ interface DepartmentDialogProps {
 export function DepartmentDialog({ open, onOpenChange, department, departments, visits, onUpdated }: DepartmentDialogProps) {
   const [capacity, setCapacity] = useState(department?.capacity ?? 3);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
   const [loadingVisit, setLoadingVisit] = useState(false);
   const [visitLoadError, setVisitLoadError] = useState<string | null>(null);
@@ -58,9 +59,12 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
 
   const handleToggleOpen = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await updateDepartment(department.name, { is_open: !department.is_open });
       onUpdated();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to update department");
     } finally {
       setSaving(false);
     }
@@ -68,9 +72,12 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
 
   const handleSaveCapacity = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       await updateDepartment(department.name, { capacity });
       onUpdated();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save capacity");
     } finally {
       setSaving(false);
     }
@@ -131,6 +138,9 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
                 {department.is_open ? "Close Dept" : "Open Dept"}
               </button>
             </div>
+            {saveError && (
+              <p className="text-xs text-red-400 px-1 pt-1">{saveError}</p>
+            )}
 
             {/* Patient Queue */}
             <div className="flex-1 overflow-y-auto space-y-2 py-2">
