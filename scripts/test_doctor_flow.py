@@ -675,3 +675,58 @@ class DoctorFlowTester:
             return StageResult(name, False, "clinical note not found in patient records", time.monotonic() - t0)
         except Exception as e:
             return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    async def cleanup_resources(self, client: httpx.AsyncClient) -> None:
+        """Delete seeded records and chat session. Patient persists — name prefixed [DRTEST]."""
+        all_record_ids = self.record_ids + ([self.note_record_id] if self.note_record_id else [])
+        for rid in all_record_ids:
+            try:
+                await client.delete(f"{self.base_url}/api/records/{rid}", timeout=15.0)
+            except Exception as e:
+                print(f"    ⚠ Cleanup warning: could not delete record {rid}: {e}")
+
+        if self.session_id is not None:
+            try:
+                await client.delete(
+                    f"{self.base_url}/api/chat/sessions/{self.session_id}",
+                    timeout=15.0,
+                )
+            except Exception as e:
+                print(f"    ⚠ Cleanup warning: could not delete session {self.session_id}: {e}")
+
+        if self.patient_id is not None:
+            p_name = self.scenario["patient"]["name"]
+            print(f"  ℹ Patient id={self.patient_id} persists (no delete endpoint). "
+                  f"Name '{p_name}' prefixed with [DRTEST] for easy manual cleanup.")
+
+    async def run(self, client: httpx.AsyncClient) -> list:
+        """Run all 5 stages. Cleanup runs regardless of outcome."""
+        results = []
+        try:
+            r1 = await self.stage_1_setup_patient(client)
+            results.append(r1)
+
+            r2 = await self.stage_2_open_session(client)
+            results.append(r2)
+            if not r2.passed:
+                # Still run stages 3–5 skipped stubs so summary counts correctly
+                results.append(StageResult("Stage 3: Doctor conversation", False,
+                                           "skipped — no session", 0.0))
+                results.append(StageResult("Stage 4: Take clinical note", False,
+                                           "skipped — no session", 0.0))
+                results.append(StageResult("Stage 5: Verify note saved", False,
+                                           "skipped — no session", 0.0))
+                return results
+
+            r3 = await self.stage_3_doctor_conversation(client)
+            results.append(r3)
+
+            r4 = await self.stage_4_take_note(client)
+            results.append(r4)
+
+            r5 = await self.stage_5_verify_note_saved(client)
+            results.append(r5)
+        finally:
+            if self.cleanup:
+                await self.cleanup_resources(client)
+        return results
