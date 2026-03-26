@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   getPatient,
   getImageGroups,
-  getSessionMessages,
   deleteImagingRecord,
   type MedicalRecord,
   type Imaging,
@@ -34,38 +33,27 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Clock, Loader2 } from "lucide-react";
-import { MessageRole } from "@/types/enums";
-import type { Message, AgentActivity } from "@/types/agent-ui";
+import { usePatientChat } from "./use-patient-chat";
 
 export default function PatientDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
+
   const [patient, setPatient] = useState<PatientWithDetails | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
-  const [aiOpen, setAiOpen] = useState(!!sessionId); // Auto-open if session exists
-  const [aiWidth, setAiWidth] = useState(400); // Default width in pixels
+  const [aiOpen, setAiOpen] = useState(!!sessionId);
+  const [aiWidth, setAiWidth] = useState(400);
   const [isResizing, setIsResizing] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [currentActivity, setCurrentActivity] = useState<AgentActivity | null>(
-    null
-  );
-  const [activityDetails, setActivityDetails] = useState<string>("");
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingSession, setLoadingSession] = useState(!!sessionId);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const sessionIdRef = useRef<string | null>(sessionId);
 
   // Modals
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [viewerRecord, setViewerRecord] = useState<
-    MedicalRecord | Imaging | null
-  >(null);
+  const [viewerRecord, setViewerRecord] = useState<MedicalRecord | Imaging | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Imaging | null>(null);
   const [isDeletingImaging, setIsDeletingImaging] = useState(false);
+
+  const chat = usePatientChat(sessionId, patient?.id ?? null);
 
   useEffect(() => {
     if (params.id) {
@@ -81,304 +69,13 @@ export default function PatientDetailPage() {
     }
   }, [params.id]);
 
-  // Load session messages if session ID is provided
-  useEffect(() => {
-    const loadSession = async () => {
-      if (!sessionId) return;
-
-      try {
-        setLoadingSession(true);
-        const sessionMessages = await getSessionMessages(parseInt(sessionId));
-
-        // Convert to Message format
-        const convertedMessages: Message[] = sessionMessages.map((msg) => ({
-          id: msg.id.toString(),
-          role: msg.role as MessageRole,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : undefined,
-          reasoning: msg.reasoning || undefined,
-          patientReferences: msg.patient_references
-            ? JSON.parse(msg.patient_references)
-            : undefined,
-        }));
-
-        setMessages(convertedMessages);
-        sessionIdRef.current = sessionId;
-      } catch (error) {
-        toast.error("Failed to load chat session");
-      } finally {
-        setLoadingSession(false);
-      }
-    };
-
-    loadSession();
-  }, [sessionId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const sendMessage = async (content: string) => {
-    if (!content.trim() || !patient || isLoading) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: MessageRole.USER,
-      content: content.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-    setCurrentActivity("thinking");
-    setActivityDetails("Preparing to process your request");
-
-    const assistantMessageId = (Date.now() + 1).toString();
-    const assistantMessage: Message = {
-      id: assistantMessageId,
-      role: MessageRole.ASSISTANT,
-      content: "",
-      timestamp: new Date(),
-      toolCalls: [],
-      reasoning: "",
-      logs: [],
-    };
-
-    setMessages((prev) => [...prev, assistantMessage]);
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: content.trim(),
-          patient_id: patient.id,
-          stream: true,
-          session_id: sessionIdRef.current
-            ? parseInt(sessionIdRef.current)
-            : undefined,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to send message");
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("Response body is not readable");
-
-      let accumulatedContent = "";
-      const wordBuffer: string[] = [];
-      let isProcessing = false;
-
-      const displayWords = async () => {
-        if (isProcessing) return;
-        isProcessing = true;
-
-        while (wordBuffer.length > 0) {
-          const word = wordBuffer.shift();
-          if (word !== undefined) {
-            accumulatedContent += word;
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: accumulatedContent }
-                  : msg
-              )
-            );
-            await new Promise((resolve) => setTimeout(resolve, 30));
-          }
-        }
-        isProcessing = false;
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          await displayWords();
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.error) throw new Error(parsed.error);
-
-              // Handle iteration events (autonomous ReAct loop)
-              if (parsed.iteration) {
-                const phase = parsed.phase;
-                const iteration = parsed.iteration;
-
-                if (phase === "thinking") {
-                  setCurrentActivity("thinking");
-                  setActivityDetails(
-                    `Step ${iteration}: Planning next actions`
-                  );
-                } else if (phase === "acting") {
-                  setCurrentActivity("tool_calling");
-                  const toolCount = parsed.tool_count || 0;
-                  setActivityDetails(
-                    `Step ${iteration}: Running ${toolCount} tool${
-                      toolCount > 1 ? "s" : ""
-                    }`
-                  );
-                } else if (phase === "observing") {
-                  setCurrentActivity("analyzing");
-                  setActivityDetails(`Step ${iteration}: Reviewing results`);
-                } else if (phase === "answering") {
-                  setCurrentActivity("thinking");
-                  setActivityDetails(`Step ${iteration}: Preparing answer`);
-                }
-              }
-
-              if (parsed.chunk) {
-                const words = parsed.chunk.match(/(\S+|\s+)/g) || [];
-                wordBuffer.push(...words);
-                setCurrentActivity(null);
-                displayWords();
-              }
-
-              if (parsed.tool_call) {
-                const toolCallData = parsed.tool_call;
-                setCurrentActivity("tool_calling");
-                setActivityDetails(`Using ${toolCallData.tool}`);
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === assistantMessageId) {
-                      const existingTools = msg.toolCalls || [];
-                      if (
-                        !existingTools.find((t) => t.id === toolCallData.id)
-                      ) {
-                        return {
-                          ...msg,
-                          toolCalls: [
-                            ...existingTools,
-                            {
-                              id: toolCallData.id,
-                              tool: toolCallData.tool,
-                              args: toolCallData.args,
-                            },
-                          ],
-                        };
-                      }
-                    }
-                    return msg;
-                  })
-                );
-              }
-
-              if (parsed.tool_result) {
-                const toolResultData = parsed.tool_result;
-                setCurrentActivity("analyzing");
-                setActivityDetails("Processing results");
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === assistantMessageId && msg.toolCalls) {
-                      return {
-                        ...msg,
-                        toolCalls: msg.toolCalls.map((t) =>
-                          t.id === toolResultData.id
-                            ? { ...t, result: toolResultData.result }
-                            : t
-                        ),
-                      };
-                    }
-                    return msg;
-                  })
-                );
-              }
-
-              if (parsed.reasoning) {
-                setCurrentActivity("thinking");
-                setActivityDetails("Formulating response");
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? {
-                          ...msg,
-                          reasoning: (msg.reasoning || "") + parsed.reasoning,
-                        }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.log) {
-                const logItem = parsed.log;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, logs: [...(msg.logs || []), logItem] }
-                      : msg
-                  )
-                );
-              }
-              if (parsed.patient_references) {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, patientReferences: parsed.patient_references }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.done) break;
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
-      }
-    } catch {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                content:
-                  msg.content +
-                  "\n\n⚠️ Connection error. Please check if the backend server is running.",
-              }
-            : msg
-        )
-      );
-    } finally {
-      setIsLoading(false);
-      setCurrentActivity(null);
-      setActivityDetails("");
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    const content = input;
-    setInput("");
-    await sendMessage(content);
-  };
-
   const handleUploadComplete = (record: MedicalRecord | Imaging) => {
     setPatient((current) => {
       if (!current) return current;
-
       if ("image_type" in record) {
-        // It's an Imaging record
-        return {
-          ...current,
-          imaging: [record as Imaging, ...(current.imaging || [])],
-        };
+        return { ...current, imaging: [record as Imaging, ...(current.imaging || [])] };
       }
-
-      return {
-        ...current,
-        records: [record as MedicalRecord, ...(current.records || [])],
-      };
+      return { ...current, records: [record as MedicalRecord, ...(current.records || [])] };
     });
   };
 
@@ -386,14 +83,8 @@ export default function PatientDetailPage() {
     setPatient((current) => {
       if (!current) return current;
       const existingGroups = current.image_groups || [];
-      if (existingGroups.some((g) => g.id === group.id)) {
-        return current;
-      }
-
-      return {
-        ...current,
-        image_groups: [group, ...existingGroups],
-      };
+      if (existingGroups.some((g) => g.id === group.id)) return current;
+      return { ...current, image_groups: [group, ...existingGroups] };
     });
   };
 
@@ -409,31 +100,21 @@ export default function PatientDetailPage() {
       await deleteImagingRecord(patient.id, pendingDelete.id);
       setPatient({
         ...patient,
-        imaging: (patient.imaging || []).filter(
-          (img) => img.id !== pendingDelete.id
-        ),
+        imaging: (patient.imaging || []).filter((img) => img.id !== pendingDelete.id),
       });
       setViewerRecord((current) =>
-        current && "image_type" in current && current.id === pendingDelete.id
-          ? null
-          : current
+        current && "image_type" in current && current.id === pendingDelete.id ? null : current
       );
       setDeleteDialogOpen(false);
       setPendingDelete(null);
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete imaging record");
     } finally {
       setIsDeletingImaging(false);
     }
   };
 
-  const handleAnalyzeGroup = ({
-    groupName,
-    images,
-  }: {
-    groupName: string;
-    images: Imaging[];
-  }) => {
+  const handleAnalyzeGroup = ({ groupName, images }: { groupName: string; images: Imaging[] }) => {
     if (!images.length || !patient) return;
     setAiOpen(true);
     const summaryList = images
@@ -442,20 +123,16 @@ export default function PatientDetailPage() {
       .join(", ");
     const moreIndicator = images.length > 5 ? "..." : "";
     const message = `Patient: ${patient.name} (ID: ${patient.id})\n\nAnalyze the imaging group "${groupName}" containing ${images.length} images: ${summaryList}${moreIndicator}`;
-    sendMessage(message);
+    chat.sendMessage(message);
   };
 
   if (!patient) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">
-          Loading patient...
-        </div>
+        <div className="animate-pulse text-muted-foreground">Loading patient...</div>
       </div>
     );
   }
-
-  const imageRecords = patient.imaging || [];
 
   return (
     <div className="h-screen bg-background flex">
@@ -471,7 +148,6 @@ export default function PatientDetailPage() {
           setAiOpen={setAiOpen}
         />
 
-        {/* Tabs Content */}
         <div className="container mx-auto p-6 flex-1 flex flex-col min-h-0">
           <Tabs
             value={activeTab}
@@ -486,32 +162,24 @@ export default function PatientDetailPage() {
             </TabsList>
 
             <ScrollArea className="flex-1 min-h-0 pr-1">
-              {/* Overview Tab */}
               <TabsContent value="overview" className="mt-0">
-                <HealthOverview
-                  patient={patient}
-                />
+                <HealthOverview patient={patient} />
               </TabsContent>
 
-              {/* Medical Records Tab */}
               <TabsContent value="records" className="mt-0">
                 <div className="mb-6">
-                  <h2 className="font-display text-xl font-semibold">
-                    Clinical Documentation
-                  </h2>
+                  <h2 className="font-display text-xl font-semibold">Clinical Documentation</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Complete medical records including registration, encounters,
-                    and laboratory results
+                    Complete medical records including registration, encounters, and laboratory results
                   </p>
                 </div>
                 <MedicalRecordsList records={patient.records || []} />
               </TabsContent>
 
-              {/* Imaging Tab */}
               <TabsContent value="imaging" className="mt-0">
                 <PatientImagingTab
                   patientId={patient.id}
-                  imageRecords={imageRecords}
+                  imageRecords={patient.imaging || []}
                   imageGroups={patient.image_groups}
                   setUploadOpen={setUploadOpen}
                   setViewerRecord={setViewerRecord}
@@ -519,7 +187,6 @@ export default function PatientDetailPage() {
                 />
               </TabsContent>
 
-              {/* Lab Results Tab */}
               <TabsContent value="labs" className="mt-0">
                 <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
                   <div className="p-4 rounded-full bg-muted/50">
@@ -528,8 +195,7 @@ export default function PatientDetailPage() {
                   <div>
                     <h3 className="text-lg font-semibold">Coming Soon</h3>
                     <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                      The Lab Results module is currently under development.
-                      Check back later for updates.
+                      The Lab Results module is currently under development. Check back later for updates.
                     </p>
                   </div>
                 </div>
@@ -546,19 +212,19 @@ export default function PatientDetailPage() {
         setAiWidth={setAiWidth}
         isResizing={isResizing}
         setIsResizing={setIsResizing}
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        isLoading={isLoading}
-        currentActivity={currentActivity}
-        activityDetails={activityDetails}
-        loadingSession={loadingSession}
-        handleSendMessage={handleSendMessage}
-        messagesEndRef={messagesEndRef}
+        messages={chat.messages}
+        input={chat.input}
+        setInput={chat.setInput}
+        isLoading={chat.isLoading}
+        currentActivity={chat.currentActivity}
+        activityDetails={chat.activityDetails}
+        loadingSession={chat.loadingSession}
+        handleSendMessage={chat.handleSendMessage}
+        messagesEndRef={chat.messagesEndRef}
         patient={patient}
         activeTab={activeTab}
         sessionId={sessionId}
-        onClearChat={() => setMessages([])}
+        onClearChat={chat.clearMessages}
       />
 
       {/* Modals */}
@@ -589,26 +255,19 @@ export default function PatientDetailPage() {
             <AlertDialogTitle>Delete imaging record?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently remove{" "}
-              <span className="font-medium">
-                {pendingDelete?.title ?? "this image"}
-              </span>{" "}
-              from the patient&apos;s imaging history. This action cannot be
-              undone.
+              <span className="font-medium">{pendingDelete?.title ?? "this image"}</span>{" "}
+              from the patient&apos;s imaging history. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingImaging}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingImaging}>Cancel</AlertDialogCancel>
             <AlertDialogAction asChild>
               <Button
                 variant="destructive"
                 onClick={confirmDeleteImaging}
                 disabled={isDeletingImaging}
               >
-                {isDeletingImaging && (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                )}
+                {isDeletingImaging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Delete
               </Button>
             </AlertDialogAction>
