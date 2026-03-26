@@ -1,24 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 import {
   History,
   MessageSquare,
   Search,
   Filter,
 } from "lucide-react";
-import {
-  getChatSessions,
-  deleteChatSession,
-  type ChatSession,
-} from "@/lib/api";
 import { ChatSessionCard } from "./chat-session-card";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,92 +22,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useChatHistory } from "./use-chat-history";
 
 export default function ChatHistoryPage() {
   const router = useRouter();
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterBy, setFilterBy] = useState<"all" | "today" | "week" | "month">(
-    "all"
-  );
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    loadSessions();
-  }, []);
-
-  const loadSessions = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getChatSessions();
-      setSessions(data);
-    } catch (error) {
-      toast.error("Failed to load chat history");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filteredSessions = sessions.filter((session) => {
-    const matchesSearch =
-      session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (session.preview &&
-        session.preview.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      session.tags?.some((tag) =>
-        tag.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-    if (!matchesSearch) return false;
-
-    const now = new Date();
-    const sessionDate = new Date(session.updated_at);
-    const daysDiff = Math.floor(
-      (now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    switch (filterBy) {
-      case "today":
-        return daysDiff === 0;
-      case "week":
-        return daysDiff <= 7;
-      case "month":
-        return daysDiff <= 30;
-      default:
-        return true;
-    }
-  });
-
-  const [sessionToDelete, setSessionToDelete] = useState<number | null>(null);
-
-  const handleSessionClick = (sessionId: number) => {
-    // Navigate to chat page with session loaded
-    router.push(`/agent?session=${sessionId}`);
-  };
-
-  const confirmDelete = async () => {
-    if (!sessionToDelete) return;
-
-    try {
-      // Optimistically remove the session from the UI immediately
-      setSessions((prevSessions) =>
-        prevSessions.filter((s) => s.id !== sessionToDelete)
-      );
-      setSessionToDelete(null);
-
-      // Then make the API call
-      await deleteChatSession(sessionToDelete);
-      toast.success("Conversation deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete conversation");
-      // Reload sessions to restore the deleted session if the API call failed
-      loadSessions();
-    }
-  };
-
-  const handleDeleteClick = (sessionId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSessionToDelete(sessionId);
-  };
+  const {
+    filteredSessions,
+    searchQuery,
+    setSearchQuery,
+    filterBy,
+    setFilterBy,
+    isLoading,
+    sessionToDelete,
+    setSessionToDelete,
+    handleSessionClick,
+    handleDeleteClick,
+    confirmDelete,
+  } = useChatHistory();
 
   return (
     <div className="h-full flex flex-col bg-background relative overflow-hidden">
@@ -166,7 +90,6 @@ export default function ChatHistoryPage() {
       <div className="relative z-10 border-b border-border/50 bg-card/20 backdrop-blur-xl">
         <div className="container mx-auto px-6 py-4">
           <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -177,7 +100,6 @@ export default function ChatHistoryPage() {
               />
             </div>
 
-            {/* Filter Buttons */}
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-muted-foreground" />
               {(["all", "today", "week", "month"] as const).map((filter) => (
@@ -203,9 +125,7 @@ export default function ChatHistoryPage() {
             <div className="flex items-center justify-center py-20">
               <div className="space-y-4 text-center">
                 <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-muted-foreground">
-                  Loading chat history...
-                </p>
+                <p className="text-sm text-muted-foreground">Loading chat history...</p>
               </div>
             </div>
           ) : filteredSessions.length === 0 ? (
@@ -214,18 +134,13 @@ export default function ChatHistoryPage() {
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-teal-500/10 flex items-center justify-center mx-auto medical-border-glow">
                   <History className="w-8 h-8 text-cyan-500" />
                 </div>
-                <h3 className="font-display text-lg font-bold">
-                  No conversations found
-                </h3>
+                <h3 className="font-display text-lg font-bold">No conversations found</h3>
                 <p className="text-sm text-muted-foreground">
                   {searchQuery || filterBy !== "all"
                     ? "Try adjusting your search or filter criteria"
                     : "Start a new conversation to see it appear here"}
                 </p>
-                <Button
-                  onClick={() => router.push("/agent")}
-                  className="gap-2 mt-4"
-                >
+                <Button onClick={() => router.push("/agent")} className="gap-2 mt-4">
                   <MessageSquare className="w-4 h-4" />
                   Start New Chat
                 </Button>
