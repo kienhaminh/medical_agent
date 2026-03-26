@@ -730,3 +730,93 @@ class DoctorFlowTester:
             if self.cleanup:
                 await self.cleanup_resources(client)
         return results
+
+
+# ---------------------------------------------------------------------------
+# Runner and reporter
+# ---------------------------------------------------------------------------
+
+def _print_scenario_header(scenario: dict) -> None:
+    print()
+    print(f"Scenario: {scenario['id']}  —  {scenario['description']}")
+    print("─" * 68)
+
+
+def _print_scenario_results(results: list, elapsed: float) -> bool:
+    """Print stage results. Returns True if all stages passed."""
+    for r in results:
+        print(str(r))
+    passed = sum(1 for r in results if r.passed)
+    total = len(results)
+    status = "PASSED" if passed == total else "FAILED"
+    print(f"  {'─'*62}")
+    print(f"  {status} {passed}/{total} stages in {elapsed:.1f}s")
+    return passed == total
+
+
+async def run_all(scenarios: list, base_url: str, cleanup: bool, verbose: bool = False) -> None:
+    all_passed = 0
+    t_global = time.monotonic()
+
+    async with httpx.AsyncClient() as client:
+        for i, scenario in enumerate(scenarios):
+            if i > 0:
+                await asyncio.sleep(BETWEEN_SCENARIOS_DELAY)
+            _print_scenario_header(scenario)
+            tester = DoctorFlowTester(scenario, base_url, cleanup=cleanup, verbose=verbose)
+            t0 = time.monotonic()
+            results = await tester.run(client)
+            elapsed = time.monotonic() - t0
+            if _print_scenario_results(results, elapsed):
+                all_passed += 1
+
+    total_elapsed = time.monotonic() - t_global
+    print()
+    print("═" * 68)
+    print(f"  SUMMARY: {all_passed}/{len(scenarios)} scenarios passed  |  Total: {total_elapsed:.1f}s")
+    print("═" * 68)
+    sys.exit(0 if all_passed == len(scenarios) else 1)
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Doctor flow test for medical agent")
+    parser.add_argument(
+        "--scenario",
+        help="Run a single scenario by ID (default: all)",
+        choices=[s["id"] for s in SCENARIOS],
+    )
+    parser.add_argument(
+        "--base-url",
+        default=BASE_URL,
+        help=f"Backend base URL (default: {BASE_URL})",
+    )
+    parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Do not delete seeded records and chat session after the test",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print each conversation turn and tool calls for debugging",
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    scenarios = SCENARIOS
+    if args.scenario:
+        scenarios = [s for s in SCENARIOS if s["id"] == args.scenario]
+
+    print(f"Running {len(scenarios)} scenario(s) against {args.base_url}")
+    asyncio.run(run_all(
+        scenarios,
+        base_url=args.base_url,
+        cleanup=not args.no_cleanup,
+        verbose=args.verbose,
+    ))
