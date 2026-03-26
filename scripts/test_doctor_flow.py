@@ -37,7 +37,7 @@ class StageResult:
 
     def __str__(self) -> str:
         icon = "✅" if self.passed else "❌"
-        label = f"[{self.name}]".ljust(40)
+        label = f"[{self.name}]".ljust(35)
         status = "PASS" if self.passed else "FAIL"
         return f"  {icon} {label} {status}  {self.detail}  ({self.duration_s:.1f}s)"
 
