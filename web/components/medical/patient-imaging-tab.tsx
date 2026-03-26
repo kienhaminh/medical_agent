@@ -386,6 +386,7 @@ function ImagingList({
   return (
     <FilterableList
       items={records}
+      keyExtractor={(r) => r.id}
       searchFields={["title"]}
       filterOptions={[
         {

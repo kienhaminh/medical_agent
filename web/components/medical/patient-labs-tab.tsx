@@ -30,6 +30,7 @@ export function PatientLabsTab({
 
       <FilterableList
         items={pdfRecords}
+        keyExtractor={(r) => r.id}
         searchFields={["title", "description"]}
         filterOptions={[
           {

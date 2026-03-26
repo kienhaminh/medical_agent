@@ -11,6 +11,7 @@ import { Search, Filter, X, Grid3x3, List } from "lucide-react";
 
 interface FilterableListProps<T> {
   items: T[];
+  keyExtractor?: (item: T) => string | number;
   renderGridItem: (item: T) => React.ReactNode;
   renderListItem: (item: T) => React.ReactNode;
   searchFields: (keyof T)[];
@@ -29,6 +30,7 @@ interface FilterableListProps<T> {
 
 export function FilterableList<T extends Record<string, any>>({
   items,
+  keyExtractor,
   renderGridItem,
   renderListItem,
   searchFields,
@@ -238,13 +240,14 @@ export function FilterableList<T extends Record<string, any>>({
               : "space-y-3"
           }
         >
-          {filteredItems.map((item, index) =>
-            viewMode === "grid" ? (
-              <div key={index}>{renderGridItem(item)}</div>
+          {filteredItems.map((item, index) => {
+            const key = keyExtractor ? keyExtractor(item) : index;
+            return viewMode === "grid" ? (
+              <div key={key}>{renderGridItem(item)}</div>
             ) : (
-              <div key={index}>{renderListItem(item)}</div>
-            )
-          )}
+              <div key={key}>{renderListItem(item)}</div>
+            );
+          })}
         </div>
       )}
     </div>
