@@ -433,7 +433,7 @@ function ImagingList({
                 <Scan className="w-5 h-5 text-purple-500" />
               </div>
               <Badge
-                variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "text"}
+                variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "default"}
               >
                 {record.image_type?.toUpperCase()}
               </Badge>
@@ -470,7 +470,7 @@ function ImagingList({
                     {record.title}
                   </h3>
                   <Badge
-                    variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "text"}
+                    variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "default"}
                   >
                     {record.image_type?.toUpperCase()}
                   </Badge>

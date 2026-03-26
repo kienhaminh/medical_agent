@@ -59,10 +59,10 @@ export interface AgentToolAssignment {
   tool_name: string;
 }
 
-export interface AgentWithTools extends SubAgent {
+export type AgentWithTools = Omit<SubAgent, "tools"> & {
   tools: Tool[];
   tool_count: number;
-}
+};
 
 export interface AssignmentMatrixItem {
   id: number;

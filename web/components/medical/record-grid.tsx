@@ -80,7 +80,7 @@ export function RecordGrid({ records, onRecordClick }: RecordGridProps) {
                     ? "xray"
                     : record.file_type === "lab_report"
                     ? "lab"
-                    : "text"
+                    : "default"
                 }
               >
                 {record.file_type?.toUpperCase() || record.record_type.toUpperCase()}
