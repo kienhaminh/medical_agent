@@ -567,3 +567,64 @@ class DoctorFlowTester:
                 return StageResult(name, False, str(e), time.monotonic() - t0)
 
         return StageResult(name, False, "session_id not returned after retries", time.monotonic() - t0)
+
+    async def stage_3_doctor_conversation(self, client: httpx.AsyncClient) -> StageResult:
+        """Send scripted doctor turns and verify the agent uses patient query tools."""
+        t0 = time.monotonic()
+        name = "Stage 3: Doctor conversation"
+        if self.session_id is None:
+            return StageResult(name, False, "skipped — session_id unknown (Stage 2 failed)", time.monotonic() - t0)
+
+        turns = self.scenario["turns"]
+        expected_tools = self.scenario["expected_tools"]
+
+        for i, message in enumerate(turns):
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "message": message,
+                        "session_id": self.session_id,
+                        "patient_id": self.patient_id,
+                        "stream": True,
+                    },
+                    timeout=60.0,
+                ) as resp:
+                    resp.raise_for_status()
+                    stream = await read_sse_stream(resp)
+
+                if not stream.full_text:
+                    # Empty stream — skip turn and wait for backend to recover
+                    await asyncio.sleep(3.0)
+                    continue
+
+                for tc in stream.tool_calls:
+                    tool_name = tc.get("name", "")
+                    if tool_name:
+                        self.tool_calls_seen.append(tool_name)
+
+                if self.verbose:
+                    print(f"    [turn {i + 1}] agent: {stream.full_text[:120]!r}")
+                    if stream.tool_calls:
+                        print(f"    [turn {i + 1}] tools: {[tc.get('name') for tc in stream.tool_calls]}")
+
+            except Exception as e:
+                # Log but continue — don't abort the whole stage on one bad turn
+                if self.verbose:
+                    print(f"    [turn {i + 1}] error: {e}")
+
+        # Check tool coverage across all turns
+        tools_used = [t for t in self.tool_calls_seen if t in expected_tools]
+        if tools_used:
+            unique = list(dict.fromkeys(tools_used))  # deduplicated, order preserved
+            return StageResult(
+                name, True,
+                f"tools used: {', '.join(unique)}",
+                time.monotonic() - t0,
+            )
+        return StageResult(
+            name, False,
+            f"no expected tools called (expected one of {expected_tools}, saw {self.tool_calls_seen})",
+            time.monotonic() - t0,
+        )
