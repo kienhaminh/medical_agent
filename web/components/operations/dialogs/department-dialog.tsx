@@ -1,7 +1,7 @@
 // web/components/operations/dialogs/department-dialog.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DepartmentInfo, VisitDetail, VisitListItem } from "@/lib/api";
@@ -23,6 +23,11 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
   const [saving, setSaving] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
   const [loadingVisit, setLoadingVisit] = useState(false);
+
+  // Sync capacity when department changes (e.g. user opens a different dept)
+  useEffect(() => {
+    setCapacity(department?.capacity ?? 3);
+  }, [department?.name]);
 
   if (!department) return null;
 

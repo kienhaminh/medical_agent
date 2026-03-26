@@ -1,7 +1,7 @@
 // web/components/operations/dialogs/reception-dialog.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DepartmentInfo, VisitDetail, VisitListItem } from "@/lib/api";
@@ -30,6 +30,14 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
   const [activeTab, setActiveTab] = useState<Tab>("intake");
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
   const [loadingVisit, setLoadingVisit] = useState(false);
+
+  // Auto-switch to Review tab when dialog opens and review items are pending
+  useEffect(() => {
+    if (open) {
+      const hasReview = visits.some((v) => ["pending_review", "routed"].includes(v.status));
+      if (hasReview) setActiveTab("review");
+    }
+  }, [open]);
 
   const filteredVisits = visits.filter((v) =>
     TABS.find((t) => t.id === activeTab)?.statuses.includes(v.status)

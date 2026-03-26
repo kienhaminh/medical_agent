@@ -10,8 +10,17 @@ interface DepartmentGridProps {
   onDeptClick: (deptName: string) => void;
 }
 
+const STATUS_PRIORITY: Record<string, number> = { CRITICAL: 0, BUSY: 1, OK: 2, IDLE: 3 };
+
 export function DepartmentGrid({ departments, departmentVisits, onDeptClick }: DepartmentGridProps) {
-  const sorted = [...departments].sort((a, b) => a.label.localeCompare(b.label));
+  const sorted = [...departments].sort((a, b) => {
+    // Closed departments always last
+    if (a.is_open !== b.is_open) return a.is_open ? -1 : 1;
+    const pa = STATUS_PRIORITY[a.status] ?? 4;
+    const pb = STATUS_PRIORITY[b.status] ?? 4;
+    if (pa !== pb) return pa - pb;
+    return a.label.localeCompare(b.label);
+  });
 
   if (sorted.length === 0) {
     return (
