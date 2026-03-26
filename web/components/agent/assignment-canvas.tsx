@@ -101,7 +101,7 @@ export function AssignmentCanvas({
       id: "main-agent",
       type: "mainAgent" as const,
       position: { x: 50, y: 250 },
-      data: { name: "Main Agent" } satisfies MainAgentNodeData,
+      data: ({ name: "Main Agent" } satisfies MainAgentNodeData) as unknown as Record<string, unknown>,
       draggable: true,
     },
     // Sub-agent nodes in the middle (vertically stacked)
@@ -109,7 +109,7 @@ export function AssignmentCanvas({
       id: `agent-${agent.id}`,
       type: "agent" as const,
       position: { x: 450, y: 100 + index * 200 },
-      data: { ...agent, isCoreAgent: agent.id < 0 } satisfies AgentNodeData,
+      data: ({ ...agent, isCoreAgent: agent.id < 0 } satisfies AgentNodeData) as unknown as Record<string, unknown>,
     })),
     // Tool nodes on the right, grouped by assigned agent
     ...tools.map((tool) => {
@@ -135,7 +135,7 @@ export function AssignmentCanvas({
             x: 850,
             y: 100 + agentIndex * 200 + toolIndexForAgent * 150 - 30,
           },
-          data: { ...tool, isCoreTool: true } satisfies ToolNodeData,
+          data: ({ ...tool, isCoreTool: true } satisfies ToolNodeData) as unknown as Record<string, unknown>,
         };
       }
 
@@ -158,7 +158,7 @@ export function AssignmentCanvas({
             x: 850,
             y: 100 + agentIndex * 200 + toolIndexForAgent * 150 - 30,
           },
-          data: tool satisfies ToolNodeData,
+          data: (tool satisfies ToolNodeData) as unknown as Record<string, unknown>,
         };
       }
 
@@ -176,7 +176,7 @@ export function AssignmentCanvas({
           x: 850,
           y: 100 + agentCount * 200 + unassignedIndex * 150,
         },
-        data: tool as any,
+        data: (tool satisfies ToolNodeData) as unknown as Record<string, unknown>,
       };
     }),
   ];

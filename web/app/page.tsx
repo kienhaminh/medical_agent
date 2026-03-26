@@ -206,7 +206,7 @@ export default function Home() {
                   const Icon = feature.icon;
                   return (
                     <Card
-                      key={index}
+                      key={feature.title}
                       className="record-card group"
                       style={{
                         animationDelay: `${index * 100}ms`,
@@ -252,9 +252,9 @@ export default function Home() {
                   { name: "Python 3.12", desc: "FastAPI" },
                   { name: "LangGraph", desc: "AI Orchestration" },
                   { name: "PostgreSQL", desc: "pgvector" },
-                ].map((tech, index) => (
+                ].map((tech) => (
                   <div
-                    key={index}
+                    key={tech.name}
                     className="p-6 border border-border/50 rounded-xl bg-card/30 hover:bg-card/50 transition-all hover:scale-105 hover:border-cyan-500/50 group"
                   >
                     <div className="font-display text-base font-bold mb-1 group-hover:text-cyan-500 transition-colors">
