@@ -41,6 +41,7 @@ export default function PatientsPage() {
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [newPatient, setNewPatient] = useState({
     name: "",
@@ -103,13 +104,10 @@ export default function PatientsPage() {
       try {
         const data = await getPatients();
         setPatients(data);
-        setFilteredPatients(data);
       } catch (apiError) {
         // Use mock data if API fails
-        console.log("Using mock patient data");
         const mockData = getAllMockPatients();
         setPatients(mockData);
-        setFilteredPatients(mockData);
       }
     } catch (error) {
       console.error(error);
@@ -120,13 +118,14 @@ export default function PatientsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    setCreateError(null);
     try {
       await createPatient(newPatient);
       setIsCreating(false);
       setNewPatient({ name: "", dob: "", gender: "" });
       loadPatients();
     } catch (error) {
-      console.error(error);
+      setCreateError(error instanceof Error ? error.message : "Failed to create patient");
     }
   }
 
@@ -441,7 +440,7 @@ export default function PatientsPage() {
       </div>
 
       {/* Create Patient Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
+      <Dialog open={isCreating} onOpenChange={(open) => { setIsCreating(open); if (!open) setCreateError(null); }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl">
@@ -500,6 +499,10 @@ export default function PatientsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {createError && (
+              <p className="text-sm text-red-500">{createError}</p>
+            )}
 
             <div className="flex gap-3 justify-end pt-4">
               <Button
