@@ -64,7 +64,6 @@ export default function ChatHistoryPage() {
       const data = await getChatSessions();
       setSessions(data);
     } catch (error) {
-      console.error("Failed to load chat sessions:", error);
       toast.error("Failed to load chat history");
     } finally {
       setIsLoading(false);
@@ -121,7 +120,6 @@ export default function ChatHistoryPage() {
       await deleteChatSession(sessionToDelete);
       toast.success("Conversation deleted successfully");
     } catch (error) {
-      console.error("Failed to delete session:", error);
       toast.error("Failed to delete conversation");
       // Reload sessions to restore the deleted session if the API call failed
       loadSessions();

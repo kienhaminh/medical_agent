@@ -224,17 +224,13 @@ export function ToolsTab() {
       // Check if tools have IDs (required after migration)
       const toolsWithoutIds = data.filter((t) => !t.id);
       if (toolsWithoutIds.length > 0) {
-        console.warn(
-          `Warning: ${toolsWithoutIds.length} tool(s) are missing IDs. Please run the database migration: alembic upgrade head`
-        );
         toast.error(
           "Some tools are missing IDs. Please run the database migration and refresh."
         );
       }
       setTools(data);
       setFilteredTools(data);
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Failed to load tools");
     } finally {
       setLoading(false);
@@ -270,7 +266,6 @@ export function ToolsTab() {
       await updateTool(tool.id, { ...tool, enabled });
       toast.success(`Tool ${enabled ? "enabled" : "disabled"}`);
     } catch (error) {
-      console.error(error);
       toast.error("Failed to update tool status");
       // Revert optimistic update
       setTools((prev) =>
@@ -321,7 +316,6 @@ export function ToolsTab() {
         scope: "assignable",
       });
     } catch (error: any) {
-      console.error(error);
       const errorMessage = error?.message || "Failed to create tool";
 
       // Check if it's a duplicate symbol error
@@ -417,7 +411,6 @@ export function ToolsTab() {
         scope: "assignable",
       });
     } catch (error: any) {
-      console.error(error);
       const errorMessage = error?.message || "Failed to update tool";
       setFormError(errorMessage);
       toast.error(errorMessage);
@@ -437,8 +430,8 @@ export function ToolsTab() {
       await deleteTool(deletingTool.id);
       setTools((prev) => prev.filter((t) => t.id !== deletingTool.id));
       setDeletingTool(null);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      toast.error("Failed to delete tool");
     }
   }
 

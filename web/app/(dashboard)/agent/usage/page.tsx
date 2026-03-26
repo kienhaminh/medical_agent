@@ -20,6 +20,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function UsagePage() {
   const [stats, setStats] = useState<UsageStats | null>(null);
@@ -35,8 +36,8 @@ export default function UsagePage() {
         ]);
         setStats(statsData);
         setErrorLogs(errorsData);
-      } catch (error) {
-        console.error("Failed to load usage data:", error);
+      } catch {
+        toast.error("Failed to load usage data");
       } finally {
         setLoading(false);
       }

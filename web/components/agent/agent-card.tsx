@@ -50,7 +50,6 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
         const tools = await getAgentTools(agent.id);
         setToolCount(tools.length);
       } catch (error) {
-        console.error("Failed to fetch tool count:", error);
         setToolCount(0);
       } finally {
         setIsLoadingTools(false);
@@ -69,7 +68,6 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
       onUpdate({ ...agent, enabled });
     } catch (error) {
       toast.error("Failed to toggle agent");
-      console.error(error);
     } finally {
       setIsToggling(false);
     }
@@ -82,7 +80,6 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
       onUpdate();
     } catch (error) {
       toast.error("Failed to clone agent");
-      console.error(error);
     }
   };
 
@@ -93,7 +90,6 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
       onDelete();
     } catch (error) {
       toast.error("Failed to delete agent");
-      console.error(error);
     }
   };
 
@@ -232,8 +228,8 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
           try {
             const tools = await getAgentTools(agent.id);
             setToolCount(tools.length);
-          } catch (error) {
-            console.error("Failed to refresh tool count:", error);
+          } catch {
+            // tool count display is non-critical; silently keep previous count
           }
           onUpdate();
         }}

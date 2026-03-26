@@ -93,8 +93,7 @@ export default function PatientIntakePage() {
           }
         }
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId

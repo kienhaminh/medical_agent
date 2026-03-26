@@ -109,8 +109,8 @@ export default function PatientsPage() {
         const mockData = getAllMockPatients();
         setPatients(mockData);
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // outer safety net — mock data fallback should cover most cases
     } finally {
       setLoading(false);
     }
