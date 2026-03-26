@@ -628,3 +628,50 @@ class DoctorFlowTester:
             f"no expected tools called (expected one of {expected_tools}, saw {self.tool_calls_seen})",
             time.monotonic() - t0,
         )
+
+    async def stage_4_take_note(self, client: httpx.AsyncClient) -> StageResult:
+        """POST a clinical note to the patient's records."""
+        t0 = time.monotonic()
+        name = "Stage 4: Take clinical note"
+        if self.patient_id is None:
+            return StageResult(name, False, "skipped — patient_id unknown (Stage 1 failed)", time.monotonic() - t0)
+        try:
+            resp = await client.post(
+                f"{self.base_url}/api/patients/{self.patient_id}/records",
+                json={
+                    "title": "Doctor assessment",
+                    "content": self.scenario["clinical_note"],
+                },
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            self.note_record_id = resp.json()["id"]
+            return StageResult(name, True, f"record_id={self.note_record_id}", time.monotonic() - t0)
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    async def stage_5_verify_note_saved(self, client: httpx.AsyncClient) -> StageResult:
+        """Verify the clinical note appears in the patient's record list."""
+        t0 = time.monotonic()
+        name = "Stage 5: Verify note saved"
+        if self.patient_id is None:
+            return StageResult(name, False, "skipped — patient_id unknown (Stage 1 failed)", time.monotonic() - t0)
+        try:
+            resp = await client.get(
+                f"{self.base_url}/api/patients/{self.patient_id}/records",
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            records = resp.json()
+            if not isinstance(records, list):
+                return StageResult(name, False, f"unexpected response shape: {type(records)}", time.monotonic() - t0)
+
+            expected_text = self.scenario["clinical_note"].lower()
+            # Backend prepends "Title: <title>\n\n" to content — substring match still succeeds
+            for rec in records:
+                if expected_text in rec.get("content", "").lower():
+                    return StageResult(name, True, "note found in patient records", time.monotonic() - t0)
+
+            return StageResult(name, False, "clinical note not found in patient records", time.monotonic() - t0)
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
