@@ -18,6 +18,7 @@ import {
   PanelLeft,
   Palette,
   Monitor,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,8 @@ import { Button } from "@/components/ui/button";
 interface NavItem {
   name: string;
   href: string;
-  icon: any;
-  subItems?: { name: string; href: string; icon: any }[];
+  icon: LucideIcon;
+  subItems?: { name: string; href: string; icon: LucideIcon }[];
 }
 
 const navigation: NavItem[] = [

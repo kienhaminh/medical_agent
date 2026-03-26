@@ -39,8 +39,9 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
   const [toolCount, setToolCount] = useState<number>(0);
   const [isLoadingTools, setIsLoadingTools] = useState(true);
 
-  // Get icon component
-  const IconComponent = (Icons as any)[agent.icon] || Icons.Bot;
+  // Get icon component by dynamic name; fall back to Bot if not found
+  const IconComponent =
+    (Icons as unknown as Record<string, Icons.LucideIcon | undefined>)[agent.icon] ?? Icons.Bot;
 
   // Fetch tool count when component mounts or agent changes
   useEffect(() => {
