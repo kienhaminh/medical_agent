@@ -24,7 +24,7 @@ from typing import Optional
 import httpx
 
 BASE_URL = "http://localhost:8000"
-DOCTOR_AGENT_ROLE = "clinical_text"
+DOCTOR_AGENT_ROLE = "clinical_text"  # Internist agent role — core agent, always present
 BETWEEN_SCENARIOS_DELAY = 3.0  # seconds — lets the backend settle between scenarios
 
 SCENARIOS = [
@@ -636,7 +636,7 @@ class DoctorFlowTester:
             )
 
         # Soft pass: agent had a real conversation without explicit tool calls
-        if len(conversation_text) > 20:
+        if len(conversation_text) > 100:
             return StageResult(
                 name, True,
                 f"WARN — no expected tools called (saw: {self.tool_calls_seen}), but agent replied",
