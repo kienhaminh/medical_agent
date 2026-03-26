@@ -1,17 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import {
-  getPatient,
-  getImageGroups,
-  deleteImagingRecord,
-  type MedicalRecord,
-  type Imaging,
-  type ImageGroup,
-} from "@/lib/api";
-import { getMockPatientById, type PatientWithDetails } from "@/lib/mock-data";
-import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RecordUpload } from "@/components/medical/record-upload";
 import { RecordViewer } from "@/components/medical/record-viewer";
@@ -33,98 +22,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Clock, Loader2 } from "lucide-react";
-import { usePatientChat } from "./use-patient-chat";
+import { usePatientDetail } from "./use-patient-detail";
 
 export default function PatientDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session");
+  const patientId = Number(params.id);
 
-  const [patient, setPatient] = useState<PatientWithDetails | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [aiOpen, setAiOpen] = useState(!!sessionId);
-  const [aiWidth, setAiWidth] = useState(400);
-  const [isResizing, setIsResizing] = useState(false);
-
-  // Modals
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [viewerRecord, setViewerRecord] = useState<MedicalRecord | Imaging | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Imaging | null>(null);
-  const [isDeletingImaging, setIsDeletingImaging] = useState(false);
-
-  const chat = usePatientChat(sessionId, patient?.id ?? null);
-
-  useEffect(() => {
-    if (params.id) {
-      const patientId = Number(params.id);
-      Promise.all([getPatient(patientId), getImageGroups(patientId)])
-        .then(([patientData, imageGroupsData]) => {
-          setPatient({ ...patientData, image_groups: imageGroupsData });
-        })
-        .catch(() => {
-          const mockPatient = getMockPatientById(patientId);
-          if (mockPatient) setPatient(mockPatient);
-        });
-    }
-  }, [params.id]);
-
-  const handleUploadComplete = (record: MedicalRecord | Imaging) => {
-    setPatient((current) => {
-      if (!current) return current;
-      if ("image_type" in record) {
-        return { ...current, imaging: [record as Imaging, ...(current.imaging || [])] };
-      }
-      return { ...current, records: [record as MedicalRecord, ...(current.records || [])] };
-    });
-  };
-
-  const handleImageGroupCreated = (group: ImageGroup) => {
-    setPatient((current) => {
-      if (!current) return current;
-      const existingGroups = current.image_groups || [];
-      if (existingGroups.some((g) => g.id === group.id)) return current;
-      return { ...current, image_groups: [group, ...existingGroups] };
-    });
-  };
-
-  const handleDeleteImaging = (record: Imaging) => {
-    setPendingDelete(record);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDeleteImaging = async () => {
-    if (!patient || !pendingDelete) return;
-    setIsDeletingImaging(true);
-    try {
-      await deleteImagingRecord(patient.id, pendingDelete.id);
-      setPatient({
-        ...patient,
-        imaging: (patient.imaging || []).filter((img) => img.id !== pendingDelete.id),
-      });
-      setViewerRecord((current) =>
-        current && "image_type" in current && current.id === pendingDelete.id ? null : current
-      );
-      setDeleteDialogOpen(false);
-      setPendingDelete(null);
-    } catch {
-      toast.error("Failed to delete imaging record");
-    } finally {
-      setIsDeletingImaging(false);
-    }
-  };
-
-  const handleAnalyzeGroup = ({ groupName, images }: { groupName: string; images: Imaging[] }) => {
-    if (!images.length || !patient) return;
-    setAiOpen(true);
-    const summaryList = images
-      .slice(0, 5)
-      .map((img) => `${img.title} (${img.image_type})`)
-      .join(", ");
-    const moreIndicator = images.length > 5 ? "..." : "";
-    const message = `Patient: ${patient.name} (ID: ${patient.id})\n\nAnalyze the imaging group "${groupName}" containing ${images.length} images: ${summaryList}${moreIndicator}`;
-    chat.sendMessage(message);
-  };
+  const {
+    patient,
+    activeTab, setActiveTab,
+    aiOpen, setAiOpen,
+    aiWidth, setAiWidth,
+    isResizing, setIsResizing,
+    uploadOpen, setUploadOpen,
+    viewerRecord, setViewerRecord,
+    deleteDialogOpen, setDeleteDialogOpen,
+    pendingDelete,
+    isDeletingImaging,
+    chat,
+    handleUploadComplete,
+    handleImageGroupCreated,
+    handleDeleteImaging,
+    confirmDeleteImaging,
+    handleAnalyzeGroup,
+  } = usePatientDetail(patientId, sessionId);
 
   if (!patient) {
     return (
@@ -149,11 +72,7 @@ export default function PatientDetailPage() {
         />
 
         <div className="container mx-auto p-6 flex-1 flex flex-col min-h-0">
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="flex flex-col h-full"
-          >
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
             <TabsList className="grid w-full grid-cols-4 mb-6 shrink-0">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="records">Medical Records</TabsTrigger>
@@ -195,7 +114,7 @@ export default function PatientDetailPage() {
                   <div>
                     <h3 className="text-lg font-semibold">Coming Soon</h3>
                     <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                      The Lab Results module is currently under development. Check back later for updates.
+                      The Lab Results module is currently under development.
                     </p>
                   </div>
                 </div>
@@ -247,7 +166,6 @@ export default function PatientDetailPage() {
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           setDeleteDialogOpen(open);
-          if (!open) setPendingDelete(null);
         }}
       >
         <AlertDialogContent>
