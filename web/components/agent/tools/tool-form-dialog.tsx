@@ -177,10 +177,10 @@ export function ToolFormDialog({
         arguments: args,
       });
       setTestResult(result);
-    } catch (error: any) {
+    } catch (err) {
       setTestResult({
         status: "error",
-        error: error.message || "Test failed",
+        error: err instanceof Error ? err.message : "Test failed",
       });
     } finally {
       setIsTesting(false);
@@ -226,8 +226,8 @@ export function ToolFormDialog({
       }
       onSaved(saved);
       onClose();
-    } catch (error: any) {
-      const msg = error?.message || `Failed to ${mode === "create" ? "create" : "update"} tool`;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : `Failed to ${mode === "create" ? "create" : "update"} tool`;
       if (mode === "create" && msg.includes("symbol") && msg.includes("already exists")) {
         setFormError("Choose another symbol name for tool");
       } else {

@@ -71,8 +71,8 @@ export function AgentFormDialog({
       }
 
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to save agent");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save agent");
     } finally {
       setLoading(false);
     }

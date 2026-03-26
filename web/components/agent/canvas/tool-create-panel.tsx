@@ -87,10 +87,10 @@ export function ToolCreatePanel({
       });
 
       setTestResult(result);
-    } catch (error: any) {
+    } catch (err) {
       setTestResult({
         status: "error",
-        error: error.message || "Test failed",
+        error: err instanceof Error ? err.message : "Test failed",
       });
     } finally {
       setIsTesting(false);
@@ -135,8 +135,8 @@ export function ToolCreatePanel({
       });
       onSuccess();
       onClose();
-    } catch (error: any) {
-      const errorMessage = error?.message || "Failed to create tool";
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to create tool";
 
       // Check if it's a duplicate symbol error
       if (
