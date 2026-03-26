@@ -550,7 +550,7 @@ class DoctorFlowTester:
 
                 # Collect any tool calls from opening turn
                 for tc in stream.tool_calls:
-                    tool_name = tc.get("name", "")
+                    tool_name = tc.get("tool") or tc.get("name", "")
                     if tool_name:
                         self.tool_calls_seen.append(tool_name)
 
@@ -600,14 +600,14 @@ class DoctorFlowTester:
                     continue
 
                 for tc in stream.tool_calls:
-                    tool_name = tc.get("name", "")
+                    tool_name = tc.get("tool") or tc.get("name", "")
                     if tool_name:
                         self.tool_calls_seen.append(tool_name)
 
                 if self.verbose:
                     print(f"    [turn {i + 1}] agent: {stream.full_text[:120]!r}")
                     if stream.tool_calls:
-                        print(f"    [turn {i + 1}] tools: {[tc.get('name') for tc in stream.tool_calls]}")
+                        print(f"    [turn {i + 1}] tools: {[tc.get('tool') or tc.get('name') for tc in stream.tool_calls]}")
 
             except Exception as e:
                 # Log but continue — don't abort the whole stage on one bad turn
