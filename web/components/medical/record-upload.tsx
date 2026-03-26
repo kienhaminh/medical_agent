@@ -62,7 +62,6 @@ export function RecordUpload({
       getImageGroups(patientId)
         .then(setGroups)
         .catch((err) => {
-          console.error(err);
           setError(
             err instanceof Error ? err.message : "Failed to fetch image groups"
           );
@@ -166,7 +165,6 @@ export function RecordUpload({
       setIsCreatingGroup(false);
       onGroupCreated?.(group);
     } catch (err) {
-      console.error("Failed to create group:", err);
       setError(
         err instanceof Error ? err.message : "Failed to create image group"
       );

@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { FilterableList } from "@/components/medical/filterable-list";
+import { toast } from "sonner";
 import { createImageGroup, type Imaging, type ImageGroup } from "@/lib/api";
 import {
   Dialog,
@@ -62,7 +63,7 @@ export function PatientImagingTab({
       setCreateGroupOpen(false);
       setNewGroupName("");
     } catch (error) {
-      console.error("Failed to create image group:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create image group");
     } finally {
       setIsCreatingGroup(false);
     }

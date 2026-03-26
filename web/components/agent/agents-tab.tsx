@@ -10,6 +10,7 @@ import { getAgents } from "@/lib/api";
 import { AgentCard } from "./agent-card";
 import { AgentFormDialog } from "./agent-form-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 export function AgentsTab() {
   const [agents, setAgents] = useState<SubAgent[]>([]);
@@ -48,8 +49,8 @@ export function AgentsTab() {
       setLoading(true);
       const data = await getAgents();
       setAgents(data);
-    } catch (error) {
-      console.error("Failed to load agents:", error);
+    } catch {
+      toast.error("Failed to load agents");
     } finally {
       setLoading(false);
     }
