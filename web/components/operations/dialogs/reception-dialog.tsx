@@ -30,6 +30,7 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
   const [activeTab, setActiveTab] = useState<Tab>("intake");
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
   const [loadingVisit, setLoadingVisit] = useState(false);
+  const [visitLoadError, setVisitLoadError] = useState<string | null>(null);
 
   // Auto-switch to Review tab when dialog opens and review items are pending
   useEffect(() => {
@@ -45,11 +46,12 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
 
   const handleVisitClick = async (visit: VisitListItem) => {
     setLoadingVisit(true);
+    setVisitLoadError(null);
     try {
       const detail = await getVisit(visit.id);
       setSelectedVisit(detail);
     } catch (err) {
-      console.error("Failed to load visit detail:", err);
+      setVisitLoadError(err instanceof Error ? err.message : "Failed to load visit");
     } finally {
       setLoadingVisit(false);
     }
@@ -120,6 +122,9 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
 
             {/* Visit List */}
             <div className="flex-1 overflow-y-auto space-y-2 py-2">
+              {visitLoadError && (
+                <p className="text-xs text-red-400 px-1">{visitLoadError}</p>
+              )}
               {filteredVisits.length === 0 && (
                 <p className="text-center text-[#8b949e] text-sm py-8">No patients in this stage</p>
               )}

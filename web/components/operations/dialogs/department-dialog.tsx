@@ -23,6 +23,7 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
   const [saving, setSaving] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<VisitDetail | null>(null);
   const [loadingVisit, setLoadingVisit] = useState(false);
+  const [visitLoadError, setVisitLoadError] = useState<string | null>(null);
 
   // Sync capacity when department changes (e.g. user opens a different dept)
   useEffect(() => {
@@ -33,11 +34,12 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
 
   const handleVisitClick = async (visit: VisitListItem) => {
     setLoadingVisit(true);
+    setVisitLoadError(null);
     try {
       const detail = await getVisit(visit.id);
       setSelectedVisit(detail);
     } catch (err) {
-      console.error("Failed to load visit detail:", err);
+      setVisitLoadError(err instanceof Error ? err.message : "Failed to load visit");
     } finally {
       setLoadingVisit(false);
     }
@@ -134,6 +136,9 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
               <div className="text-xs font-mono text-[#8b949e] mb-1">
                 Patient Queue ({visits.length})
               </div>
+              {visitLoadError && (
+                <p className="text-xs text-red-400 px-1">{visitLoadError}</p>
+              )}
               {visits.length === 0 && (
                 <p className="text-center text-[#8b949e] text-sm py-6">No patients</p>
               )}
