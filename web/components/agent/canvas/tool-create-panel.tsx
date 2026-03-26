@@ -286,77 +286,25 @@ export function ToolCreatePanel({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="api-request" className="text-sm">
-                Request Schema (JSON)
-              </Label>
-              <Textarea
-                id="api-request"
-                value={formData.api_request_payload}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    api_request_payload: e.target.value,
-                  })
-                }
-                placeholder='{"param1": "value1"}'
-                className="min-h-[80px] resize-none font-mono text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="api-response" className="text-sm">
-                Response Schema (JSON)
-              </Label>
-              <Textarea
-                id="api-response"
-                value={formData.api_response_payload}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    api_response_payload: e.target.value,
-                  })
-                }
-                placeholder='{"result": "value"}'
-                className="min-h-[80px] resize-none font-mono text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="api-request-example" className="text-sm">
-                Request Example (JSON)
-              </Label>
-              <Textarea
-                id="api-request-example"
-                value={formData.api_request_example}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    api_request_example: e.target.value,
-                  })
-                }
-                placeholder='{"param1": "example_value"}'
-                className="min-h-[80px] resize-none font-mono text-sm"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="api-response-example" className="text-sm">
-                Response Example (JSON)
-              </Label>
-              <Textarea
-                id="api-response-example"
-                value={formData.api_response_example}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    api_response_example: e.target.value,
-                  })
-                }
-                placeholder='{"result": "example_value"}'
-                className="min-h-[80px] resize-none font-mono text-sm"
-              />
-            </div>
+            {(
+              [
+                { field: "api_request_payload", label: "Request Schema (JSON)", placeholder: '{"param1": "value1"}' },
+                { field: "api_response_payload", label: "Response Schema (JSON)", placeholder: '{"result": "value"}' },
+                { field: "api_request_example", label: "Request Example (JSON)", placeholder: '{"param1": "example_value"}' },
+                { field: "api_response_example", label: "Response Example (JSON)", placeholder: '{"result": "example_value"}' },
+              ] as const
+            ).map(({ field, label, placeholder }) => (
+              <div key={field} className="space-y-2">
+                <Label htmlFor={field} className="text-sm">{label}</Label>
+                <Textarea
+                  id={field}
+                  value={formData[field]}
+                  onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
+                  placeholder={placeholder}
+                  className="min-h-[80px] resize-none font-mono text-sm"
+                />
+              </div>
+            ))}
           </>
         )}
 

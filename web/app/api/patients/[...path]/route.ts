@@ -45,8 +45,6 @@ async function proxyToPythonBackend(
     const path = pathSegments?.length ? pathSegments.join("/") : "";
     const url = `${pythonBackendUrl}/api/patients${path ? `/${path}` : ""}`;
 
-    console.log(`Proxying ${request.method} request to: ${url}`);
-
     // Get the request body if it exists
     let body = null;
     if (request.method !== "GET" && request.method !== "DELETE") {
@@ -54,14 +52,11 @@ async function proxyToPythonBackend(
       if (contentType?.includes("application/json")) {
         try {
           body = await request.json();
-          console.log("Request body:", body);
-        } catch (e) {
-          console.log("No JSON body or invalid JSON");
+        } catch {
+          // no JSON body or invalid JSON — treat as empty body
         }
       } else if (contentType?.includes("multipart/form-data")) {
-        // For file uploads, we need to handle FormData differently
-        // For now, we'll skip this and handle it separately
-        console.log("FormData detected - skipping proxy");
+        // File uploads not supported through this proxy
         return NextResponse.json(
           { error: "File uploads not supported through proxy" },
           { status: 400 }
