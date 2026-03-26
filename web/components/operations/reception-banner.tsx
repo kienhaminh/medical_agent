@@ -33,8 +33,14 @@ export function ReceptionBanner({ visits, onClick }: ReceptionBannerProps) {
           : "0 0 15px rgba(0, 217, 255, 0.1)",
       }}
     >
-      <div className="text-sm font-bold font-mono text-[#00d9ff] mb-3 tracking-widest">
+      <div className="text-sm font-bold font-mono text-[#00d9ff] mb-3 tracking-widest flex items-center gap-2">
         RECEPTION
+        {visits.length > 0 && (
+          <span className="text-xs px-1.5 py-0.5 rounded-full font-mono"
+            style={{ background: "rgba(0,217,255,0.12)", color: "#00d9ff" }}>
+            {visits.length}
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-4 text-[12px] font-mono">
         <span

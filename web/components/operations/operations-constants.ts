@@ -29,6 +29,11 @@ export function formatTimeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
+/** Resolve a department DB name (or label) to its display label. */
+export function deptLabel(name: string, departments: { name: string; label: string }[]): string {
+  return departments.find((d) => d.name === name || d.label === name)?.label ?? name;
+}
+
 export const DEPARTMENT_STATUS_COLORS = {
   IDLE: "#6b7280",
   OK: "#10b981",

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowRightCircle, CheckCircle, Edit3 } from "lucide-react";
+import { deptLabel } from "../operations-constants";
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   intake: { label: "Intake", className: "border-blue-500/40 text-blue-500" },
@@ -22,12 +23,6 @@ interface ReviewDetailProps {
   visit: VisitDetail;
   departments: DepartmentInfo[];
   onVisitUpdated: () => void;
-}
-
-/** Map a department name (DB key or label) to its display label. */
-function deptLabel(name: string, departments: DepartmentInfo[]): string {
-  const found = departments.find((d) => d.name === name || d.label === name);
-  return found?.label ?? name;
 }
 
 export function ReviewDetail({ visit, departments, onVisitUpdated }: ReviewDetailProps) {

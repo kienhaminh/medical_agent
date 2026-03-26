@@ -3,18 +3,16 @@
 import { useState } from "react";
 import { ArrowRightLeft } from "lucide-react";
 import { DepartmentInfo, VisitDetail, completeVisit, transferVisit } from "@/lib/api";
+import { deptLabel } from "../operations-constants";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2 } from "lucide-react";
 
 interface DepartmentDetailProps {
   visit: VisitDetail;
   departments: DepartmentInfo[];
   onVisitUpdated: () => void;
-}
-
-function deptLabel(name: string, departments: DepartmentInfo[]): string {
-  return departments.find((d) => d.name === name)?.label ?? name;
 }
 
 export function DepartmentDetail({ visit, departments, onVisitUpdated }: DepartmentDetailProps) {
@@ -73,6 +71,19 @@ export function DepartmentDetail({ visit, departments, onVisitUpdated }: Departm
             Chief Complaint
           </p>
           <p className="text-sm text-foreground">{visit.chief_complaint}</p>
+        </div>
+      )}
+
+      {visit.intake_notes && (
+        <div className="flex-1 min-h-0">
+          <p className="text-xs text-muted-foreground font-mono mb-1 uppercase tracking-wider">
+            Intake Notes
+          </p>
+          <ScrollArea className="max-h-32 rounded-lg border border-border/40 bg-background/40 p-3">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {visit.intake_notes}
+            </p>
+          </ScrollArea>
         </div>
       )}
 
