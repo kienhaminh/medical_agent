@@ -15,6 +15,7 @@ Usage:
 import argparse
 import asyncio
 import json
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -34,7 +35,6 @@ SCENARIOS = [
         "description": "45yo male with chest pain → Cardiology/Emergency",
         "responses": {
             "name":     "[FLOWTEST] James Carter",
-            "born":     "1979-05-14",
             "dob":      "1979-05-14",
             "age":      "45",
             "gender":   "male",
@@ -49,7 +49,6 @@ SCENARIOS = [
         "description": "62yo female with sudden severe headache → Neurology/Emergency",
         "responses": {
             "name":     "[FLOWTEST] Margaret Liu",
-            "born":     "1963-11-02",
             "dob":      "1963-11-02",
             "age":      "62",
             "gender":   "female",
@@ -64,7 +63,6 @@ SCENARIOS = [
         "description": "30yo male with ankle injury → Orthopedics/Radiology",
         "responses": {
             "name":     "[FLOWTEST] Kevin Park",
-            "born":     "1995-03-18",
             "dob":      "1995-03-18",
             "age":      "30",
             "gender":   "male",
@@ -79,7 +77,6 @@ SCENARIOS = [
         "description": "55yo female with diabetes symptoms → Endocrinology/Internal Medicine",
         "responses": {
             "name":     "[FLOWTEST] Sandra Okoye",
-            "born":     "1970-07-25",
             "dob":      "1970-07-25",
             "age":      "55",
             "gender":   "female",
@@ -94,7 +91,6 @@ SCENARIOS = [
         "description": "38yo male with persistent cough → Pulmonology",
         "responses": {
             "name":     "[FLOWTEST] Daniel Torres",
-            "born":     "1987-09-30",
             "dob":      "1987-09-30",
             "age":      "38",
             "gender":   "male",
@@ -109,7 +105,6 @@ SCENARIOS = [
         "description": "28yo female for routine checkup → General Check-up",
         "responses": {
             "name":     "[FLOWTEST] Aisha Rahman",
-            "born":     "1997-02-11",
             "dob":      "1997-02-11",
             "age":      "28",
             "gender":   "female",
@@ -149,7 +144,7 @@ class StreamResult:
     """Parsed output from one SSE response."""
     full_text: str = ""
     session_id: Optional[int] = None
-    tool_calls: list = field(default_factory=list)
+    tool_calls: list[dict] = field(default_factory=list)
     done: bool = False
 
 
@@ -212,7 +207,7 @@ STOP_TOOL_KEYWORDS = ["create_patient", "create_visit"]
 
 
 def _pick_response(reply: str, responses: dict) -> str:
-    """Return the scenario response whose key appears in the agent reply.
+    """Return the scenario response whose key appears as a whole word in the agent reply.
 
     Checks keys in insertion order (excluding 'default').
     Falls back to responses['default'] if nothing matches.
@@ -221,7 +216,7 @@ def _pick_response(reply: str, responses: dict) -> str:
     for key, value in responses.items():
         if key == "default":
             continue
-        if key in lower:
+        if re.search(rf"\b{re.escape(key)}\b", lower):
             return value
     return responses.get("default", "I'm not sure.")
 
@@ -275,6 +270,8 @@ class FlowTester:
                 resp.raise_for_status()
                 stream = await read_sse_stream(resp)
 
+            if not stream.done and stream.session_id is None:
+                return StageResult(name, False, "stream ended without session_id (possible timeout)", time.monotonic() - t0)
             if stream.session_id is None:
                 return StageResult(name, False, "session_id not returned in stream", time.monotonic() - t0)
 
@@ -312,6 +309,12 @@ class FlowTester:
                     resp.raise_for_status()
                     stream = await read_sse_stream(resp)
 
+                if not stream.done and not stream.full_text:
+                    return StageResult(
+                        name, False,
+                        f"stream ended with no content on turn {self.turn_count} (possible timeout)",
+                        time.monotonic() - t0,
+                    )
                 self._last_reply = stream.full_text
                 self.turn_count += 1
 
@@ -348,6 +351,8 @@ class FlowTester:
             resp = await client.get(f"{self.base_url}/api/patients", timeout=30.0)
             resp.raise_for_status()
             patients = resp.json()
+            if not isinstance(patients, list):
+                return StageResult(name, False, f"unexpected response shape: {type(patients).__name__}", time.monotonic() - t0)
             match = next(
                 (p for p in patients if expected_name in p["name"].lower()),
                 None,
@@ -379,8 +384,7 @@ class FlowTester:
             if not visits:
                 return StageResult(name, False, f"no visit found for patient_id={self.patient_id}", time.monotonic() - t0)
             self.visit_id = visits[0]["id"]
-            visit_ref = visits[0].get("visit_id", self.visit_id)
-            return StageResult(name, True, f"visit_id={visit_ref}", time.monotonic() - t0)
+            return StageResult(name, True, f"visit_id={self.visit_id}", time.monotonic() - t0)
         except Exception as e:
             return StageResult(name, False, str(e), time.monotonic() - t0)
 
@@ -531,9 +535,6 @@ if __name__ == "__main__":
         if args.scenario
         else SCENARIOS
     )
-    if not scenarios:
-        print(f"Unknown scenario: {args.scenario}")
-        sys.exit(1)
 
     print(f"Running {len(scenarios)} scenario(s) against {args.base_url}")
     asyncio.run(run_all(scenarios, args.base_url, cleanup=not args.no_cleanup))
