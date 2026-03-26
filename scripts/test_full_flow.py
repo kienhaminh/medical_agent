@@ -192,6 +192,152 @@ async def read_sse_stream(response: httpx.Response, timeout_s: float = 60.0) -> 
 
 
 # ---------------------------------------------------------------------------
+# Conversation helpers
+# ---------------------------------------------------------------------------
+
+MIN_TURNS = 3
+MAX_TURNS = 15
+
+# Phrase pairs that signal the agent has completed intake
+STOP_SIGNALS = [
+    ("visit", "created"),
+    ("visit", "registered"),
+    ("visit", "scheduled"),
+    ("record", "saved"),
+    ("record", "added"),
+    ("record", "created"),
+]
+STOP_PHRASES = ["please come", "visit the hospital", "go to the"]
+STOP_TOOL_KEYWORDS = ["create_patient", "create_visit"]
+
+
+def _pick_response(reply: str, responses: dict) -> str:
+    """Return the scenario response whose key appears in the agent reply.
+
+    Checks keys in insertion order (excluding 'default').
+    Falls back to responses['default'] if nothing matches.
+    """
+    lower = reply.lower()
+    for key, value in responses.items():
+        if key == "default":
+            continue
+        if key in lower:
+            return value
+    return responses.get("default", "I'm not sure.")
+
+
+def _is_stop_condition(reply: str, tool_calls: list) -> bool:
+    """Return True if the agent reply signals end of intake."""
+    lower = reply.lower()
+    for word_a, word_b in STOP_SIGNALS:
+        if word_a in lower and word_b in lower:
+            return True
+    for phrase in STOP_PHRASES:
+        if phrase in lower:
+            return True
+    for tc in tool_calls:
+        name = tc.get("name", "").lower()
+        if any(kw in name for kw in STOP_TOOL_KEYWORDS):
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# FlowTester
+# ---------------------------------------------------------------------------
+
+class FlowTester:
+    def __init__(self, scenario: dict, base_url: str, cleanup: bool = True):
+        self.scenario = scenario
+        self.base_url = base_url.rstrip("/")
+        self.cleanup = cleanup
+        self.session_id: Optional[int] = None
+        self.patient_id: Optional[int] = None
+        self.visit_id: Optional[int] = None
+        self.turn_count: int = 0
+        self._last_reply: str = ""
+
+    # ------------------------------------------------------------------
+    # Stage 1: open conversation (session created implicitly on first chat)
+    # ------------------------------------------------------------------
+
+    async def stage_1_open_conversation(self, client: httpx.AsyncClient) -> StageResult:
+        t0 = time.monotonic()
+        name = "Stage 1: Open conversation"
+        try:
+            opening = "Hello, I need medical help."
+            async with client.stream(
+                "POST",
+                f"{self.base_url}/api/chat",
+                json={"message": opening, "stream": True},
+                timeout=60.0,
+            ) as resp:
+                resp.raise_for_status()
+                stream = await read_sse_stream(resp)
+
+            if stream.session_id is None:
+                return StageResult(name, False, "session_id not returned in stream", time.monotonic() - t0)
+
+            self.session_id = stream.session_id
+            self.turn_count = 1
+            # Store agent's opening reply so Stage 2 can keyword-match it on turn 1
+            self._last_reply = stream.full_text
+            return StageResult(name, True, f"session_id={self.session_id}", time.monotonic() - t0)
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    # ------------------------------------------------------------------
+    # Stage 2: intake conversation loop
+    # ------------------------------------------------------------------
+
+    async def stage_2_intake_conversation(self, client: httpx.AsyncClient) -> StageResult:
+        t0 = time.monotonic()
+        name = "Stage 2: Intake conversation"
+        responses = self.scenario["responses"]
+
+        try:
+            while self.turn_count < MAX_TURNS:
+                message = _pick_response(self._last_reply, responses)
+
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "message": message,
+                        "session_id": self.session_id,
+                        "stream": True,
+                    },
+                    timeout=60.0,
+                ) as resp:
+                    resp.raise_for_status()
+                    stream = await read_sse_stream(resp)
+
+                self._last_reply = stream.full_text
+                self.turn_count += 1
+
+                if _is_stop_condition(stream.full_text, stream.tool_calls):
+                    if self.turn_count < MIN_TURNS:
+                        return StageResult(
+                            name, False,
+                            f"agent concluded too quickly ({self.turn_count} turns < min {MIN_TURNS})",
+                            time.monotonic() - t0,
+                        )
+                    return StageResult(
+                        name, True,
+                        f"{self.turn_count} turns — agent concluded",
+                        time.monotonic() - t0,
+                    )
+
+            return StageResult(
+                name, False,
+                f"agent did not conclude within {MAX_TURNS} turns",
+                time.monotonic() - t0,
+            )
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
