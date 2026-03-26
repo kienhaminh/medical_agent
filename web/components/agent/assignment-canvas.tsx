@@ -22,7 +22,22 @@ import { ToolNode } from "./canvas/tool-node";
 import { MainAgentNode } from "./canvas/main-agent-node";
 import { CustomEdge } from "./canvas/custom-edge";
 import type { AssignmentCanvasProps } from "@/types/agent-ui";
+import type { SubAgent } from "@/types/agent";
+import type { Tool } from "@/lib/api";
 import { toast } from "sonner";
+
+// Typed node data shapes for ReactFlow
+type MainAgentNodeData = { name: string };
+type AgentNodeData = SubAgent & { isCoreAgent: boolean };
+type ToolNodeData = Tool & { isCoreTool?: boolean };
+
+type EdgeData = {
+  agentId: number;
+  toolId: number;
+  toolName: string;
+  isCoreTool: boolean;
+  onDelete?: (edgeId: string, agentId: number, toolId: number) => void;
+};
 
 const nodeTypes = {
   agent: AgentNode,
@@ -86,7 +101,7 @@ export function AssignmentCanvas({
       id: "main-agent",
       type: "mainAgent" as const,
       position: { x: 50, y: 250 },
-      data: { name: "Main Agent" } as any,
+      data: { name: "Main Agent" } satisfies MainAgentNodeData,
       draggable: true,
     },
     // Sub-agent nodes in the middle (vertically stacked)
@@ -94,7 +109,7 @@ export function AssignmentCanvas({
       id: `agent-${agent.id}`,
       type: "agent" as const,
       position: { x: 450, y: 100 + index * 200 },
-      data: { ...agent, isCoreAgent: agent.id < 0 } as any,
+      data: { ...agent, isCoreAgent: agent.id < 0 } satisfies AgentNodeData,
     })),
     // Tool nodes on the right, grouped by assigned agent
     ...tools.map((tool) => {
@@ -120,7 +135,7 @@ export function AssignmentCanvas({
             x: 850,
             y: 100 + agentIndex * 200 + toolIndexForAgent * 150 - 30,
           },
-          data: { ...tool, isCoreTool: true } as any,
+          data: { ...tool, isCoreTool: true } satisfies ToolNodeData,
         };
       }
 
@@ -143,7 +158,7 @@ export function AssignmentCanvas({
             x: 850,
             y: 100 + agentIndex * 200 + toolIndexForAgent * 150 - 30,
           },
-          data: tool as any,
+          data: tool satisfies ToolNodeData,
         };
       }
 
@@ -264,7 +279,7 @@ export function AssignmentCanvas({
       setEdges((eds) =>
         eds.map((edge) => {
           if (edge.type === "custom") {
-            const edgeData = edge.data as any;
+            const edgeData = edge.data as EdgeData;
             return {
               ...edge,
               data: {
@@ -418,7 +433,7 @@ export function AssignmentCanvas({
             if (node.type === "mainAgent") return "#06b6d4";
             if (node.type === "agent") return "#8b5cf6";
             if (node.type === "tool") {
-              const toolData = node.data as any;
+              const toolData = node.data as unknown as ToolNodeData;
               if (toolData?.enabled === false) return "#ef4444";
             }
             return "#10b981";
