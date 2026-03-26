@@ -19,12 +19,16 @@ export function PatientLink({
 }: PatientLinkProps) {
   const router = useRouter();
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const navigate = () => {
     const url = sessionId
       ? `/patient/${patientId}?session=${sessionId}`
       : `/patient/${patientId}`;
     router.push(url);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate();
   };
 
   return (
@@ -45,7 +49,7 @@ export function PatientLink({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          handleClick(e as any);
+          navigate();
         }
       }}
     >
