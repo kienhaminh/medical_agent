@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Copy, Edit, MoreVertical, Power, Trash, Wrench } from "lucide-react";
+import { Copy, Edit, MoreVertical, Trash, Wrench } from "lucide-react";
 import * as Icons from "lucide-react";
-import { SubAgent } from "@/types/agent";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,74 +23,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toggleAgent, deleteAgent, cloneAgent, getAgentTools } from "@/lib/api";
 import { AgentFormDialog } from "./agent-form-dialog";
 import { ToolAssignmentDialog } from "./tool-assignment-dialog";
-import { toast } from "sonner";
 import type { AgentCardProps } from "@/types/agent-ui";
+import { useAgentCard } from "./use-agent-card";
 
 export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
-  const [isToggling, setIsToggling] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showToolsDialog, setShowToolsDialog] = useState(false);
-  const [toolCount, setToolCount] = useState<number>(0);
-  const [isLoadingTools, setIsLoadingTools] = useState(true);
+  const {
+    isToggling,
+    showEditDialog, setShowEditDialog,
+    showDeleteDialog, setShowDeleteDialog,
+    showToolsDialog, setShowToolsDialog,
+    toolCount,
+    isLoadingTools,
+    handleToggle,
+    handleClone,
+    handleDelete,
+    refreshToolCount,
+  } = useAgentCard({ agent, onUpdate, onDelete });
 
-  // Get icon component by dynamic name; fall back to Bot if not found
   const IconComponent =
     (Icons as unknown as Record<string, Icons.LucideIcon | undefined>)[agent.icon] ?? Icons.Bot;
-
-  // Fetch tool count when component mounts or agent changes
-  useEffect(() => {
-    const fetchToolCount = async () => {
-      try {
-        setIsLoadingTools(true);
-        const tools = await getAgentTools(agent.id);
-        setToolCount(tools.length);
-      } catch (error) {
-        setToolCount(0);
-      } finally {
-        setIsLoadingTools(false);
-      }
-    };
-
-    fetchToolCount();
-  }, [agent.id]);
-
-  const handleToggle = async (enabled: boolean) => {
-    try {
-      setIsToggling(true);
-      await toggleAgent(agent.id, enabled);
-      toast.success(`Agent ${enabled ? "enabled" : "disabled"}`);
-      // Pass the updated agent to parent for optimistic update
-      onUpdate({ ...agent, enabled });
-    } catch (error) {
-      toast.error("Failed to toggle agent");
-    } finally {
-      setIsToggling(false);
-    }
-  };
-
-  const handleClone = async () => {
-    try {
-      await cloneAgent(agent.id);
-      toast.success("Agent cloned successfully");
-      onUpdate();
-    } catch (error) {
-      toast.error("Failed to clone agent");
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await deleteAgent(agent.id);
-      toast.success("Agent deleted");
-      onDelete();
-    } catch (error) {
-      toast.error("Failed to delete agent");
-    }
-  };
 
   return (
     <>
@@ -100,24 +51,14 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
         {/* Background gradient based on agent color */}
         <div
           className="absolute inset-0 opacity-5"
-          style={{
-            background: `linear-gradient(135deg, ${agent.color}22 0%, transparent 100%)`,
-          }}
+          style={{ background: `linear-gradient(135deg, ${agent.color}22 0%, transparent 100%)` }}
         />
 
         <div className="relative p-6 space-y-4">
           {/* Header */}
           <div className="flex items-start justify-between">
-            <div
-              className="p-3 rounded-xl"
-              style={{
-                backgroundColor: `${agent.color}15`,
-              }}
-            >
-              <IconComponent
-                className="h-6 w-6"
-                style={{ color: agent.color }}
-              />
+            <div className="p-3 rounded-xl" style={{ backgroundColor: `${agent.color}15` }}>
+              <IconComponent className="h-6 w-6" style={{ color: agent.color }} />
             </div>
 
             <div className="flex items-center gap-2">
@@ -164,22 +105,14 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-lg">{agent.name}</h3>
               {agent.is_template && (
-                <Badge variant="secondary" className="text-xs">
-                  Template
-                </Badge>
+                <Badge variant="secondary" className="text-xs">Template</Badge>
               )}
             </div>
 
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {agent.description}
-            </p>
+            <p className="text-sm text-muted-foreground line-clamp-2">{agent.description}</p>
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge
-                variant="outline"
-                className="capitalize"
-                style={{ borderColor: agent.color }}
-              >
+              <Badge variant="outline" className="capitalize" style={{ borderColor: agent.color }}>
                 {agent.role.replace(/_/g, " ")}
               </Badge>
             </div>
@@ -196,9 +129,7 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
             >
               <Wrench className="h-3.5 w-3.5" />
               <span>
-                {isLoadingTools
-                  ? "..."
-                  : `${toolCount} tool${toolCount !== 1 ? "s" : ""}`}
+                {isLoadingTools ? "..." : `${toolCount} tool${toolCount !== 1 ? "s" : ""}`}
               </span>
             </Button>
 
@@ -214,10 +145,7 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         agent={agent}
-        onSuccess={() => {
-          setShowEditDialog(false);
-          onUpdate();
-        }}
+        onSuccess={() => { setShowEditDialog(false); onUpdate(); }}
       />
 
       <ToolAssignmentDialog
@@ -225,13 +153,7 @@ export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
         onOpenChange={setShowToolsDialog}
         agent={agent}
         onSuccess={async () => {
-          // Refresh tool count after assignment changes
-          try {
-            const tools = await getAgentTools(agent.id);
-            setToolCount(tools.length);
-          } catch {
-            // tool count display is non-critical; silently keep previous count
-          }
+          await refreshToolCount();
           onUpdate();
         }}
       />
