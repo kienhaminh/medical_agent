@@ -244,15 +244,20 @@ class ResponseGenerator:
                 # logger.info(f"Output hasattr response_metadata: {hasattr(output, 'response_metadata') if output else False}")
 
                 if output:
-                    # Try to get usage from response_metadata (standard in LangChain)
                     usage = None
-                    if hasattr(output, "response_metadata"):
-                        # logger.info(f"response_metadata: {output.response_metadata}")
-                        usage = output.response_metadata.get("token_usage") or output.response_metadata.get("usage")
 
-                    # If not found, check if it's a dict (sometimes happens in raw outputs)
+                    # 1. usage_metadata — standard on AIMessage (Anthropic, OpenAI, etc.)
+                    if hasattr(output, "usage_metadata") and output.usage_metadata:
+                        usage = output.usage_metadata
+
+                    # 2. response_metadata.token_usage — some providers (OpenAI via LangChain)
+                    if not usage and hasattr(output, "response_metadata"):
+                        rm = output.response_metadata or {}
+                        usage = rm.get("token_usage") or rm.get("usage")
+
+                    # 3. Raw dict fallback
                     if not usage and isinstance(output, dict):
-                         usage = output.get("token_usage") or output.get("usage")
+                        usage = output.get("token_usage") or output.get("usage") or output.get("usage_metadata")
 
                     if usage:
                         logger.info("✅✅✅ Token usage detected: %s", usage)
