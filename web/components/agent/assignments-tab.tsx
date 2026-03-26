@@ -6,6 +6,7 @@ import { getAgents, getTools, assignTool, unassignTool } from "@/lib/api";
 import type { SubAgent } from "@/types/agent";
 import type { Tool } from "@/lib/api";
 import { Network } from "lucide-react";
+import { toast } from "sonner";
 
 export function AssignmentsTab() {
   const [agents, setAgents] = useState<SubAgent[]>([]);
@@ -24,8 +25,8 @@ export function AssignmentsTab() {
       ]);
       setAgents(agentsData);
       setTools(toolsData);
-    } catch (error) {
-      console.error("Failed to load data:", error);
+    } catch {
+      toast.error("Failed to load assignment data");
     } finally {
       setLoading(false);
     }

@@ -136,7 +136,6 @@ export function ToolCreatePanel({
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error("Failed to create tool:", error);
       const errorMessage = error?.message || "Failed to create tool";
 
       // Check if it's a duplicate symbol error

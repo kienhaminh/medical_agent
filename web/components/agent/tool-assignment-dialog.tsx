@@ -45,9 +45,8 @@ export function ToolAssignmentDialog({
 
       setAllTools(tools);
       setSelectedTools(new Set(assignedTools.map((t) => t.name)));
-    } catch (error) {
+    } catch {
       toast.error("Failed to load tools");
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -70,9 +69,8 @@ export function ToolAssignmentDialog({
       toast.success("Tool assignments updated");
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       toast.error("Failed to update tool assignments");
-      console.error(error);
     } finally {
       setSaving(false);
     }

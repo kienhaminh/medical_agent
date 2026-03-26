@@ -87,8 +87,7 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
           }
         }
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId

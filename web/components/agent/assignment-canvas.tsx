@@ -22,6 +22,7 @@ import { ToolNode } from "./canvas/tool-node";
 import { MainAgentNode } from "./canvas/main-agent-node";
 import { CustomEdge } from "./canvas/custom-edge";
 import type { AssignmentCanvasProps } from "@/types/agent-ui";
+import { toast } from "sonner";
 
 const nodeTypes = {
   agent: AgentNode,
@@ -249,8 +250,8 @@ export function AssignmentCanvas({
         );
 
         setEdges((eds) => eds.filter((e) => e.id !== edgeId));
-      } catch (error) {
-        console.error("Failed to unassign tool:", error);
+      } catch {
+        toast.error("Failed to unassign tool");
       }
     },
     [onUnassign, setNodes, setEdges]
@@ -367,8 +368,8 @@ export function AssignmentCanvas({
             eds
           )
         );
-      } catch (error) {
-        console.error("Failed to assign tool:", error);
+      } catch {
+        toast.error("Failed to assign tool");
       }
     },
     [onAssign, setNodes, setEdges, handleEdgeDelete, tools, coreAgentTools]

@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Wrench, BrainCircuit, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // --- Custom Nodes ---
 
@@ -282,8 +283,8 @@ function AssignmentFlow() {
             fitView();
           });
         }, 100);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
+      } catch {
+        toast.error("Failed to load assignment visualization");
       }
     }
 

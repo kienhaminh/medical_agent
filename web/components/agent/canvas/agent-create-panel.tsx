@@ -10,6 +10,7 @@ import { Bot, X, Plus } from "lucide-react";
 import { createAgent } from "@/lib/api";
 import type { SubAgentCreate } from "@/types/agent";
 import type { AgentCreatePanelProps } from "@/types/agent-ui";
+import { toast } from "sonner";
 
 export function AgentCreatePanel({
   isOpen,
@@ -45,7 +46,7 @@ export function AgentCreatePanel({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error("Failed to create agent:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create agent");
     } finally {
       setIsSubmitting(false);
     }
