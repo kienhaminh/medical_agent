@@ -429,6 +429,76 @@ class FlowTester:
             print(f"    ℹ Patient id={self.patient_id} persists (no delete endpoint). "
                   "Name is prefixed with [FLOWTEST] for easy manual cleanup.")
 
+    async def run(self, client: httpx.AsyncClient) -> list:
+        """Run all 5 stages in order. Cleanup runs regardless of outcome."""
+        self._last_reply = ""  # Stage 1 will overwrite this with the agent's opener
+        results = []
+        try:
+            r1 = await self.stage_1_open_conversation(client)
+            results.append(r1)
+            if not r1.passed:
+                return results  # can't continue without a session
+
+            r2 = await self.stage_2_intake_conversation(client)
+            results.append(r2)
+
+            r3 = await self.stage_3_verify_patient_created(client)
+            results.append(r3)
+
+            r4 = await self.stage_4_verify_visit_created(client)
+            results.append(r4)
+
+            r5 = await self.stage_5_verify_routing(client)
+            results.append(r5)
+        finally:
+            if self.cleanup:
+                await self.cleanup_resources(client)
+        return results
+
+
+# ---------------------------------------------------------------------------
+# Runner and reporter
+# ---------------------------------------------------------------------------
+
+def _print_scenario_header(scenario: dict) -> None:
+    print()
+    print(f"Scenario: {scenario['id']}  —  {scenario['description']}")
+    print("─" * 68)
+
+
+def _print_scenario_results(results: list, elapsed: float) -> bool:
+    """Print stage results. Returns True if all stages passed."""
+    for r in results:
+        print(str(r))
+    passed = sum(1 for r in results if r.passed)
+    total = len(results)
+    status = "PASSED" if passed == total else "FAILED"
+    print(f"  {'─'*62}")
+    print(f"  {status} {passed}/{total} stages in {elapsed:.1f}s")
+    return passed == total
+
+
+async def run_all(scenarios: list, base_url: str, cleanup: bool) -> None:
+    all_passed = 0
+    t_global = time.monotonic()
+
+    async with httpx.AsyncClient() as client:
+        for scenario in scenarios:
+            _print_scenario_header(scenario)
+            tester = FlowTester(scenario, base_url, cleanup=cleanup)
+            t0 = time.monotonic()
+            results = await tester.run(client)
+            elapsed = time.monotonic() - t0
+            if _print_scenario_results(results, elapsed):
+                all_passed += 1
+
+    total_elapsed = time.monotonic() - t_global
+    print()
+    print("═" * 68)
+    print(f"  SUMMARY: {all_passed}/{len(scenarios)} scenarios passed  |  Total: {total_elapsed:.1f}s")
+    print("═" * 68)
+    sys.exit(0 if all_passed == len(scenarios) else 1)
+
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -454,10 +524,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# ---------------------------------------------------------------------------
-# Entry point (placeholder — wired up in Task 5)
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
     args = parse_args()
     scenarios = (
@@ -468,4 +534,6 @@ if __name__ == "__main__":
     if not scenarios:
         print(f"Unknown scenario: {args.scenario}")
         sys.exit(1)
+
     print(f"Running {len(scenarios)} scenario(s) against {args.base_url}")
+    asyncio.run(run_all(scenarios, args.base_url, cleanup=not args.no_cleanup))
