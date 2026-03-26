@@ -1,6 +1,7 @@
 // web/components/operations/kpi-bar.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import type { HospitalStats } from "@/lib/api";
 import { Activity, AlertTriangle, Clock, LogOut, Wifi } from "lucide-react";
 
@@ -45,6 +46,14 @@ function formatSyncAge(date: Date): string {
 }
 
 export function KpiBar({ stats, lastUpdated }: KpiBarProps) {
+  const [, setTick] = useState(0);
+
+  // Re-render every second so the sync age text stays current
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="flex items-center gap-3 px-4 py-2 flex-1 min-w-0">
       {KPI_ITEMS.map((item) => {
