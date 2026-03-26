@@ -69,6 +69,21 @@ export function AnswerContent({
     return parts;
   };
 
+  const processChildren = (child: React.ReactNode): React.ReactNode => {
+    if (typeof child === "string") {
+      return renderTextWithPatientLinks(child);
+    }
+    if (React.isValidElement(child)) {
+      const childProps = child.props as { children?: React.ReactNode };
+      if (childProps.children) {
+        return React.cloneElement(child as React.ReactElement<{ children?: React.ReactNode }>, {
+          children: React.Children.map(childProps.children, processChildren),
+        });
+      }
+    }
+    return child;
+  };
+
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere prose-p:leading-7 prose-p:my-3 prose-headings:mt-6 prose-headings:mb-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-pre:my-4 prose-code:text-cyan-400">
       <ReactMarkdown
@@ -122,54 +137,12 @@ export function AnswerContent({
             </span>
           ),
           // Custom text renderer to handle patient links
-          p: ({ children, ...props }: any) => {
-            const processChildren = (child: any): any => {
-              if (typeof child === "string") {
-                return renderTextWithPatientLinks(child);
-              }
-              if (React.isValidElement(child)) {
-                const childProps = child.props as any;
-                if (childProps.children) {
-                  return React.cloneElement(child, {
-                    children: React.Children.map(
-                      childProps.children,
-                      processChildren
-                    ),
-                  } as any);
-                }
-              }
-              return child;
-            };
-
-            return (
-              <p {...props}>{React.Children.map(children, processChildren)}</p>
-            );
-          },
-          li: ({ children, ...props }: any) => {
-            const processChildren = (child: any): any => {
-              if (typeof child === "string") {
-                return renderTextWithPatientLinks(child);
-              }
-              if (React.isValidElement(child)) {
-                const childProps = child.props as any;
-                if (childProps.children) {
-                  return React.cloneElement(child, {
-                    children: React.Children.map(
-                      childProps.children,
-                      processChildren
-                    ),
-                  } as any);
-                }
-              }
-              return child;
-            };
-
-            return (
-              <li {...props}>
-                {React.Children.map(children, processChildren)}
-              </li>
-            );
-          },
+          p: ({ children, ...props }: any) => (
+            <p {...props}>{React.Children.map(children, processChildren)}</p>
+          ),
+          li: ({ children, ...props }: any) => (
+            <li {...props}>{React.Children.map(children, processChildren)}</li>
+          ),
         }}
       >
         {processedContent}

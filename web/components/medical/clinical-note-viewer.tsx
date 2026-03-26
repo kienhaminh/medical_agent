@@ -138,8 +138,8 @@ export function ClinicalNoteViewer({ content }: { content: string }) {
 
       {/* Sections */}
       <div className="space-y-4">
-        {parsedNote.sections.map((section, index) => (
-          <Section key={index} section={section} />
+        {parsedNote.sections.map((section) => (
+          <Section key={section.title} section={section} />
         ))}
       </div>
     </div>
@@ -176,8 +176,8 @@ function Section({ section }: { section: ClinicalSection }) {
       <div className="pl-11">
         {section.type === "list" ? (
           <ul className="space-y-2">
-            {section.content.split("\n").filter(Boolean).map((item, i) => (
-              <li key={i} className="text-sm text-foreground flex items-start gap-2">
+            {section.content.split("\n").filter(Boolean).map((item) => (
+              <li key={item} className="text-sm text-foreground flex items-start gap-2">
                 <span className="text-cyan-500 mt-1">•</span>
                 <span className="flex-1">{item.replace(/^[•\-\*]\s*/, "")}</span>
               </li>
@@ -208,9 +208,9 @@ function VitalsSection({ content }: { content: string }) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {vitals.map((vital, index) => (
+        {vitals.map((vital) => (
           <div
-            key={index}
+            key={vital.label}
             className="flex items-center gap-3 p-3 rounded-lg bg-card/50 border border-border/30"
           >
             {vital.icon}
@@ -240,9 +240,9 @@ function LabsSection({ title, content }: { title: string; content: string }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {labs.map((lab, index) => (
+        {labs.map((lab) => (
           <div
-            key={index}
+            key={lab.name}
             className={`flex items-center justify-between p-3 rounded-lg border ${
               lab.flag === "H"
                 ? "bg-red-500/5 border-red-500/30"
@@ -292,9 +292,9 @@ function MedicationsSection({ content }: { content: string }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {medications.map((med, index) => (
+        {medications.map((med) => (
           <div
-            key={index}
+            key={med}
             className="flex items-start gap-2 p-3 rounded-lg bg-card/50 border border-border/30"
           >
             <Pill className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
