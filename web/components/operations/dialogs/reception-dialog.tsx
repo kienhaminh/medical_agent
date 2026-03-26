@@ -145,7 +145,7 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
                     <p className="text-xs text-[#8b949e] mt-1 line-clamp-1">{visit.chief_complaint}</p>
                   )}
                   <div className="text-[10px] font-mono text-[#6b7280] mt-1">
-                    {visit.visit_id} · {visit.status.replace("_", " ")}
+                    {visit.visit_id} · {visit.status.replaceAll("_", " ")}
                   </div>
                 </button>
               ))}

@@ -38,7 +38,7 @@ export function ReviewDetail({ visit, departments, onVisitUpdated }: ReviewDetai
   const canReview = REVIEWABLE_STATUSES.includes(visit.status);
   const canCheckIn = visit.status === "routed";
   const statusConfig = STATUS_CONFIG[visit.status] ?? {
-    label: visit.status.replace("_", " "),
+    label: visit.status.replaceAll("_", " "),
     className: "border-zinc-500/40 text-zinc-500",
   };
 

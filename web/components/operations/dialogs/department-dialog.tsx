@@ -25,9 +25,10 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
   const [loadingVisit, setLoadingVisit] = useState(false);
   const [visitLoadError, setVisitLoadError] = useState<string | null>(null);
 
-  // Sync capacity when department changes (e.g. user opens a different dept)
+  // Sync capacity and clear transient error when department changes
   useEffect(() => {
     setCapacity(department?.capacity ?? 3);
+    setVisitLoadError(null);
   }, [department?.name]);
 
   if (!department) return null;
