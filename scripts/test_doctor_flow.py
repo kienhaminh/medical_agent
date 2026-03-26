@@ -524,3 +524,46 @@ class DoctorFlowTester:
             )
         except Exception as e:
             return StageResult(name, False, str(e), time.monotonic() - t0)
+
+    async def stage_2_open_session(self, client: httpx.AsyncClient) -> StageResult:
+        """Open a chat session with the Internist agent using a neutral opener."""
+        t0 = time.monotonic()
+        name = "Stage 2: Open Internist session"
+        if self.patient_id is None:
+            return StageResult(name, False, "skipped — patient_id unknown (Stage 1 failed)", time.monotonic() - t0)
+
+        for attempt in range(1, 3):
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "message": "Hello, I need to consult about a patient.",
+                        "agent_role": DOCTOR_AGENT_ROLE,
+                        "patient_id": self.patient_id,
+                        "stream": True,
+                    },
+                    timeout=60.0,
+                ) as resp:
+                    resp.raise_for_status()
+                    stream = await read_sse_stream(resp)
+
+                # Collect any tool calls from opening turn
+                for tc in stream.tool_calls:
+                    tool_name = tc.get("name", "")
+                    if tool_name:
+                        self.tool_calls_seen.append(tool_name)
+
+                if stream.session_id is not None:
+                    self.session_id = stream.session_id
+                    return StageResult(name, True, f"session_id={self.session_id}", time.monotonic() - t0)
+
+                if attempt < 2:
+                    await asyncio.sleep(2.0)
+            except Exception as e:
+                if attempt < 2:
+                    await asyncio.sleep(2.0)
+                    continue
+                return StageResult(name, False, str(e), time.monotonic() - t0)
+
+        return StageResult(name, False, "session_id not returned after retries", time.monotonic() - t0)
