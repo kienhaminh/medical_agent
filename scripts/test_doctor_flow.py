@@ -478,3 +478,49 @@ async def read_sse_stream(response: httpx.Response, timeout_s: float = 60.0) -> 
             # The backend sends session_id AFTER the done event, so we must keep reading.
 
     return result
+
+
+class DoctorFlowTester:
+    def __init__(self, scenario: dict, base_url: str, cleanup: bool = True, verbose: bool = False):
+        self.scenario = scenario
+        self.base_url = base_url.rstrip("/")
+        self.cleanup = cleanup
+        self.verbose = verbose
+        self.session_id: Optional[int] = None
+        self.patient_id: Optional[int] = None
+        self.record_ids: list[int] = []
+        self.note_record_id: Optional[int] = None
+        self.tool_calls_seen: list[str] = []
+
+    async def stage_1_setup_patient(self, client: httpx.AsyncClient) -> StageResult:
+        """Create test patient and seed medical records."""
+        t0 = time.monotonic()
+        name = "Stage 1: Setup patient + records"
+        p = self.scenario["patient"]
+        try:
+            # Create patient
+            resp = await client.post(
+                f"{self.base_url}/api/patients",
+                json={"name": p["name"], "dob": p["dob"], "gender": p["gender"]},
+                timeout=30.0,
+            )
+            resp.raise_for_status()
+            self.patient_id = resp.json()["id"]
+
+            # Seed records
+            for rec in self.scenario["seed_records"]:
+                r = await client.post(
+                    f"{self.base_url}/api/patients/{self.patient_id}/records",
+                    json={"title": rec["title"], "content": rec["content"]},
+                    timeout=30.0,
+                )
+                r.raise_for_status()
+                self.record_ids.append(r.json()["id"])
+
+            return StageResult(
+                name, True,
+                f"patient_id={self.patient_id}, {len(self.record_ids)} records seeded",
+                time.monotonic() - t0,
+            )
+        except Exception as e:
+            return StageResult(name, False, str(e), time.monotonic() - t0)
