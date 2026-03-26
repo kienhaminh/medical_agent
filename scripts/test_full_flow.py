@@ -141,6 +141,57 @@ class StageResult:
 
 
 # ---------------------------------------------------------------------------
+# SSE stream reader
+# ---------------------------------------------------------------------------
+
+@dataclass
+class StreamResult:
+    """Parsed output from one SSE response."""
+    full_text: str = ""
+    session_id: Optional[int] = None
+    tool_calls: list = field(default_factory=list)
+    done: bool = False
+
+
+async def read_sse_stream(response: httpx.Response, timeout_s: float = 60.0) -> StreamResult:
+    """Parse a streaming SSE response from POST /api/chat.
+
+    Reads lines of the form:
+        data: <json_payload>
+
+    Accumulates text from {"chunk": "..."} events.
+    Captures session_id from {"session_id": ...} events.
+    Records tool calls from {"tool_call": {...}} events.
+    Stops on {"done": true} or connection close.
+    """
+    result = StreamResult()
+    deadline = time.monotonic() + timeout_s
+
+    async for line in response.aiter_lines():
+        if time.monotonic() > deadline:
+            break
+        if not line.startswith("data: "):
+            continue
+        raw = line[len("data: "):]
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+
+        if "chunk" in payload:
+            result.full_text += payload["chunk"]
+        elif "session_id" in payload:
+            result.session_id = payload["session_id"]
+        elif "tool_call" in payload:
+            result.tool_calls.append(payload["tool_call"])
+        elif payload.get("done"):
+            result.done = True
+            break
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
