@@ -1,5 +1,44 @@
 const API_BASE_URL = "http://localhost:8000/api";
 
+// --- Auth API ---
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  name: string;
+  role: "doctor" | "officer" | "admin";
+  department?: string | null;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export async function login(
+  username: string,
+  password: string
+): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Invalid credentials");
+  }
+  return res.json();
+}
+
+export async function getMe(token: string): Promise<AuthUser> {
+  const res = await fetch(`${API_BASE_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Not authenticated");
+  return res.json();
+}
+
 export interface Patient {
   id: number;
   name: string;
@@ -717,6 +756,8 @@ export interface Visit {
   updated_at: string;
   current_department: string | null;
   queue_position: number | null;
+  clinical_notes: string | null;
+  assigned_doctor: string | null;
 }
 
 export interface VisitDetail extends Visit {
@@ -866,6 +907,63 @@ export async function getHospitalStats(): Promise<HospitalStats> {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to fetch hospital stats");
+  }
+  return response.json();
+}
+
+// --- Doctor Portal API ---
+
+export async function searchPatients(query: string): Promise<Patient[]> {
+  const response = await fetch(`${API_BASE_URL}/patients?q=${encodeURIComponent(query)}`);
+  if (!response.ok) throw new Error("Failed to search patients");
+  return response.json();
+}
+
+export async function getVisitsByDepartment(
+  department: string,
+  status?: string
+): Promise<VisitListItem[]> {
+  const params = new URLSearchParams({ department });
+  if (status) params.set("status", status);
+  const response = await fetch(`${API_BASE_URL}/visits?${params}`);
+  if (!response.ok) throw new Error("Failed to fetch department visits");
+  return response.json();
+}
+
+export async function saveClinicalNotes(
+  visitId: number,
+  clinicalNotes: string,
+  assignedDoctor?: string
+): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/notes`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      clinical_notes: clinicalNotes,
+      ...(assignedDoctor && { assigned_doctor: assignedDoctor }),
+    }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to save clinical notes");
+  }
+  return response.json();
+}
+
+// --- Officer Portal API ---
+
+export interface ExtendedHospitalStats extends HospitalStats {
+  total_beds: number;
+  occupied_beds: number;
+  occupancy_rate: number;
+  visits_by_status: Record<string, number>;
+}
+
+export async function getExtendedStats(): Promise<ExtendedHospitalStats> {
+  const response = await fetch(`${API_BASE_URL}/hospital/extended-stats`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch extended stats");
   }
   return response.json();
 }

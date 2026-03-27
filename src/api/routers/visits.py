@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import get_db, Visit, Patient, ChatSession, SubAgent
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate
 from src.models.department import Department
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,8 @@ def _visit_to_response(v: Visit) -> VisitResponse:
         reviewed_by=v.reviewed_by,
         current_department=v.current_department,
         queue_position=v.queue_position,
+        clinical_notes=v.clinical_notes,
+        assigned_doctor=v.assigned_doctor,
         created_at=v.created_at.isoformat(),
         updated_at=v.updated_at.isoformat(),
     )
@@ -94,6 +96,7 @@ async def list_visits(
     status: str | None = None,
     exclude_status: str | None = None,
     patient_id: int | None = None,
+    department: str | None = None,
     limit: int = 50,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
@@ -105,6 +108,8 @@ async def list_visits(
         query = query.where(Visit.status != exclude_status)
     if patient_id:
         query = query.where(Visit.patient_id == patient_id)
+    if department:
+        query = query.where(Visit.current_department == department)
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     rows = result.all()
@@ -133,6 +138,10 @@ async def get_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
         chief_complaint=visit.chief_complaint,
         intake_session_id=visit.intake_session_id,
         reviewed_by=visit.reviewed_by,
+        current_department=visit.current_department,
+        queue_position=visit.queue_position,
+        clinical_notes=visit.clinical_notes,
+        assigned_doctor=visit.assigned_doctor,
         created_at=visit.created_at.isoformat(),
         updated_at=visit.updated_at.isoformat(),
         patient_name=patient.name if patient else "Unknown",
@@ -263,6 +272,21 @@ async def transfer_visit(visit_id: int, transfer: VisitTransferRequest, db: Asyn
     max_pos = max_pos_result.scalar() or 0
     visit.current_department = transfer.target_department
     visit.queue_position = max_pos + 1
+    await db.commit()
+    await db.refresh(visit)
+    return _visit_to_response(visit)
+
+
+@router.patch("/api/visits/{visit_id}/notes", response_model=VisitResponse)
+async def update_clinical_notes(visit_id: int, data: ClinicalNotesUpdate, db: AsyncSession = Depends(get_db)):
+    """Update clinical notes and optionally assigned doctor on a visit."""
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    visit.clinical_notes = data.clinical_notes
+    if data.assigned_doctor is not None:
+        visit.assigned_doctor = data.assigned_doctor
     await db.commit()
     await db.refresh(visit)
     return _visit_to_response(visit)

@@ -49,6 +49,9 @@ class Visit(Base):
         String(50), ForeignKey("departments.name"), nullable=True
     )
     queue_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Doctor consultation fields
+    clinical_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    assigned_doctor: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.now(), onupdate=func.now()

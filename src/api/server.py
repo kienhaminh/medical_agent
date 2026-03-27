@@ -19,7 +19,7 @@ from ..models.base import AsyncSessionLocal
 from ..models.department import Department
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital
+from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth
 import src.tools.builtin  # Register builtin tools
 import src.skills.builtin  # Register skill search tools
 
@@ -100,6 +100,23 @@ async def lifespan(app: FastAPI):
             await session.commit()
             logger.info(f"Seeded {len(DEPARTMENT_SEED_DATA)} departments")
 
+    # Seed default users if empty
+    from ..models.user import User
+    from ..utils.auth import hash_password
+    async with AsyncSessionLocal() as session:
+        user_count = await session.execute(select(func.count(User.id)))
+        if (user_count.scalar() or 0) == 0:
+            default_users = [
+                User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="internal_medicine"),
+                User(username="nurse", password_hash=hash_password("nurse123"), name="Nurse James Park", role="doctor", department="emergency"),
+                User(username="officer", password_hash=hash_password("officer123"), name="Admin Maria Lopez", role="officer"),
+                User(username="admin", password_hash=hash_password("admin123"), name="System Admin", role="admin"),
+            ]
+            for user in default_users:
+                session.add(user)
+            await session.commit()
+            logger.info("Seeded %d default users", len(default_users))
+
     # Startup: Discover skills
     await discover_skills_on_startup()
 
@@ -136,6 +153,7 @@ app.include_router(skills.router)
 app.include_router(visits.router)
 app.include_router(departments.router)
 app.include_router(hospital.router)
+app.include_router(auth.router)
 
 @app.get("/")
 async def root():

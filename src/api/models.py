@@ -287,6 +287,11 @@ class VisitRouteUpdate(BaseModel):
 class VisitTransferRequest(BaseModel):
     target_department: str
 
+class ClinicalNotesUpdate(BaseModel):
+    """Request body for updating clinical notes on a visit."""
+    clinical_notes: str
+    assigned_doctor: Optional[str] = None
+
 class VisitResponse(BaseModel):
     """Visit response for list and detail views."""
     id: int
@@ -301,6 +306,8 @@ class VisitResponse(BaseModel):
     reviewed_by: Optional[str] = None
     current_department: Optional[str] = None
     queue_position: Optional[int] = None
+    clinical_notes: Optional[str] = None
+    assigned_doctor: Optional[str] = None
     created_at: str
     updated_at: str
 

@@ -2,7 +2,7 @@
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from src.models import get_db, Patient, MedicalRecord, Imaging
 from ...models import (
@@ -31,9 +31,18 @@ async def create_patient(patient: PatientCreate, db: AsyncSession = Depends(get_
 
 
 @router.get("/api/patients", response_model=list[PatientResponse])
-async def list_patients(db: AsyncSession = Depends(get_db)):
-    """List all patients."""
-    result = await db.execute(select(Patient))
+async def list_patients(q: str | None = None, db: AsyncSession = Depends(get_db)):
+    """List all patients, optionally filtered by search query."""
+    query = select(Patient)
+    if q:
+        filters = [
+            Patient.name.ilike(f"%{q}%"),
+            Patient.dob.ilike(f"%{q}%"),
+        ]
+        if q.isdigit():
+            filters.append(Patient.id == int(q))
+        query = query.where(or_(*filters))
+    result = await db.execute(query)
     patients = result.scalars().all()
     return [
         PatientResponse(

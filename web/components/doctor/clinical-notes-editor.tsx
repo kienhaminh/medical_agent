@@ -1,0 +1,81 @@
+"use client";
+
+import { FileEdit, Check, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+
+interface ClinicalNotesEditorProps {
+  notes: string;
+  onChange: (notes: string) => void;
+  saving: boolean;
+  saved: boolean;
+  disabled?: boolean;
+}
+
+/** Indicator dot/icon for the current save state. */
+function SaveStatusIndicator({
+  saving,
+  saved,
+}: {
+  saving: boolean;
+  saved: boolean;
+}) {
+  if (saving) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-amber-400">
+        <Loader2 className="w-3 h-3 animate-spin" />
+        Saving...
+      </span>
+    );
+  }
+
+  if (saved) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+        <Check className="w-3 h-3" />
+        Saved
+      </span>
+    );
+  }
+
+  // Unsaved changes
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="w-2 h-2 rounded-full bg-amber-400" />
+      Unsaved
+    </span>
+  );
+}
+
+export function ClinicalNotesEditor({
+  notes,
+  onChange,
+  saving,
+  saved,
+  disabled = false,
+}: ClinicalNotesEditorProps) {
+  return (
+    <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm overflow-hidden flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-cyan-500/5 to-teal-500/5">
+        <div className="flex items-center gap-2">
+          <FileEdit className="w-4 h-4 text-cyan-500" />
+          <h2 className="font-display text-sm font-semibold">
+            Clinical Notes
+          </h2>
+        </div>
+        <SaveStatusIndicator saving={saving} saved={saved} />
+      </div>
+
+      {/* Editor */}
+      <div className="p-4 flex-1">
+        <Textarea
+          value={notes}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Enter clinical notes (SOAP format recommended)..."
+          disabled={disabled}
+          className="min-h-[300px] resize-y bg-card/50 border-border/50 focus:border-cyan-500/50 text-sm leading-relaxed"
+        />
+      </div>
+    </div>
+  );
+}

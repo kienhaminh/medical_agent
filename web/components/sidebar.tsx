@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -8,8 +8,6 @@ import {
   Users,
   MessageSquare,
   Settings,
-  Sliders,
-  Home,
   ChevronDown,
   ChevronRight,
   History,
@@ -18,10 +16,16 @@ import {
   PanelLeft,
   Palette,
   Monitor,
+  Stethoscope,
+  Shield,
+  LogOut,
+  User,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth-context";
+import { canAccessRoute } from "@/lib/auth-context";
 
 interface NavItem {
   name: string;
@@ -30,7 +34,18 @@ interface NavItem {
   subItems?: { name: string; href: string; icon: LucideIcon }[];
 }
 
-const navigation: NavItem[] = [
+/** All navigation items. Filtered by role at render time. */
+const ALL_NAVIGATION: NavItem[] = [
+  {
+    name: "Doctor Portal",
+    href: "/doctor",
+    icon: Stethoscope,
+  },
+  {
+    name: "Officer Portal",
+    href: "/officer",
+    icon: Shield,
+  },
   {
     name: "Patients",
     href: "/patient",
@@ -59,11 +74,30 @@ const navigation: NavItem[] = [
   },
 ];
 
+const ROLE_COLORS: Record<string, string> = {
+  doctor: "text-emerald-400",
+  officer: "text-blue-400",
+  admin: "text-purple-400",
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  doctor: "Doctor",
+  officer: "Officer",
+  admin: "Admin",
+};
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [expandedItems, setExpandedItems] = useState<string[]>(["Agent"]);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Filter navigation by user role
+  const navigation = useMemo(() => {
+    if (!user) return [];
+    return ALL_NAVIGATION.filter((item) => canAccessRoute(user.role, item.href));
+  }, [user]);
 
   const toggleExpand = (itemName: string) => {
     setExpandedItems((prev) =>
@@ -83,11 +117,9 @@ export function Sidebar() {
   };
 
   const isSubItemActive = (subHref: string) => {
-    // Exact match for /agent route (History)
     if (subHref === "/agent") {
       return pathname === "/agent";
     }
-    // For other routes, check if pathname starts with the href
     return pathname === subHref || pathname?.startsWith(subHref + "/");
   };
 
@@ -244,23 +276,34 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-border p-4">
-        {isCollapsed ? (
-          <div className="flex justify-center" title="All systems operational">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p className="font-medium">System Status</p>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="text-emerald-500 font-medium">
-                All systems operational
-              </span>
+      {/* User Info + Logout */}
+      <div className="border-t border-border p-3 space-y-2">
+        {user && !isCollapsed && (
+          <div className="flex items-center gap-2 px-2 py-1">
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+              <User className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{user.name}</p>
+              <p className={cn("text-xs font-medium", ROLE_COLORS[user.role] || "text-muted-foreground")}>
+                {ROLE_LABELS[user.role] || user.role}
+              </p>
             </div>
           </div>
         )}
+        <Button
+          variant="ghost"
+          size={isCollapsed ? "icon" : "sm"}
+          onClick={logout}
+          className={cn(
+            "hover:bg-red-500/10 hover:text-red-400 text-muted-foreground",
+            isCollapsed ? "" : "w-full justify-start gap-2"
+          )}
+          title={isCollapsed ? "Sign out" : undefined}
+        >
+          <LogOut className="w-4 h-4" />
+          {!isCollapsed && "Sign out"}
+        </Button>
       </div>
     </div>
   );

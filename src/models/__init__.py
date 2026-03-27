@@ -20,6 +20,7 @@ from .tool import CustomTool
 from .skill import Skill, SkillTool, AgentSkill
 from .visit import Visit, VisitStatus
 from .department import Department
+from .user import User, UserRole
 
 __all__ = [
     # Base
@@ -51,4 +52,7 @@ __all__ = [
     "VisitStatus",
     # Department models
     "Department",
+    # User models
+    "User",
+    "UserRole",
 ]
