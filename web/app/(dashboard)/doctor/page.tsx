@@ -11,6 +11,7 @@ import { DoctorAiPanel } from "@/components/doctor/doctor-ai-panel";
 import { DdxPanel } from "@/components/doctor/ddx-panel";
 import { SpecialistConsultPanel } from "@/components/doctor/specialist-consult-panel";
 import { OrdersPanel } from "@/components/doctor/orders-panel";
+import { ShiftHandoffModal } from "@/components/doctor/shift-handoff-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listDepartments, type DepartmentInfo } from "@/lib/api";
 
@@ -111,6 +112,7 @@ export default function DoctorPage() {
                     onSaveNotes={() => {}}
                     departments={departments}
                     disabled={!workspace.selectedVisit}
+                    onEndShift={workspace.openShiftHandoff}
                   />
                 )}
                 <DdxPanel
@@ -173,6 +175,15 @@ export default function DoctorPage() {
         setWidth={workspace.setAiWidth}
         isResizing={workspace.isResizing}
         setIsResizing={workspace.setIsResizing}
+      />
+
+      {/* Shift Handoff Modal */}
+      <ShiftHandoffModal
+        open={workspace.handoffOpen}
+        onClose={() => workspace.setHandoffOpen(false)}
+        document={workspace.handoffDoc}
+        patientCount={workspace.handoffCount}
+        loading={workspace.handoffLoading}
       />
     </div>
   );

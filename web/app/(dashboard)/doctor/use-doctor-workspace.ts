@@ -15,6 +15,7 @@ import {
   listAgents,
   listOrders,
   createOrder,
+  getShiftHandoff,
   type VisitListItem,
   type PatientDetail,
   type Patient,
@@ -98,6 +99,12 @@ export function useDoctorWorkspace() {
 
   // SOAP draft state
   const [draftingNote, setDraftingNote] = useState(false);
+
+  // Shift handoff state
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoffDoc, setHandoffDoc] = useState("");
+  const [handoffCount, setHandoffCount] = useState(0);
+  const [handoffLoading, setHandoffLoading] = useState(false);
 
   // AI panel state
   const [aiWidth, setAiWidth] = useState(420);
@@ -511,6 +518,22 @@ export function useDoctorWorkspace() {
     }
   };
 
+  // Open shift handoff modal and fetch the AI-generated handoff document
+  const openShiftHandoff = async () => {
+    setHandoffOpen(true);
+    setHandoffLoading(true);
+    setHandoffDoc("");
+    try {
+      const data = await getShiftHandoff();
+      setHandoffDoc(data.document);
+      setHandoffCount(data.patient_count);
+    } catch {
+      setHandoffDoc("Failed to generate handoff. Please try again.");
+    } finally {
+      setHandoffLoading(false);
+    }
+  };
+
   return {
     // Tab
     activeTab,
@@ -569,5 +592,12 @@ export function useDoctorWorkspace() {
     setAiWidth,
     isResizing,
     setIsResizing,
+    // Shift handoff
+    handoffOpen,
+    setHandoffOpen,
+    handoffDoc,
+    handoffCount,
+    handoffLoading,
+    openShiftHandoff,
   };
 }

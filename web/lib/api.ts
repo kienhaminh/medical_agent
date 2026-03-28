@@ -1019,6 +1019,23 @@ export async function createOrder(visitId: number, data: {
   return response.json();
 }
 
+// --- Shift Handoff API ---
+
+export interface HandoffResponse {
+  document: string;
+  patient_count: number;
+  department?: string;
+}
+
+export async function getShiftHandoff(department?: string): Promise<HandoffResponse> {
+  const url = department
+    ? `${API_BASE_URL}/visits/handoff?department=${encodeURIComponent(department)}`
+    : `${API_BASE_URL}/visits/handoff`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Failed to generate shift handoff");
+  return response.json();
+}
+
 // --- Officer Portal API ---
 
 export interface ExtendedHospitalStats extends HospitalStats {
