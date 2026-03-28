@@ -175,3 +175,38 @@ def test_pre_visit_brief_no_records_message():
         result = pre_visit_brief(patient_id=3, visit_id=3)
 
     assert "No records on file" in result
+
+
+# ---------------------------------------------------------------------------
+# DDx tool tests
+# ---------------------------------------------------------------------------
+
+def test_ddx_tool_returns_json_with_diagnoses():
+    """DDx tool returns valid JSON string with diagnoses list."""
+    import json
+    from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis
+
+    mock_response_content = json.dumps({
+        "diagnoses": [
+            {
+                "name": "Acute Coronary Syndrome",
+                "icd10": "I24.9",
+                "likelihood": "High",
+                "evidence": "Chest pain radiating to arm",
+                "red_flags": ["Diaphoresis", "ST elevation"]
+            }
+        ]
+    })
+
+    # Mock the LLM call inside the tool
+    with patch("src.tools.builtin.differential_diagnosis_tool._call_llm", return_value=mock_response_content):
+        result = generate_differential_diagnosis(
+            patient_id=1,
+            chief_complaint="Chest pain radiating to left arm",
+            context="67yo male, hypertensive"
+        )
+
+    parsed = json.loads(result)
+    assert "diagnoses" in parsed
+    assert len(parsed["diagnoses"]) >= 1
+    assert parsed["diagnoses"][0]["icd10"] == "I24.9"

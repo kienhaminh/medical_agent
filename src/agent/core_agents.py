@@ -105,7 +105,7 @@ DOCTOR_AGENT = {
     "color": "#10b981",
     "icon": "Stethoscope",
     "is_template": False,
-    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging", "save_clinical_note", "update_visit_status", "pre_visit_brief"]
+    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging", "save_clinical_note", "update_visit_status", "pre_visit_brief", "generate_differential_diagnosis"]
 }
 
 CORE_AGENTS = [INTERNIST_AGENT, DOCTOR_AGENT]

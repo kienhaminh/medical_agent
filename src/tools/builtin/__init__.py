@@ -22,6 +22,7 @@ from . import find_patient_tool
 from . import create_patient_tool
 from . import create_visit_tool
 from . import pre_visit_brief_tool
+from . import differential_diagnosis_tool
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -41,6 +42,7 @@ from .find_patient_tool import find_patient
 from .create_patient_tool import create_patient
 from .create_visit_tool import create_visit
 from .pre_visit_brief_tool import pre_visit_brief
+from .differential_diagnosis_tool import generate_differential_diagnosis
 
 __all__ = [
     "get_current_datetime",
@@ -64,4 +66,5 @@ __all__ = [
     "create_patient",
     "create_visit",
     "pre_visit_brief",
+    "generate_differential_diagnosis",
 ]

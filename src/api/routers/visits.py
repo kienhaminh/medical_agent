@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import get_db, Visit, Patient, ChatSession, SubAgent
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem
+from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
 from src.models.department import Department
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,34 @@ async def get_visit_brief(visit_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Visit not found")
     brief_text = _pre_visit_brief_fn(patient_id=visit.patient_id, visit_id=visit.id)
     return {"brief": brief_text}
+
+
+@router.post("/api/visits/{visit_id}/ddx", response_model=DDxResponse)
+async def get_differential_diagnosis(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Generate differential diagnoses for a visit based on chief complaint."""
+    import json as _json
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+
+    patient_result = await db.execute(select(Patient).where(Patient.id == visit.patient_id))
+    patient = patient_result.scalar_one_or_none()
+
+    context = f"{patient.dob}, {patient.gender}" if patient else None
+    raw = _ddx_fn(
+        patient_id=visit.patient_id,
+        chief_complaint=visit.chief_complaint or "Not specified",
+        context=context,
+    )
+    data = _json.loads(raw)
+    diagnoses = [DiagnosisItem(**d) for d in data.get("diagnoses", [])]
+    return DDxResponse(
+        visit_id=visit_id,
+        chief_complaint=visit.chief_complaint,
+        diagnoses=diagnoses,
+        error=data.get("error"),
+    )
 
 
 @router.get("/api/visits/{visit_id}", response_model=VisitDetailResponse)

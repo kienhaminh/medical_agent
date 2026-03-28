@@ -341,3 +341,19 @@ class DepartmentResponse(BaseModel):
 class DepartmentUpdate(BaseModel):
     capacity: int | None = None
     is_open: bool | None = None
+
+
+# --- DDx schemas ---
+
+class DiagnosisItem(BaseModel):
+    name: str
+    icd10: str
+    likelihood: str  # "High" | "Medium" | "Low"
+    evidence: str
+    red_flags: List[str] = []
+
+class DDxResponse(BaseModel):
+    visit_id: int
+    chief_complaint: Optional[str] = None
+    diagnoses: List[DiagnosisItem] = []
+    error: Optional[str] = None
