@@ -769,6 +769,8 @@ export interface VisitDetail extends Visit {
 
 export interface VisitListItem extends Visit {
   patient_name: string;
+  urgency_level?: "routine" | "urgent" | "critical" | null;
+  wait_minutes?: number;
 }
 
 // --- Visit API functions ---
