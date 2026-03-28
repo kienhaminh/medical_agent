@@ -13,12 +13,15 @@ import {
   getVisitBrief,
   getDifferentialDiagnosis,
   listAgents,
+  listOrders,
+  createOrder,
   type VisitListItem,
   type PatientDetail,
   type Patient,
   type StreamEvent,
   type DiagnosisItem,
   type AgentInfo,
+  type Order,
 } from "@/lib/api";
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
@@ -36,7 +39,7 @@ export interface Message {
   patientReferences?: PatientReference[];
 }
 
-export type DoctorTab = "queue" | "patient" | "notes";
+export type DoctorTab = "queue" | "patient" | "notes" | "orders";
 
 const POLL_INTERVAL = 30_000;
 
@@ -85,6 +88,10 @@ export function useDoctorWorkspace() {
 
   // Specialist agents — filtered to roles ending in "_consultant"
   const [specialists, setSpecialists] = useState<AgentInfo[]>([]);
+
+  // Orders state
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // SOAP draft state
   const [draftingNote, setDraftingNote] = useState(false);
@@ -150,6 +157,9 @@ export function useDoctorWorkspace() {
       .then((data) => setVisitBrief(data.brief))
       .catch(() => setVisitBrief(""))
       .finally(() => setBriefLoading(false));
+    // Fetch orders for this visit
+    setOrders([]);
+    listOrders(visit.id).then(setOrders).catch(() => {});
   }, []);
 
   // Patient search
@@ -474,6 +484,22 @@ export function useDoctorWorkspace() {
     });
   };
 
+  // Place a new lab or imaging order for the selected visit
+  const handleCreateOrder = async (
+    type: "lab" | "imaging",
+    name: string,
+    notes?: string
+  ) => {
+    if (!selectedVisit) return;
+    const order = await createOrder(selectedVisit.id, {
+      order_type: type,
+      order_name: name,
+      notes,
+      ordered_by: "Unknown",
+    });
+    setOrders((prev) => [order, ...prev]);
+  };
+
   return {
     // Tab
     activeTab,
@@ -523,6 +549,10 @@ export function useDoctorWorkspace() {
     // Specialist consult
     specialists,
     consultSpecialist,
+    // Orders
+    orders,
+    ordersLoading,
+    handleCreateOrder,
     // AI Panel
     aiWidth,
     setAiWidth,

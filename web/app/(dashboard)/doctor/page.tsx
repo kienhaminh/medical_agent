@@ -10,6 +10,7 @@ import { QuickActionsBar } from "@/components/doctor/quick-actions-bar";
 import { DoctorAiPanel } from "@/components/doctor/doctor-ai-panel";
 import { DdxPanel } from "@/components/doctor/ddx-panel";
 import { SpecialistConsultPanel } from "@/components/doctor/specialist-consult-panel";
+import { OrdersPanel } from "@/components/doctor/orders-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listDepartments, type DepartmentInfo } from "@/lib/api";
 
@@ -76,6 +77,13 @@ export default function DoctorPage() {
               >
                 Clinical Notes
               </TabsTrigger>
+              <TabsTrigger
+                value="orders"
+                className="data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-500"
+                disabled={!workspace.selectedVisit}
+              >
+                Orders
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -130,6 +138,16 @@ export default function DoctorPage() {
                   disabled={!workspace.selectedVisit}
                   onDraftWithAI={workspace.draftSoapNote}
                   drafting={workspace.draftingNote}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="orders" className="h-full m-0 overflow-y-auto">
+              <div className="p-6">
+                <OrdersPanel
+                  orders={workspace.orders}
+                  onCreateOrder={workspace.handleCreateOrder}
+                  disabled={!workspace.selectedPatient}
                 />
               </div>
             </TabsContent>

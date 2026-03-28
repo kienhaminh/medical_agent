@@ -984,6 +984,41 @@ export async function getDifferentialDiagnosis(visitId: number): Promise<DDxResp
   return response.json();
 }
 
+// --- Orders API ---
+
+export interface Order {
+  id: number;
+  visit_id: number;
+  patient_id: number;
+  order_type: "lab" | "imaging";
+  order_name: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  notes?: string;
+  ordered_by?: string;
+  created_at: string;
+}
+
+export async function listOrders(visitId: number): Promise<Order[]> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/orders`);
+  if (!response.ok) throw new Error("Failed to fetch orders");
+  return response.json();
+}
+
+export async function createOrder(visitId: number, data: {
+  order_type: "lab" | "imaging";
+  order_name: string;
+  notes?: string;
+  ordered_by?: string;
+}): Promise<Order> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to create order");
+  return response.json();
+}
+
 // --- Officer Portal API ---
 
 export interface ExtendedHospitalStats extends HospitalStats {
