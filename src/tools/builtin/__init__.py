@@ -21,6 +21,7 @@ from . import update_visit_status_tool
 from . import find_patient_tool
 from . import create_patient_tool
 from . import create_visit_tool
+from . import pre_visit_brief_tool
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -39,6 +40,7 @@ from .update_visit_status_tool import update_visit_status
 from .find_patient_tool import find_patient
 from .create_patient_tool import create_patient
 from .create_visit_tool import create_visit
+from .pre_visit_brief_tool import pre_visit_brief
 
 __all__ = [
     "get_current_datetime",
@@ -61,4 +63,5 @@ __all__ = [
     "find_patient",
     "create_patient",
     "create_visit",
+    "pre_visit_brief",
 ]
