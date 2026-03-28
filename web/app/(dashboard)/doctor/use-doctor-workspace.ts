@@ -26,6 +26,7 @@ import {
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 export interface Message {
   id: string;
@@ -44,6 +45,8 @@ export type DoctorTab = "queue" | "patient" | "notes" | "orders";
 const POLL_INTERVAL = 30_000;
 
 export function useDoctorWorkspace() {
+  const { user } = useAuth();
+
   // Tab state
   const [activeTab, setActiveTab] = useState<DoctorTab>("queue");
 
@@ -159,7 +162,11 @@ export function useDoctorWorkspace() {
       .finally(() => setBriefLoading(false));
     // Fetch orders for this visit
     setOrders([]);
-    listOrders(visit.id).then(setOrders).catch(() => {});
+    setOrdersLoading(true);
+    listOrders(visit.id)
+      .then(setOrders)
+      .catch(() => {})
+      .finally(() => setOrdersLoading(false));
   }, []);
 
   // Patient search
@@ -491,13 +498,17 @@ export function useDoctorWorkspace() {
     notes?: string
   ) => {
     if (!selectedVisit) return;
-    const order = await createOrder(selectedVisit.id, {
-      order_type: type,
-      order_name: name,
-      notes,
-      ordered_by: "Unknown",
-    });
-    setOrders((prev) => [order, ...prev]);
+    try {
+      const order = await createOrder(selectedVisit.id, {
+        order_type: type,
+        order_name: name,
+        notes,
+        ordered_by: user?.name ?? user?.username ?? "Unknown",
+      });
+      setOrders((prev) => [order, ...prev]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create order");
+    }
   };
 
   return {

@@ -146,6 +146,7 @@ export default function DoctorPage() {
               <div className="p-6">
                 <OrdersPanel
                   orders={workspace.orders}
+                  loading={workspace.ordersLoading}
                   onCreateOrder={workspace.handleCreateOrder}
                   disabled={!workspace.selectedPatient}
                 />
