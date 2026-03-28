@@ -446,7 +446,6 @@ export function useDoctorWorkspace() {
       clearChatLoadingState();
     } finally {
       setDraftingNote(false);
-      setActiveTab("notes");
     }
   }, [selectedPatient, selectedVisit]);
 
@@ -480,8 +479,8 @@ export function useDoctorWorkspace() {
           if (event.type === "chunk" || event.type === "content") {
             fullContent += event.content;
           } else if (event.type === "status" && event.content !== undefined) {
-            // Final status update may carry the complete content
-            fullContent = event.content;
+            // Final status update may carry the complete content; preserve accumulated content if status event is empty
+            fullContent = event.content || fullContent;
           } else if (event.type === "done") {
             cleanup();
             resolve(fullContent || "(No response)");
