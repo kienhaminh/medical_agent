@@ -11,6 +11,17 @@ def test_visit_has_urgency_level_field():
     assert v.urgency_level == "urgent"
 
 
+def test_order_model_has_required_fields():
+    """Order model must have visit_id, patient_id, order_type, order_name, status."""
+    from src.models.order import Order
+    o = Order()
+    assert hasattr(o, "visit_id")
+    assert hasattr(o, "patient_id")
+    assert hasattr(o, "order_type")
+    assert hasattr(o, "order_name")
+    assert hasattr(o, "status")
+
+
 # ---------------------------------------------------------------------------
 # Helpers for pre_visit_brief tests
 # ---------------------------------------------------------------------------
