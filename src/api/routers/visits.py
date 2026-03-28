@@ -1,6 +1,6 @@
 """Visit API routes — create, list, detail, and routing approval."""
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -29,6 +29,7 @@ def _visit_to_response(v: Visit) -> VisitResponse:
         queue_position=v.queue_position,
         clinical_notes=v.clinical_notes,
         assigned_doctor=v.assigned_doctor,
+        urgency_level=v.urgency_level,
         created_at=v.created_at.isoformat(),
         updated_at=v.updated_at.isoformat(),
     )
@@ -113,13 +114,17 @@ async def list_visits(
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     rows = result.all()
-    return [
-        VisitListResponse(
+    now = datetime.now(timezone.utc)
+    result_list = []
+    for visit, patient_name in rows:
+        created = visit.created_at.replace(tzinfo=timezone.utc) if visit.created_at.tzinfo is None else visit.created_at
+        wait_minutes = int((now - created).total_seconds() / 60)
+        result_list.append(VisitListResponse(
             **_visit_to_response(visit).model_dump(),
             patient_name=patient_name,
-        )
-        for visit, patient_name in rows
-    ]
+            wait_minutes=wait_minutes,
+        ))
+    return result_list
 
 
 @router.get("/api/visits/{visit_id}", response_model=VisitDetailResponse)

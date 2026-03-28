@@ -308,12 +308,14 @@ class VisitResponse(BaseModel):
     queue_position: Optional[int] = None
     clinical_notes: Optional[str] = None
     assigned_doctor: Optional[str] = None
+    urgency_level: Optional[str] = None
     created_at: str
     updated_at: str
 
 class VisitListResponse(VisitResponse):
-    """Visit response for list view — includes patient_name."""
+    """Visit response for list view — includes patient_name, urgency, and wait time."""
     patient_name: str = "Unknown"
+    wait_minutes: int = 0
 
 class VisitDetailResponse(VisitResponse):
     """Extended visit response with patient info and intake notes."""
