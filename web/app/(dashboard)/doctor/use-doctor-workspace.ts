@@ -10,6 +10,7 @@ import {
   transferVisit,
   sendChatMessage,
   streamMessageUpdates,
+  getVisitBrief,
   type VisitListItem,
   type PatientDetail,
   type Patient,
@@ -47,6 +48,10 @@ export function useDoctorWorkspace() {
   const [selectedVisit, setSelectedVisit] = useState<VisitListItem | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<PatientDetail | null>(null);
   const [patientLoading, setPatientLoading] = useState(false);
+
+  // Pre-visit brief state
+  const [visitBrief, setVisitBrief] = useState<string>("");
+  const [briefLoading, setBriefLoading] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,10 +104,11 @@ export function useDoctorWorkspace() {
     setSelectedVisit(visit);
     setActiveTab("patient");
     setPatientLoading(true);
-    // Reset chat for new patient
+    // Reset chat and brief for new patient
     setChatMessages([]);
     setChatSessionId(null);
     chatSessionIdRef.current = null;
+    setVisitBrief("");
     try {
       const patient = await getPatient(visit.patient_id);
       setSelectedPatient(patient);
@@ -113,6 +119,12 @@ export function useDoctorWorkspace() {
     } finally {
       setPatientLoading(false);
     }
+    // Fetch pre-visit brief asynchronously after patient load
+    setBriefLoading(true);
+    getVisitBrief(visit.id)
+      .then((data) => setVisitBrief(data.brief))
+      .catch(() => setVisitBrief(""))
+      .finally(() => setBriefLoading(false));
   }, []);
 
   // Patient search
@@ -326,6 +338,9 @@ export function useDoctorWorkspace() {
     selectedPatient,
     patientLoading,
     selectVisit,
+    // Pre-visit brief
+    visitBrief,
+    briefLoading,
     // Search
     searchQuery,
     searchResults,

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Send, GripVertical, Activity } from "lucide-react";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
+import { PreVisitBriefCard } from "@/components/doctor/pre-visit-brief-card";
 import type { AgentActivity } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import "highlight.js/styles/github-dark.css";
@@ -24,6 +25,8 @@ interface DoctorAiPanelProps {
   handleSendMessage: (e: React.FormEvent) => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   patientName?: string;
+  visitBrief?: string;
+  briefLoading?: boolean;
   // Resize
   width: number;
   setWidth: (width: number) => void;
@@ -41,6 +44,8 @@ export function DoctorAiPanel({
   handleSendMessage,
   messagesEndRef,
   patientName,
+  visitBrief,
+  briefLoading,
   width,
   setWidth,
   isResizing,
@@ -116,6 +121,9 @@ export function DoctorAiPanel({
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
+        {/* Pre-visit brief card — auto-loads when a patient is selected */}
+        <PreVisitBriefCard brief={visitBrief ?? ""} loading={briefLoading ?? false} />
+
         {messages.length === 0 && (
           <div className="text-center text-muted-foreground mt-10 space-y-4">
             <div className="inline-flex p-4 rounded-full bg-cyan-500/10">

@@ -132,6 +132,8 @@ export default function DoctorPage() {
         handleSendMessage={workspace.handleChatSubmit}
         messagesEndRef={workspace.messagesEndRef}
         patientName={workspace.selectedPatient?.name}
+        visitBrief={workspace.visitBrief}
+        briefLoading={workspace.briefLoading}
         width={workspace.aiWidth}
         setWidth={workspace.setAiWidth}
         isResizing={workspace.isResizing}

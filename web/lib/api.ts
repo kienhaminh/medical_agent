@@ -839,6 +839,12 @@ export async function listActiveVisits(): Promise<VisitListItem[]> {
   return response.json();
 }
 
+export async function getVisitBrief(visitId: number): Promise<{ brief: string }> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/brief`);
+  if (!response.ok) throw new Error("Failed to fetch visit brief");
+  return response.json();
+}
+
 export async function checkInVisit(id: number): Promise<Visit> {
   const response = await fetch(`${API_BASE_URL}/visits/${id}/check-in`, {
     method: "PATCH",

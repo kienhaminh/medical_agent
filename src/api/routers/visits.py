@@ -127,6 +127,18 @@ async def list_visits(
     return result_list
 
 
+@router.get("/api/visits/{visit_id}/brief")
+async def get_visit_brief(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Return a pre-visit patient brief assembled from DB data."""
+    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief as _pre_visit_brief_fn
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    brief_text = _pre_visit_brief_fn(patient_id=visit.patient_id, visit_id=visit.id)
+    return {"brief": brief_text}
+
+
 @router.get("/api/visits/{visit_id}", response_model=VisitDetailResponse)
 async def get_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Visit).where(Visit.id == visit_id))
