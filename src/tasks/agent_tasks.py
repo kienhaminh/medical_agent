@@ -7,6 +7,7 @@ from typing import Optional, List, Dict
 
 from . import celery_app
 from src.models import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
+from src.models.agent import SubAgent
 from src.config.settings import load_config
 from ..api.dependencies import get_or_create_agent
 import logging
@@ -39,6 +40,7 @@ def process_agent_message(
     user_message: str,
     patient_id: Optional[int] = None,
     record_id: Optional[int] = None,
+    agent_id: Optional[int] = None,
 ):
     """Process agent message in background with incremental persistence.
 
@@ -49,6 +51,7 @@ def process_agent_message(
         user_message: User's message content
         patient_id: Optional patient ID for context
         record_id: Optional medical record ID for context
+        agent_id: Optional agent ID — if set, that agent's system prompt overrides the default
     """
     # Use asyncio.run() which properly manages the event loop
     return asyncio.run(
@@ -60,6 +63,7 @@ def process_agent_message(
             user_message=user_message,
             patient_id=patient_id,
             record_id=record_id,
+            agent_id=agent_id,
         )
     )
 
@@ -72,6 +76,7 @@ async def _process_message_async(
     user_message: str,
     patient_id: Optional[int] = None,
     record_id: Optional[int] = None,
+    agent_id: Optional[int] = None,
 ):
     """Async processing logic for agent message."""
     
@@ -170,12 +175,23 @@ async def _process_message_async(
                         "content": msg.content
                     })
 
-            # 4. Get agent and process message
+            # 4. Resolve optional specialist system prompt override
+            agent_system_prompt = None
+            if agent_id:
+                agent_result = await db.execute(
+                    select(SubAgent).where(SubAgent.id == agent_id)
+                )
+                specialist_agent = agent_result.scalar_one_or_none()
+                if specialist_agent and specialist_agent.system_prompt:
+                    agent_system_prompt = specialist_agent.system_prompt
+
+            # 5. Get agent and process message
             user_agent = get_or_create_agent(user_id)
             stream = await user_agent.process_message(
                 user_message=context_message.strip(),
                 stream=True,
                 chat_history=chat_history,
+                system_prompt_override=agent_system_prompt,
             )
 
             # 5. Process streaming events with incremental persistence

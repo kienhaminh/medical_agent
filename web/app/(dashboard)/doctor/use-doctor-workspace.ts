@@ -444,6 +444,7 @@ export function useDoctorWorkspace() {
       message: messageText,
       patient_id: selectedPatient?.id,
       session_id: undefined,
+      agent_role: specialist.role,
     });
 
     // Stream the response and accumulate the full text

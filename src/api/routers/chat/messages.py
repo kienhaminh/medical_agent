@@ -298,9 +298,20 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             session = result.scalar_one_or_none()
 
         if not session:
+            # Resolve agent_role to agent_id if specified
+            agent_id = None
+            if request.agent_role:
+                result = await db.execute(
+                    select(SubAgent).where(SubAgent.role == request.agent_role)
+                )
+                agent = result.scalar_one_or_none()
+                if agent:
+                    agent_id = agent.id
+
             # Create new session
             session = ChatSession(
                 title=request.message[:50] + "..." if len(request.message) > 50 else request.message,
+                agent_id=agent_id,
             )
             db.add(session)
             await db.commit()
@@ -336,6 +347,7 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             user_message=request.message,
             patient_id=request.patient_id,
             record_id=request.record_id,
+            agent_id=session.agent_id,
         )
 
         # 5. Update assistant message with task_id

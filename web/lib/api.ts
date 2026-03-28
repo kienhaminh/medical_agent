@@ -506,6 +506,7 @@ export interface SendMessageRequest {
   patient_id?: number | null;
   record_id?: number | null;
   session_id?: number | null;
+  agent_role?: string;
 }
 
 /**
