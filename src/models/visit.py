@@ -54,7 +54,7 @@ class Visit(Base):
     assigned_doctor: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     urgency_level: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True
-    )  # "routine" | "urgent" | "critical"
+    )  # Urgency level: routine, urgent, or critical
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.now(), onupdate=func.now()
