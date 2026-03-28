@@ -181,7 +181,7 @@ export default function DoctorPage() {
       <ShiftHandoffModal
         open={workspace.handoffOpen}
         onClose={() => workspace.setHandoffOpen(false)}
-        document={workspace.handoffDoc}
+        content={workspace.handoffDoc}
         patientCount={workspace.handoffCount}
         loading={workspace.handoffLoading}
       />

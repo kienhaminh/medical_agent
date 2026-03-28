@@ -12,7 +12,7 @@ import {
 interface ShiftHandoffModalProps {
   open: boolean;
   onClose: () => void;
-  document: string;
+  content: string;
   patientCount: number;
   loading: boolean;
 }
@@ -20,14 +20,14 @@ interface ShiftHandoffModalProps {
 export function ShiftHandoffModal({
   open,
   onClose,
-  document,
+  content,
   patientCount,
   loading,
 }: ShiftHandoffModalProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(document);
+    await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -48,7 +48,7 @@ export function ShiftHandoffModal({
             </DialogTitle>
             <button
               onClick={handleCopy}
-              disabled={loading || !document}
+              disabled={loading || !content}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border hover:bg-accent transition-colors disabled:opacity-50"
             >
               {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -71,7 +71,7 @@ export function ShiftHandoffModal({
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <pre className="whitespace-pre-wrap text-xs leading-relaxed font-sans bg-muted/30 rounded-md p-4">
-                {document || "No active patients to hand off."}
+                {content || "No active patients to hand off."}
               </pre>
             </div>
           )}
