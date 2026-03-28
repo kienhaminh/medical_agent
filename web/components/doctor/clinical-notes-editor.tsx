@@ -1,6 +1,6 @@
 "use client";
 
-import { FileEdit, Check, Loader2 } from "lucide-react";
+import { FileEdit, Check, Loader2, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface ClinicalNotesEditorProps {
@@ -9,6 +9,8 @@ interface ClinicalNotesEditorProps {
   saving: boolean;
   saved: boolean;
   disabled?: boolean;
+  onDraftWithAI?: () => void;
+  drafting?: boolean;
 }
 
 /** Indicator dot/icon for the current save state. */
@@ -52,6 +54,8 @@ export function ClinicalNotesEditor({
   saving,
   saved,
   disabled = false,
+  onDraftWithAI,
+  drafting = false,
 }: ClinicalNotesEditorProps) {
   return (
     <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm overflow-hidden flex flex-col">
@@ -63,7 +67,20 @@ export function ClinicalNotesEditor({
             Clinical Notes
           </h2>
         </div>
-        <SaveStatusIndicator saving={saving} saved={saved} />
+        <div className="flex items-center gap-3">
+          {onDraftWithAI && (
+            <button
+              type="button"
+              onClick={onDraftWithAI}
+              disabled={disabled || drafting}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+            >
+              <Sparkles className="w-3 h-3" />
+              {drafting ? "Drafting..." : "Draft with AI"}
+            </button>
+          )}
+          <SaveStatusIndicator saving={saving} saved={saved} />
+        </div>
       </div>
 
       {/* Editor */}

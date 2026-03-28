@@ -114,6 +114,8 @@ export default function DoctorPage() {
                   saving={workspace.notesSaving}
                   saved={workspace.notesSaved}
                   disabled={!workspace.selectedVisit}
+                  onDraftWithAI={workspace.draftSoapNote}
+                  drafting={workspace.draftingNote}
                 />
               </div>
             </TabsContent>

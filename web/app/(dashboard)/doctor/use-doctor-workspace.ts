@@ -75,6 +75,9 @@ export function useDoctorWorkspace() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cancelStreamRef = useRef<(() => void) | null>(null);
 
+  // SOAP draft state
+  const [draftingNote, setDraftingNote] = useState(false);
+
   // AI panel state
   const [aiWidth, setAiWidth] = useState(420);
   const [isResizing, setIsResizing] = useState(false);
@@ -325,6 +328,66 @@ export function useDoctorWorkspace() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // One-click SOAP draft — sends a standardized prompt to the Doctor AI
+  const draftSoapNote = useCallback(async () => {
+    if (!selectedPatient || !selectedVisit) return;
+    setDraftingNote(true);
+
+    const prompt = `Generate a SOAP clinical note for patient ${selectedPatient.name} (ID: ${selectedPatient.id}), visit ${selectedVisit.visit_id}. Chief complaint: ${selectedVisit.chief_complaint || "not recorded"}. Review the patient's medical records and current visit context. Format as:\n\n**S (Subjective):** ...\n**O (Objective):** ...\n**A (Assessment):** ...\n**P (Plan):** ...`;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: MessageRole.USER,
+      content: prompt,
+      timestamp: new Date(),
+    };
+
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatLoading(true);
+    setCurrentActivity("thinking");
+    setActivityDetails("Submitting your request...");
+
+    try {
+      const response = await sendChatMessage({
+        message: prompt,
+        patient_id: selectedPatient.id,
+        session_id: chatSessionIdRef.current,
+      });
+
+      if (!chatSessionIdRef.current && response.session_id) {
+        chatSessionIdRef.current = response.session_id;
+        setChatSessionId(response.session_id);
+      }
+
+      const assistantMessage: Message = {
+        id: response.message_id.toString(),
+        role: MessageRole.ASSISTANT,
+        content: "",
+        timestamp: new Date(),
+        status: response.status,
+        toolCalls: [],
+        reasoning: "",
+        logs: [],
+      };
+
+      setChatMessages((prev) => [...prev, assistantMessage]);
+
+      const cancelStream = streamMessageUpdates(
+        response.message_id,
+        (event: StreamEvent) =>
+          handleStreamEvent(event, response.message_id.toString()),
+        () => clearChatLoadingState()
+      );
+      cancelStreamRef.current = cancelStream;
+    } catch {
+      toast.error("Failed to draft SOAP note");
+      clearChatLoadingState();
+    } finally {
+      setDraftingNote(false);
+      setActiveTab("notes");
+    }
+  }, [selectedPatient, selectedVisit]);
+
   return {
     // Tab
     activeTab,
@@ -364,6 +427,9 @@ export function useDoctorWorkspace() {
     chatSessionId,
     messagesEndRef,
     handleChatSubmit,
+    // SOAP draft
+    draftSoapNote,
+    draftingNote,
     // AI Panel
     aiWidth,
     setAiWidth,
