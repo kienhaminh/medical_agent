@@ -31,7 +31,7 @@ export function DepartmentGrid({ departments, departmentVisits, onDeptClick }: D
   }
 
   return (
-    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+    <div className="grid gap-3 grid-cols-4">
       {sorted.map((dept) => (
         <DepartmentCard
           key={dept.name}
