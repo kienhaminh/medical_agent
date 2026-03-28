@@ -1000,3 +1000,22 @@ export async function getExtendedStats(): Promise<ExtendedHospitalStats> {
   }
   return response.json();
 }
+
+// --- Specialist Consult ---
+
+/** Lightweight agent info used by the specialist consult panel. */
+export interface AgentInfo {
+  id: number;
+  name: string;
+  role: string;
+  color: string;
+  icon: string;
+  description?: string;
+}
+
+/** Fetch all agents and return them as AgentInfo records. */
+export async function listAgents(): Promise<AgentInfo[]> {
+  const response = await fetch(`${API_BASE_URL}/agents`);
+  if (!response.ok) throw new Error("Failed to fetch agents");
+  return response.json();
+}

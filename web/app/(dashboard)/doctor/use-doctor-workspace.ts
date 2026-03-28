@@ -12,11 +12,13 @@ import {
   streamMessageUpdates,
   getVisitBrief,
   getDifferentialDiagnosis,
+  listAgents,
   type VisitListItem,
   type PatientDetail,
   type Patient,
   type StreamEvent,
   type DiagnosisItem,
+  type AgentInfo,
 } from "@/lib/api";
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
@@ -81,6 +83,9 @@ export function useDoctorWorkspace() {
   const [ddxDiagnoses, setDdxDiagnoses] = useState<DiagnosisItem[]>([]);
   const [ddxLoading, setDdxLoading] = useState(false);
 
+  // Specialist agents — filtered to roles ending in "_consultant"
+  const [specialists, setSpecialists] = useState<AgentInfo[]>([]);
+
   // SOAP draft state
   const [draftingNote, setDraftingNote] = useState(false);
 
@@ -107,6 +112,15 @@ export function useDoctorWorkspace() {
     const interval = setInterval(fetchQueue, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchQueue]);
+
+  // Load specialist agents once on mount
+  useEffect(() => {
+    listAgents()
+      .then((agents) =>
+        setSpecialists(agents.filter((a) => a.role.endsWith("_consultant")))
+      )
+      .catch(() => {});
+  }, []);
 
   // Load patient when visit selected
   const selectVisit = useCallback(async (visit: VisitListItem) => {
@@ -412,6 +426,53 @@ export function useDoctorWorkspace() {
     }
   }, [selectedPatient, selectedVisit]);
 
+  /**
+   * Send a one-shot question to a specialist agent and stream the full reply.
+   * The specialist's name is embedded in the message so the Doctor AI routes
+   * the request to the correct sub-agent on the backend.
+   */
+  const consultSpecialist = async (
+    specialist: AgentInfo,
+    question: string
+  ): Promise<string> => {
+    // Build message with specialist context and optional patient context
+    const messageText = selectedPatient
+      ? `[Consult request for ${specialist.name}] ${question}\n\nPatient context: ${selectedPatient.name} (ID: ${selectedPatient.id})`
+      : `[Consult request for ${specialist.name}] ${question}`;
+
+    const chatResp = await sendChatMessage({
+      message: messageText,
+      patient_id: selectedPatient?.id,
+      session_id: undefined,
+    });
+
+    // Stream the response and accumulate the full text
+    return new Promise<string>((resolve, reject) => {
+      let fullContent = "";
+      const cleanup = streamMessageUpdates(
+        chatResp.message_id,
+        (event) => {
+          if (event.type === "chunk" || event.type === "content") {
+            fullContent += event.content;
+          } else if (event.type === "status" && event.content !== undefined) {
+            // Final status update may carry the complete content
+            fullContent = event.content;
+          } else if (event.type === "done") {
+            cleanup();
+            resolve(fullContent || "(No response)");
+          } else if (event.type === "error") {
+            cleanup();
+            reject(new Error(event.message));
+          }
+        },
+        (err) => {
+          cleanup();
+          reject(err);
+        }
+      );
+    });
+  };
+
   return {
     // Tab
     activeTab,
@@ -458,6 +519,9 @@ export function useDoctorWorkspace() {
     // SOAP draft
     draftSoapNote,
     draftingNote,
+    // Specialist consult
+    specialists,
+    consultSpecialist,
     // AI Panel
     aiWidth,
     setAiWidth,

@@ -9,6 +9,7 @@ import { ClinicalNotesEditor } from "@/components/doctor/clinical-notes-editor";
 import { QuickActionsBar } from "@/components/doctor/quick-actions-bar";
 import { DoctorAiPanel } from "@/components/doctor/doctor-ai-panel";
 import { DdxPanel } from "@/components/doctor/ddx-panel";
+import { SpecialistConsultPanel } from "@/components/doctor/specialist-consult-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listDepartments, type DepartmentInfo } from "@/lib/api";
 
@@ -110,6 +111,11 @@ export default function DoctorPage() {
                   onGenerate={workspace.generateDdx}
                   disabled={!workspace.selectedVisit}
                   chiefComplaint={workspace.selectedVisit?.chief_complaint ?? undefined}
+                />
+                <SpecialistConsultPanel
+                  specialists={workspace.specialists}
+                  onConsult={workspace.consultSpecialist}
+                  disabled={!workspace.selectedPatient}
                 />
               </div>
             </TabsContent>
