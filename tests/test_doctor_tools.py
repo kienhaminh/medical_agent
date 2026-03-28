@@ -221,3 +221,44 @@ def test_ddx_tool_returns_json_with_diagnoses():
     assert "diagnoses" in parsed
     assert len(parsed["diagnoses"]) >= 1
     assert parsed["diagnoses"][0]["icd10"] == "I24.9"
+
+
+def test_create_order_tool_returns_confirmation():
+    """create_order tool persists order and returns confirmation."""
+    from unittest.mock import MagicMock
+    from src.tools.builtin.create_order_tool import create_order
+
+    # Build a mock visit that passes validation
+    mock_visit = MagicMock()
+    mock_visit.id = 42
+    mock_visit.visit_id = "VIS-20260329-002"
+    mock_visit.patient_id = 7
+
+    # Build a mock order with a known id after commit
+    mock_order = MagicMock()
+    mock_order.id = 99
+
+    mock_db = MagicMock()
+    mock_db.execute.return_value.scalar_one_or_none.return_value = mock_visit
+
+    # Simulate db.refresh populating order.id
+    def fake_refresh(obj):
+        obj.id = 99
+
+    mock_db.refresh.side_effect = fake_refresh
+
+    mock_session_cls = MagicMock()
+    mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
+    mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+    with patch("src.tools.builtin.create_order_tool.SessionLocal", mock_session_cls):
+        result = create_order(
+            patient_id=7,
+            visit_id=42,
+            order_type="lab",
+            order_name="CBC with differential",
+            ordered_by="Dr. Chen",
+        )
+
+    assert "CBC" in result
+    assert "created" in result.lower()
