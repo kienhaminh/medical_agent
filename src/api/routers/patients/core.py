@@ -1,10 +1,11 @@
 """Patient core CRUD operations."""
 import logging
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, select
 
-from src.models import get_db, Patient, MedicalRecord, Imaging
+from src.models import get_db, Patient, MedicalRecord, Imaging, ImageGroup
 from ...models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
     RecordResponse, ImagingResponse
@@ -79,22 +80,53 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
     )
     imaging = imaging_result.scalars().all()
 
+    # Fetch image groups
+    groups_result = await db.execute(
+        select(ImageGroup)
+        .where(ImageGroup.patient_id == patient_id)
+        .order_by(ImageGroup.created_at.desc())
+    )
+    image_groups = groups_result.scalars().all()
+
+    # Build RecordResponse with correct fields per record type
+    formatted_records = []
+    for r in records:
+        if r.record_type == "text":
+            first_line = r.content.split("\n", 1)[0] if r.content else ""
+            title = first_line[len("Title: "):].strip() if first_line.startswith("Title: ") else (first_line.strip() or "Text Record")
+            file_url = None
+            file_type = "text"
+        else:
+            filename = os.path.basename(r.content or "")
+            file_url = f"http://localhost:8000/uploads/{filename}" if filename else None
+            if r.summary and "Title: " in r.summary:
+                try:
+                    title = r.summary.split("Title: ")[1].split(" |")[0].strip()
+                except IndexError:
+                    title = filename or "Record"
+            else:
+                title = filename or "Record"
+            file_type = r.record_type
+
+        formatted_records.append(RecordResponse(
+            id=r.id,
+            patient_id=r.patient_id,
+            record_type=r.record_type,
+            title=title,
+            description=r.summary,
+            content=r.content if r.record_type == "text" else None,
+            file_url=file_url,
+            file_type=file_type,
+            created_at=r.created_at.isoformat(),
+        ))
+
     return PatientDetailResponse(
         id=patient.id,
         name=patient.name,
         dob=patient.dob,
         gender=patient.gender,
         created_at=patient.created_at.isoformat(),
-        records=[
-            RecordResponse(
-                id=r.id,
-                patient_id=r.patient_id,
-                record_type=r.record_type,
-                content=r.content,
-                summary=r.summary,
-                created_at=r.created_at.isoformat()
-            ) for r in records
-        ],
+        records=formatted_records,
         imaging=[
             ImagingResponse(
                 id=i.id,
@@ -103,7 +135,16 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
                 image_type=i.image_type,
                 original_url=i.original_url,
                 preview_url=i.preview_url,
-                created_at=i.created_at.isoformat()
+                group_id=i.group_id,
+                created_at=i.created_at.isoformat(),
             ) for i in imaging
-        ]
+        ],
+        image_groups=[
+            {"id": g.id, "patient_id": g.patient_id, "name": g.name, "created_at": g.created_at.isoformat()}
+            for g in image_groups
+        ],
+        health_summary=getattr(patient, "health_summary", None),
+        health_summary_updated_at=patient.health_summary_updated_at.isoformat() if getattr(patient, "health_summary_updated_at", None) else None,
+        health_summary_status=getattr(patient, "health_summary_status", None),
+        health_summary_task_id=getattr(patient, "health_summary_task_id", None),
     )

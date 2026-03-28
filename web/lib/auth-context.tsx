@@ -26,6 +26,9 @@ const USER_KEY = "medinexus_user";
 /** Public routes that don't require authentication. */
 const PUBLIC_ROUTES = ["/", "/intake", "/login"];
 
+/** Routes that are restricted to specific roles only. Checked before general role routes. */
+const ADMIN_ONLY_ROUTES = ["/agent/usage", "/agent/settings"];
+
 /** Role-based route access. Each role lists the route prefixes it can access. */
 const ROLE_ROUTES: Record<string, string[]> = {
   doctor: ["/doctor", "/patient", "/agent"],
@@ -35,6 +38,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
 
 export function canAccessRoute(role: string | undefined, pathname: string): boolean {
   if (!role) return false;
+  if (ADMIN_ONLY_ROUTES.some((r) => pathname.startsWith(r))) return role === "admin";
   const allowed = ROLE_ROUTES[role];
   if (!allowed) return false;
   return allowed.some((prefix) => pathname.startsWith(prefix));

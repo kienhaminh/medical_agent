@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  Users,
   MessageSquare,
   Settings,
   History,
@@ -13,11 +12,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
+  roles?: string[]; // if set, only visible to these roles
 }
 
 interface NavGroup {
@@ -37,14 +38,8 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: "Chat", href: "/agent", icon: MessageSquare },
       { name: "History", href: "/agent/history", icon: History },
-      { name: "Settings", href: "/agent/settings", icon: Settings },
-      { name: "Usage", href: "/agent/usage", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Patient Information",
-    items: [
-      { name: "Patients", href: "/patient", icon: Users },
+      { name: "Settings", href: "/agent/settings", icon: Settings, roles: ["admin"] },
+      { name: "Usage", href: "/agent/usage", icon: BarChart3, roles: ["admin"] },
     ],
   },
 ];
@@ -52,6 +47,7 @@ const navigationGroups: NavGroup[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
 
   const isItemActive = (item: NavItem) => {
     if (item.href === "/agent") {
@@ -91,7 +87,7 @@ export function Sidebar() {
             </p>
 
             <div className="space-y-1">
-              {group.items.map((item) => {
+              {group.items.filter((item) => !item.roles || item.roles.includes(user?.role ?? "")).map((item) => {
                 const isActive = isItemActive(item);
                 const Icon = item.icon;
 

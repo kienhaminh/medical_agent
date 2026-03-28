@@ -58,8 +58,8 @@ export function DoctorHeader({
   }
 
   return (
-    <div className="border-b border-border bg-gradient-to-r from-cyan-500/10 to-teal-500/10 px-6 py-4">
-      <div className="flex items-center justify-between gap-6">
+    <div className="border-b border-border bg-gradient-to-r from-cyan-500/10 to-teal-500/10 px-6 h-[68px] flex items-center">
+      <div className="flex items-center justify-between gap-6 w-full">
         {/* Title and selected patient context */}
         <div className="flex items-center gap-3 min-w-0">
           <h1 className="font-display text-lg font-semibold whitespace-nowrap">

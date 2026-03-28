@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useDoctorWorkspace } from "./use-doctor-workspace";
 import { DoctorHeader } from "@/components/doctor/doctor-header";
 import { ActivePatientsQueue } from "@/components/doctor/active-patients-queue";
-import { PatientSnapshot } from "@/components/doctor/patient-snapshot";
 import { ClinicalNotesEditor } from "@/components/doctor/clinical-notes-editor";
 import { QuickActionsBar } from "@/components/doctor/quick-actions-bar";
 import { DoctorAiPanel } from "@/components/doctor/doctor-ai-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, User } from "lucide-react";
 import { listDepartments, type DepartmentInfo } from "@/lib/api";
 
 export default function DoctorPage() {
@@ -87,21 +89,39 @@ export default function DoctorPage() {
               />
             </TabsContent>
 
-            <TabsContent value="patient" className="h-full m-0 overflow-y-auto">
-              <div className="p-6 space-y-4">
-                <PatientSnapshot
-                  patient={workspace.selectedPatient}
-                  visit={workspace.selectedVisit}
-                  loading={workspace.patientLoading}
-                />
-                {workspace.selectedVisit && (
-                  <QuickActionsBar
-                    onDischarge={workspace.handleDischarge}
-                    onTransfer={workspace.handleTransfer}
-                    onSaveNotes={() => {}}
-                    departments={departments}
-                    disabled={!workspace.selectedVisit}
-                  />
+            <TabsContent value="patient" className="h-full m-0">
+              <div className="h-full flex flex-col items-center justify-center gap-6 p-6">
+                {workspace.selectedPatient ? (
+                  <>
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <div className="w-14 h-14 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                        <User className="w-7 h-7 text-cyan-500" />
+                      </div>
+                      <h3 className="font-display text-lg font-semibold">
+                        {workspace.selectedPatient.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        DOB: {workspace.selectedPatient.dob} &middot; {workspace.selectedPatient.gender} &middot; ID: {workspace.selectedPatient.id}
+                      </p>
+                    </div>
+                    <Button asChild>
+                      <Link href={`/patient/${workspace.selectedPatient.id}`} target="_blank">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        View Full Record
+                      </Link>
+                    </Button>
+                    {workspace.selectedVisit && (
+                      <QuickActionsBar
+                        onDischarge={workspace.handleDischarge}
+                        onTransfer={workspace.handleTransfer}
+                        onSaveNotes={() => {}}
+                        departments={departments}
+                        disabled={!workspace.selectedVisit}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Select a patient from the queue</p>
                 )}
               </div>
             </TabsContent>

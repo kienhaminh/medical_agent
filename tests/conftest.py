@@ -4,11 +4,6 @@ import os
 import pytest
 import pytest_asyncio
 
-# Fix langchain version incompatibility: langchain 1.x removed the `verbose`
-# module attribute that langchain-core still tries to access during init.
-import langchain
-if not hasattr(langchain, "verbose"):
-    langchain.verbose = False
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
