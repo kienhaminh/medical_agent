@@ -958,6 +958,31 @@ export async function saveClinicalNotes(
   return response.json();
 }
 
+// --- Differential Diagnosis API ---
+
+export interface DiagnosisItem {
+  name: string;
+  icd10: string;
+  likelihood: "High" | "Medium" | "Low";
+  evidence: string;
+  red_flags: string[];
+}
+
+export interface DDxResponse {
+  visit_id: number;
+  chief_complaint?: string;
+  diagnoses: DiagnosisItem[];
+  error?: string;
+}
+
+export async function getDifferentialDiagnosis(visitId: number): Promise<DDxResponse> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/ddx`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error("Failed to generate differential diagnosis");
+  return response.json();
+}
+
 // --- Officer Portal API ---
 
 export interface ExtendedHospitalStats extends HospitalStats {

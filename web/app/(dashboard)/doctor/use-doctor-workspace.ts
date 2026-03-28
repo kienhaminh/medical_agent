@@ -11,10 +11,12 @@ import {
   sendChatMessage,
   streamMessageUpdates,
   getVisitBrief,
+  getDifferentialDiagnosis,
   type VisitListItem,
   type PatientDetail,
   type Patient,
   type StreamEvent,
+  type DiagnosisItem,
 } from "@/lib/api";
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
@@ -75,6 +77,10 @@ export function useDoctorWorkspace() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cancelStreamRef = useRef<(() => void) | null>(null);
 
+  // Differential diagnosis state
+  const [ddxDiagnoses, setDdxDiagnoses] = useState<DiagnosisItem[]>([]);
+  const [ddxLoading, setDdxLoading] = useState(false);
+
   // SOAP draft state
   const [draftingNote, setDraftingNote] = useState(false);
 
@@ -107,11 +113,13 @@ export function useDoctorWorkspace() {
     setSelectedVisit(visit);
     setActiveTab("patient");
     setPatientLoading(true);
-    // Reset chat and brief for new patient
+    // Reset chat, brief, and DDx for new patient
     setChatMessages([]);
     setChatSessionId(null);
     chatSessionIdRef.current = null;
     setVisitBrief("");
+    setDdxDiagnoses([]);
+    setDdxLoading(false);
     try {
       const patient = await getPatient(visit.patient_id);
       setSelectedPatient(patient);
@@ -328,6 +336,22 @@ export function useDoctorWorkspace() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // Generate differential diagnoses for the selected visit via the DDx endpoint
+  const generateDdx = async () => {
+    if (!selectedVisit) return;
+    setDdxLoading(true);
+    setDdxDiagnoses([]);
+    try {
+      const result = await getDifferentialDiagnosis(selectedVisit.id);
+      setDdxDiagnoses(result.diagnoses);
+    } catch (e) {
+      console.error("DDx failed:", e);
+      toast.error("Failed to generate differential diagnosis");
+    } finally {
+      setDdxLoading(false);
+    }
+  };
+
   // One-click SOAP draft — sends a standardized prompt to the Doctor AI
   const draftSoapNote = useCallback(async () => {
     if (!selectedPatient || !selectedVisit) return;
@@ -427,6 +451,10 @@ export function useDoctorWorkspace() {
     chatSessionId,
     messagesEndRef,
     handleChatSubmit,
+    // DDx
+    ddxDiagnoses,
+    ddxLoading,
+    generateDdx,
     // SOAP draft
     draftSoapNote,
     draftingNote,
