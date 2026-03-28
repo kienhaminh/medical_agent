@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sparkles, Send, GripVertical, Zap, FileText, Stethoscope, Pill } from "lucide-react";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
+import { PreVisitBriefCard } from "@/components/doctor/pre-visit-brief-card";
 import type { AgentActivity, Message } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import "highlight.js/styles/github-dark.css";
@@ -19,6 +20,8 @@ interface DoctorAiPanelProps {
   handleSendMessage: (e: React.FormEvent) => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   patientName?: string;
+  visitBrief?: string;
+  briefLoading?: boolean;
   width: number;
   setWidth: (width: number) => void;
   isResizing: boolean;
@@ -117,6 +120,8 @@ export function DoctorAiPanel({
   handleSendMessage,
   messagesEndRef,
   patientName,
+  visitBrief,
+  briefLoading,
   width,
   setWidth,
   isResizing,
@@ -207,6 +212,8 @@ export function DoctorAiPanel({
       {/* ── Messages area ──────────────────────────────────────────── */}
       <ScrollArea className="relative z-10 flex-1 min-h-0">
         <div className="p-4 space-y-5">
+          {/* Pre-visit brief card — auto-loads when a patient is selected */}
+          <PreVisitBriefCard brief={visitBrief ?? ""} loading={briefLoading ?? false} />
 
           {/* Empty state */}
           {isEmpty && (

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -308,12 +308,14 @@ class VisitResponse(BaseModel):
     queue_position: Optional[int] = None
     clinical_notes: Optional[str] = None
     assigned_doctor: Optional[str] = None
+    urgency_level: Optional[str] = None
     created_at: str
     updated_at: str
 
 class VisitListResponse(VisitResponse):
-    """Visit response for list view — includes patient_name."""
+    """Visit response for list view — includes patient_name, urgency, and wait time."""
     patient_name: str = "Unknown"
+    wait_minutes: int = 0
 
 class VisitDetailResponse(VisitResponse):
     """Extended visit response with patient info and intake notes."""
@@ -339,3 +341,45 @@ class DepartmentResponse(BaseModel):
 class DepartmentUpdate(BaseModel):
     capacity: int | None = None
     is_open: bool | None = None
+
+
+# --- Order schemas ---
+
+class OrderCreate(BaseModel):
+    order_type: Literal["lab", "imaging"]
+    order_name: str
+    notes: Optional[str] = None
+    ordered_by: Optional[str] = None
+
+class OrderResponse(BaseModel):
+    id: int
+    visit_id: int
+    patient_id: int
+    order_type: str
+    order_name: str
+    status: str
+    notes: Optional[str] = None
+    ordered_by: Optional[str] = None
+    created_at: str
+
+
+class HandoffResponse(BaseModel):
+    document: str
+    patient_count: int
+    department: Optional[str] = None
+
+
+# --- DDx schemas ---
+
+class DiagnosisItem(BaseModel):
+    name: str
+    icd10: str
+    likelihood: str  # "High" | "Medium" | "Low"
+    evidence: str
+    red_flags: List[str] = []
+
+class DDxResponse(BaseModel):
+    visit_id: int
+    chief_complaint: Optional[str] = None
+    diagnoses: List[DiagnosisItem] = []
+    error: Optional[str] = None

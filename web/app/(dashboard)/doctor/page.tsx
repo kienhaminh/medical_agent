@@ -8,6 +8,10 @@ import { ActivePatientsQueue } from "@/components/doctor/active-patients-queue";
 import { ClinicalNotesEditor } from "@/components/doctor/clinical-notes-editor";
 import { QuickActionsBar } from "@/components/doctor/quick-actions-bar";
 import { DoctorAiPanel } from "@/components/doctor/doctor-ai-panel";
+import { DdxPanel } from "@/components/doctor/ddx-panel";
+import { SpecialistConsultPanel } from "@/components/doctor/specialist-consult-panel";
+import { OrdersPanel } from "@/components/doctor/orders-panel";
+import { ShiftHandoffModal } from "@/components/doctor/shift-handoff-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, User } from "lucide-react";
@@ -76,6 +80,13 @@ export default function DoctorPage() {
               >
                 Clinical Notes
               </TabsTrigger>
+              <TabsTrigger
+                value="orders"
+                className="data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-500"
+                disabled={!workspace.selectedVisit}
+              >
+                Orders
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -89,8 +100,8 @@ export default function DoctorPage() {
               />
             </TabsContent>
 
-            <TabsContent value="patient" className="h-full m-0">
-              <div className="h-full flex flex-col items-center justify-center gap-6 p-6">
+            <TabsContent value="patient" className="h-full m-0 overflow-y-auto">
+              <div className="p-6 space-y-4">
                 {workspace.selectedPatient ? (
                   <>
                     <div className="flex flex-col items-center gap-2 text-center">
@@ -103,13 +114,13 @@ export default function DoctorPage() {
                       <p className="text-sm text-muted-foreground">
                         DOB: {workspace.selectedPatient.dob} &middot; {workspace.selectedPatient.gender} &middot; ID: {workspace.selectedPatient.id}
                       </p>
+                      <Button asChild>
+                        <Link href={`/patient/${workspace.selectedPatient.id}`} target="_blank">
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          View Full Record
+                        </Link>
+                      </Button>
                     </div>
-                    <Button asChild>
-                      <Link href={`/patient/${workspace.selectedPatient.id}`} target="_blank">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        View Full Record
-                      </Link>
-                    </Button>
                     {workspace.selectedVisit && (
                       <QuickActionsBar
                         onDischarge={workspace.handleDischarge}
@@ -117,12 +128,25 @@ export default function DoctorPage() {
                         onSaveNotes={() => {}}
                         departments={departments}
                         disabled={!workspace.selectedVisit}
+                        onEndShift={workspace.openShiftHandoff}
                       />
                     )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Select a patient from the queue</p>
+                  <p className="text-sm text-muted-foreground text-center">Select a patient from the queue</p>
                 )}
+                <DdxPanel
+                  diagnoses={workspace.ddxDiagnoses}
+                  loading={workspace.ddxLoading}
+                  onGenerate={workspace.generateDdx}
+                  disabled={!workspace.selectedVisit}
+                  chiefComplaint={workspace.selectedVisit?.chief_complaint ?? undefined}
+                />
+                <SpecialistConsultPanel
+                  specialists={workspace.specialists}
+                  onConsult={workspace.consultSpecialist}
+                  disabled={!workspace.selectedPatient}
+                />
               </div>
             </TabsContent>
 
@@ -134,6 +158,19 @@ export default function DoctorPage() {
                   saving={workspace.notesSaving}
                   saved={workspace.notesSaved}
                   disabled={!workspace.selectedVisit}
+                  onDraftWithAI={workspace.draftSoapNote}
+                  drafting={workspace.draftingNote}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="orders" className="h-full m-0 overflow-y-auto">
+              <div className="p-6">
+                <OrdersPanel
+                  orders={workspace.orders}
+                  loading={workspace.ordersLoading}
+                  onCreateOrder={workspace.handleCreateOrder}
+                  disabled={!workspace.selectedPatient}
                 />
               </div>
             </TabsContent>
@@ -152,10 +189,21 @@ export default function DoctorPage() {
         handleSendMessage={workspace.handleChatSubmit}
         messagesEndRef={workspace.messagesEndRef}
         patientName={workspace.selectedPatient?.name}
+        visitBrief={workspace.visitBrief}
+        briefLoading={workspace.briefLoading}
         width={workspace.aiWidth}
         setWidth={workspace.setAiWidth}
         isResizing={workspace.isResizing}
         setIsResizing={workspace.setIsResizing}
+      />
+
+      {/* Shift Handoff Modal */}
+      <ShiftHandoffModal
+        open={workspace.handoffOpen}
+        onClose={() => workspace.setHandoffOpen(false)}
+        content={workspace.handoffDoc}
+        patientCount={workspace.handoffCount}
+        loading={workspace.handoffLoading}
       />
     </div>
   );

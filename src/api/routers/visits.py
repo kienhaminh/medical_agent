@@ -1,6 +1,7 @@
 """Visit API routes — create, list, detail, and routing approval."""
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -8,7 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import get_db, Visit, Patient, ChatSession, SubAgent
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse
+from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
+from src.tools.builtin.shift_handoff_tool import generate_shift_handoff as _handoff_fn
 from src.models.department import Department
 
 logger = logging.getLogger(__name__)
@@ -29,6 +32,7 @@ def _visit_to_response(v: Visit) -> VisitResponse:
         queue_position=v.queue_position,
         clinical_notes=v.clinical_notes,
         assigned_doctor=v.assigned_doctor,
+        urgency_level=v.urgency_level,
         created_at=v.created_at.isoformat(),
         updated_at=v.updated_at.isoformat(),
     )
@@ -113,13 +117,73 @@ async def list_visits(
     query = query.limit(limit).offset(offset)
     result = await db.execute(query)
     rows = result.all()
-    return [
-        VisitListResponse(
+    now = datetime.now(timezone.utc)
+    result_list = []
+    for visit, patient_name in rows:
+        created = visit.created_at.replace(tzinfo=timezone.utc) if visit.created_at.tzinfo is None else visit.created_at
+        wait_minutes = int((now - created).total_seconds() / 60)
+        result_list.append(VisitListResponse(
             **_visit_to_response(visit).model_dump(),
             patient_name=patient_name,
-        )
-        for visit, patient_name in rows
-    ]
+            wait_minutes=wait_minutes,
+        ))
+    return result_list
+
+
+@router.get("/api/visits/handoff", response_model=HandoffResponse)
+async def get_shift_handoff(
+    department: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a shift handoff document for all active in-department patients."""
+    # Count active patients for the response metadata
+    count_query = select(func.count(Visit.id)).where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+    if department:
+        count_query = count_query.where(Visit.current_department == department)
+    count = (await db.execute(count_query)).scalar() or 0
+
+    document = _handoff_fn(department=department)
+    return HandoffResponse(document=document, patient_count=count, department=department)
+
+
+@router.get("/api/visits/{visit_id}/brief")
+async def get_visit_brief(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Return a pre-visit patient brief assembled from DB data."""
+    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief as _pre_visit_brief_fn
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+    brief_text = _pre_visit_brief_fn(patient_id=visit.patient_id, visit_id=visit.id)
+    return {"brief": brief_text}
+
+
+@router.post("/api/visits/{visit_id}/ddx", response_model=DDxResponse)
+async def get_differential_diagnosis(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Generate differential diagnoses for a visit based on chief complaint."""
+    import json as _json
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+
+    patient_result = await db.execute(select(Patient).where(Patient.id == visit.patient_id))
+    patient = patient_result.scalar_one_or_none()
+
+    context = f"{patient.dob}, {patient.gender}" if patient else None
+    raw = _ddx_fn(
+        patient_id=visit.patient_id,
+        chief_complaint=visit.chief_complaint or "Not specified",
+        context=context,
+    )
+    data = _json.loads(raw)
+    diagnoses = [DiagnosisItem(**d) for d in data.get("diagnoses", [])]
+    return DDxResponse(
+        visit_id=visit_id,
+        chief_complaint=visit.chief_complaint,
+        diagnoses=diagnoses,
+        error=data.get("error"),
+    )
 
 
 @router.get("/api/visits/{visit_id}", response_model=VisitDetailResponse)

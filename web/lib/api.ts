@@ -506,6 +506,7 @@ export interface SendMessageRequest {
   patient_id?: number | null;
   record_id?: number | null;
   session_id?: number | null;
+  agent_role?: string;
 }
 
 /**
@@ -769,6 +770,8 @@ export interface VisitDetail extends Visit {
 
 export interface VisitListItem extends Visit {
   patient_name: string;
+  urgency_level?: "routine" | "urgent" | "critical" | null;
+  wait_minutes?: number;
 }
 
 // --- Visit API functions ---
@@ -834,6 +837,12 @@ export async function listActiveVisits(): Promise<VisitListItem[]> {
     `${API_BASE_URL}/visits?exclude_status=completed`
   );
   if (!response.ok) throw new Error("Failed to fetch active visits");
+  return response.json();
+}
+
+export async function getVisitBrief(visitId: number): Promise<{ brief: string }> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/brief`);
+  if (!response.ok) throw new Error("Failed to fetch visit brief");
   return response.json();
 }
 
@@ -950,6 +959,83 @@ export async function saveClinicalNotes(
   return response.json();
 }
 
+// --- Differential Diagnosis API ---
+
+export interface DiagnosisItem {
+  name: string;
+  icd10: string;
+  likelihood: "High" | "Medium" | "Low";
+  evidence: string;
+  red_flags: string[];
+}
+
+export interface DDxResponse {
+  visit_id: number;
+  chief_complaint?: string;
+  diagnoses: DiagnosisItem[];
+  error?: string;
+}
+
+export async function getDifferentialDiagnosis(visitId: number): Promise<DDxResponse> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/ddx`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error("Failed to generate differential diagnosis");
+  return response.json();
+}
+
+// --- Orders API ---
+
+export interface Order {
+  id: number;
+  visit_id: number;
+  patient_id: number;
+  order_type: "lab" | "imaging";
+  order_name: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  notes?: string;
+  ordered_by?: string;
+  created_at: string;
+}
+
+export async function listOrders(visitId: number): Promise<Order[]> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/orders`);
+  if (!response.ok) throw new Error("Failed to fetch orders");
+  return response.json();
+}
+
+export async function createOrder(visitId: number, data: {
+  order_type: "lab" | "imaging";
+  order_name: string;
+  notes?: string;
+  ordered_by?: string;
+}): Promise<Order> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to create order");
+  return response.json();
+}
+
+// --- Shift Handoff API ---
+
+export interface HandoffResponse {
+  document: string;
+  patient_count: number;
+  department?: string;
+}
+
+export async function getShiftHandoff(department?: string): Promise<HandoffResponse> {
+  const url = department
+    ? `${API_BASE_URL}/visits/handoff?department=${encodeURIComponent(department)}`
+    : `${API_BASE_URL}/visits/handoff`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Failed to generate shift handoff");
+  return response.json();
+}
+
 // --- Officer Portal API ---
 
 export interface ExtendedHospitalStats extends HospitalStats {
@@ -965,5 +1051,24 @@ export async function getExtendedStats(): Promise<ExtendedHospitalStats> {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to fetch extended stats");
   }
+  return response.json();
+}
+
+// --- Specialist Consult ---
+
+/** Lightweight agent info used by the specialist consult panel. */
+export interface AgentInfo {
+  id: number;
+  name: string;
+  role: string;
+  color: string;
+  icon: string;
+  description?: string;
+}
+
+/** Fetch all agents and return them as AgentInfo records. */
+export async function listAgents(): Promise<AgentInfo[]> {
+  const response = await fetch(`${API_BASE_URL}/agents`);
+  if (!response.ok) throw new Error("Failed to fetch agents");
   return response.json();
 }

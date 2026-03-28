@@ -10,14 +10,24 @@ import {
   transferVisit,
   sendChatMessage,
   streamMessageUpdates,
+  getVisitBrief,
+  getDifferentialDiagnosis,
+  listAgents,
+  listOrders,
+  createOrder,
+  getShiftHandoff,
   type VisitListItem,
   type PatientDetail,
   type Patient,
   type StreamEvent,
+  type DiagnosisItem,
+  type AgentInfo,
+  type Order,
 } from "@/lib/api";
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 export interface Message {
   id: string;
@@ -31,11 +41,13 @@ export interface Message {
   patientReferences?: PatientReference[];
 }
 
-export type DoctorTab = "queue" | "patient" | "notes";
+export type DoctorTab = "queue" | "patient" | "notes" | "orders";
 
 const POLL_INTERVAL = 30_000;
 
 export function useDoctorWorkspace() {
+  const { user } = useAuth();
+
   // Tab state
   const [activeTab, setActiveTab] = useState<DoctorTab>("queue");
 
@@ -47,6 +59,10 @@ export function useDoctorWorkspace() {
   const [selectedVisit, setSelectedVisit] = useState<VisitListItem | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<PatientDetail | null>(null);
   const [patientLoading, setPatientLoading] = useState(false);
+
+  // Pre-visit brief state
+  const [visitBrief, setVisitBrief] = useState<string>("");
+  const [briefLoading, setBriefLoading] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,6 +85,26 @@ export function useDoctorWorkspace() {
   const chatSessionIdRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cancelStreamRef = useRef<(() => void) | null>(null);
+
+  // Differential diagnosis state
+  const [ddxDiagnoses, setDdxDiagnoses] = useState<DiagnosisItem[]>([]);
+  const [ddxLoading, setDdxLoading] = useState(false);
+
+  // Specialist agents — filtered to roles ending in "_consultant"
+  const [specialists, setSpecialists] = useState<AgentInfo[]>([]);
+
+  // Orders state
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  // SOAP draft state
+  const [draftingNote, setDraftingNote] = useState(false);
+
+  // Shift handoff state
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoffDoc, setHandoffDoc] = useState("");
+  const [handoffCount, setHandoffCount] = useState(0);
+  const [handoffLoading, setHandoffLoading] = useState(false);
 
   // AI panel state
   const [aiWidth, setAiWidth] = useState(420);
@@ -94,15 +130,27 @@ export function useDoctorWorkspace() {
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
+  // Load specialist agents once on mount
+  useEffect(() => {
+    listAgents()
+      .then((agents) =>
+        setSpecialists(agents.filter((a) => a.role.endsWith("_consultant")))
+      )
+      .catch(() => {});
+  }, []);
+
   // Load patient when visit selected
   const selectVisit = useCallback(async (visit: VisitListItem) => {
     setSelectedVisit(visit);
     setActiveTab("patient");
     setPatientLoading(true);
-    // Reset chat for new patient
+    // Reset chat, brief, and DDx for new patient
     setChatMessages([]);
     setChatSessionId(null);
     chatSessionIdRef.current = null;
+    setVisitBrief("");
+    setDdxDiagnoses([]);
+    setDdxLoading(false);
     try {
       const patient = await getPatient(visit.patient_id);
       setSelectedPatient(patient);
@@ -113,6 +161,19 @@ export function useDoctorWorkspace() {
     } finally {
       setPatientLoading(false);
     }
+    // Fetch pre-visit brief asynchronously after patient load
+    setBriefLoading(true);
+    getVisitBrief(visit.id)
+      .then((data) => setVisitBrief(data.brief))
+      .catch(() => setVisitBrief(""))
+      .finally(() => setBriefLoading(false));
+    // Fetch orders for this visit
+    setOrders([]);
+    setOrdersLoading(true);
+    listOrders(visit.id)
+      .then(setOrders)
+      .catch(() => {})
+      .finally(() => setOrdersLoading(false));
   }, []);
 
   // Patient search
@@ -313,6 +374,165 @@ export function useDoctorWorkspace() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // Generate differential diagnoses for the selected visit via the DDx endpoint
+  const generateDdx = async () => {
+    if (!selectedVisit) return;
+    setDdxLoading(true);
+    setDdxDiagnoses([]);
+    try {
+      const result = await getDifferentialDiagnosis(selectedVisit.id);
+      setDdxDiagnoses(result.diagnoses);
+    } catch (e) {
+      console.error("DDx failed:", e);
+      toast.error("Failed to generate differential diagnosis");
+    } finally {
+      setDdxLoading(false);
+    }
+  };
+
+  // One-click SOAP draft — sends a standardized prompt to the Doctor AI
+  const draftSoapNote = useCallback(async () => {
+    if (!selectedPatient || !selectedVisit) return;
+    setDraftingNote(true);
+
+    const prompt = `Generate a SOAP clinical note for patient ${selectedPatient.name} (ID: ${selectedPatient.id}), visit ${selectedVisit.visit_id}. Chief complaint: ${selectedVisit.chief_complaint || "not recorded"}. Review the patient's medical records and current visit context. Format as:\n\n**S (Subjective):** ...\n**O (Objective):** ...\n**A (Assessment):** ...\n**P (Plan):** ...`;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: MessageRole.USER,
+      content: prompt,
+      timestamp: new Date(),
+    };
+
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatLoading(true);
+    setCurrentActivity("thinking");
+    setActivityDetails("Submitting your request...");
+
+    try {
+      const response = await sendChatMessage({
+        message: prompt,
+        patient_id: selectedPatient.id,
+        session_id: chatSessionIdRef.current,
+      });
+
+      if (!chatSessionIdRef.current && response.session_id) {
+        chatSessionIdRef.current = response.session_id;
+        setChatSessionId(response.session_id);
+      }
+
+      const assistantMessage: Message = {
+        id: response.message_id.toString(),
+        role: MessageRole.ASSISTANT,
+        content: "",
+        timestamp: new Date(),
+        status: response.status,
+        toolCalls: [],
+        reasoning: "",
+        logs: [],
+      };
+
+      setChatMessages((prev) => [...prev, assistantMessage]);
+
+      const cancelStream = streamMessageUpdates(
+        response.message_id,
+        (event: StreamEvent) =>
+          handleStreamEvent(event, response.message_id.toString()),
+        () => clearChatLoadingState()
+      );
+      cancelStreamRef.current = cancelStream;
+    } catch {
+      toast.error("Failed to draft SOAP note");
+      clearChatLoadingState();
+    } finally {
+      setDraftingNote(false);
+    }
+  }, [selectedPatient, selectedVisit]);
+
+  /**
+   * Send a one-shot question to a specialist agent and stream the full reply.
+   * The specialist's name is embedded in the message so the Doctor AI routes
+   * the request to the correct sub-agent on the backend.
+   */
+  const consultSpecialist = async (
+    specialist: AgentInfo,
+    question: string
+  ): Promise<string> => {
+    // Build message with specialist context and optional patient context
+    const messageText = selectedPatient
+      ? `[Consult request for ${specialist.name}] ${question}\n\nPatient context: ${selectedPatient.name} (ID: ${selectedPatient.id})`
+      : `[Consult request for ${specialist.name}] ${question}`;
+
+    const chatResp = await sendChatMessage({
+      message: messageText,
+      patient_id: selectedPatient?.id,
+      session_id: undefined,
+      agent_role: specialist.role,
+    });
+
+    // Stream the response and accumulate the full text
+    return new Promise<string>((resolve, reject) => {
+      let fullContent = "";
+      const cleanup = streamMessageUpdates(
+        chatResp.message_id,
+        (event) => {
+          if (event.type === "chunk" || event.type === "content") {
+            fullContent += event.content;
+          } else if (event.type === "status" && event.content !== undefined) {
+            // Final status update may carry the complete content; preserve accumulated content if status event is empty
+            fullContent = event.content || fullContent;
+          } else if (event.type === "done") {
+            cleanup();
+            resolve(fullContent || "(No response)");
+          } else if (event.type === "error") {
+            cleanup();
+            reject(new Error(event.message));
+          }
+        },
+        (err) => {
+          cleanup();
+          reject(err);
+        }
+      );
+    });
+  };
+
+  // Place a new lab or imaging order for the selected visit
+  const handleCreateOrder = async (
+    type: "lab" | "imaging",
+    name: string,
+    notes?: string
+  ) => {
+    if (!selectedVisit) return;
+    try {
+      const order = await createOrder(selectedVisit.id, {
+        order_type: type,
+        order_name: name,
+        notes,
+        ordered_by: user?.name ?? user?.username ?? "Unknown",
+      });
+      setOrders((prev) => [order, ...prev]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create order");
+    }
+  };
+
+  // Open shift handoff modal and fetch the AI-generated handoff document
+  const openShiftHandoff = async () => {
+    setHandoffOpen(true);
+    setHandoffLoading(true);
+    setHandoffDoc("");
+    try {
+      const data = await getShiftHandoff();
+      setHandoffDoc(data.document);
+      setHandoffCount(data.patient_count);
+    } catch {
+      setHandoffDoc("Failed to generate handoff. Please try again.");
+    } finally {
+      setHandoffLoading(false);
+    }
+  };
+
   return {
     // Tab
     activeTab,
@@ -326,6 +546,9 @@ export function useDoctorWorkspace() {
     selectedPatient,
     patientLoading,
     selectVisit,
+    // Pre-visit brief
+    visitBrief,
+    briefLoading,
     // Search
     searchQuery,
     searchResults,
@@ -349,10 +572,31 @@ export function useDoctorWorkspace() {
     chatSessionId,
     messagesEndRef,
     handleChatSubmit,
+    // DDx
+    ddxDiagnoses,
+    ddxLoading,
+    generateDdx,
+    // SOAP draft
+    draftSoapNote,
+    draftingNote,
+    // Specialist consult
+    specialists,
+    consultSpecialist,
+    // Orders
+    orders,
+    ordersLoading,
+    handleCreateOrder,
     // AI Panel
     aiWidth,
     setAiWidth,
     isResizing,
     setIsResizing,
+    // Shift handoff
+    handoffOpen,
+    setHandoffOpen,
+    handoffDoc,
+    handoffCount,
+    handoffLoading,
+    openShiftHandoff,
   };
 }

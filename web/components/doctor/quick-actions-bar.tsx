@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, ArrowRightLeft, FileCheck } from "lucide-react";
+import { LogOut, ArrowRightLeft, FileCheck, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -29,6 +29,7 @@ interface QuickActionsBarProps {
   onSaveNotes: () => void;
   departments: DepartmentInfo[];
   disabled?: boolean;
+  onEndShift?: () => void;
 }
 
 export function QuickActionsBar({
@@ -37,6 +38,7 @@ export function QuickActionsBar({
   onSaveNotes,
   departments,
   disabled = false,
+  onEndShift,
 }: QuickActionsBarProps) {
   const [transferTarget, setTransferTarget] = useState<string>("");
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
@@ -145,6 +147,17 @@ export function QuickActionsBar({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* End Shift */}
+        {onEndShift && (
+          <button
+            onClick={onEndShift}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            End Shift
+          </button>
+        )}
       </div>
     </div>
   );

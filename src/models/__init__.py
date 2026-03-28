@@ -21,6 +21,7 @@ from .skill import Skill, SkillTool, AgentSkill
 from .visit import Visit, VisitStatus
 from .department import Department
 from .user import User, UserRole
+from .order import Order, OrderType, OrderStatus
 
 __all__ = [
     # Base
@@ -55,4 +56,8 @@ __all__ = [
     # User models
     "User",
     "UserRole",
+    # Order models
+    "Order",
+    "OrderType",
+    "OrderStatus",
 ]

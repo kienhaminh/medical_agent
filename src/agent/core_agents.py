@@ -91,8 +91,11 @@ Guidelines:
 3. 'query_patient_imaging' - Get medical imaging records (requires patient ID)
 4. 'save_clinical_note' - Save clinical notes for a patient visit
 5. 'update_visit_status' - Update the status of a patient visit (e.g., discharge)
+6. 'pre_visit_brief' - Generate a structured pre-visit patient brief (demographics + recent records)
+7. 'generate_differential_diagnosis' - Generate differential diagnoses from symptoms and clinical context
+8. 'create_order' - Place a lab or imaging order for a patient visit
 
-**Workflow:** Use query_patient_basic_info first, then retrieve specific records as needed. Save notes with save_clinical_note when the doctor requests it."""
+**Workflow:** Use query_patient_basic_info first, then retrieve specific records as needed. Use pre_visit_brief at the start of a consultation for a rapid patient overview. Save notes with save_clinical_note when the doctor requests it. Use create_order to place lab or imaging orders."""
 
 DOCTOR_AGENT_SYSTEM_PROMPT = DOCTOR_AGENT_BASE_PROMPT + "\n" + (get_output_instructions_for_agent("doctor_assistant") or "")
 
@@ -104,7 +107,59 @@ DOCTOR_AGENT = {
     "color": "#10b981",
     "icon": "Stethoscope",
     "is_template": False,
-    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging", "save_clinical_note", "update_visit_status"]
+    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging", "save_clinical_note", "update_visit_status", "pre_visit_brief", "generate_differential_diagnosis", "create_order"]
 }
 
-CORE_AGENTS = [INTERNIST_AGENT, DOCTOR_AGENT]
+
+def _make_specialist_agent(specialty: str, focus: str, color: str, icon: str) -> dict:
+    """Factory for specialist consultant agent definitions."""
+    prompt = f"""You are an expert {specialty} AI assistant providing specialist consultation to attending physicians.
+
+**Your Role:** Provide targeted {specialty.lower()} insights for patient consultations. Be concise and clinically precise.
+
+Your focus areas:
+{focus}
+
+Guidelines:
+- Lead with the most clinically significant {specialty.lower()} findings
+- Use standard medical terminology
+- Suggest specialty-specific workup and management
+- Highlight red flags that require urgent {specialty.lower()} intervention
+- Reference evidence-based guidelines when relevant
+- Format differentials clearly with likelihood
+- **Wait for tool results before responding**"""
+
+    return {
+        "name": f"{specialty} Consultant",
+        "role": f"{specialty.lower()}_consultant",
+        "description": f"Specialist {specialty} consultation — provides domain-expert clinical insights for patient encounters.",
+        "system_prompt": prompt,
+        "color": color,
+        "icon": icon,
+        "is_template": False,
+        "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging"],
+    }
+
+
+CARDIOLOGIST_AGENT = _make_specialist_agent(
+    specialty="Cardiology",
+    focus="- Chest pain evaluation and ACS risk stratification\n- Heart failure assessment\n- Arrhythmia management\n- Hypertension and dyslipidemia\n- Cardiac imaging interpretation",
+    color="#ef4444",
+    icon="Heart",
+)
+
+NEUROLOGIST_AGENT = _make_specialist_agent(
+    specialty="Neurology",
+    focus="- Headache and migraine evaluation\n- Stroke risk assessment\n- Seizure management\n- Peripheral neuropathy\n- Cognitive decline assessment",
+    color="#8b5cf6",
+    icon="Brain",
+)
+
+PULMONOLOGIST_AGENT = _make_specialist_agent(
+    specialty="Pulmonology",
+    focus="- Dyspnea and cough evaluation\n- COPD and asthma management\n- Pneumonia assessment\n- Pulmonary embolism risk\n- Sleep-disordered breathing",
+    color="#06b6d4",
+    icon="Wind",
+)
+
+CORE_AGENTS = [INTERNIST_AGENT, DOCTOR_AGENT, CARDIOLOGIST_AGENT, NEUROLOGIST_AGENT, PULMONOLOGIST_AGENT]
