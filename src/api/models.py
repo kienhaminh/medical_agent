@@ -343,6 +343,26 @@ class DepartmentUpdate(BaseModel):
     is_open: bool | None = None
 
 
+# --- Order schemas ---
+
+class OrderCreate(BaseModel):
+    order_type: str  # "lab" | "imaging"
+    order_name: str
+    notes: Optional[str] = None
+    ordered_by: Optional[str] = None
+
+class OrderResponse(BaseModel):
+    id: int
+    visit_id: int
+    patient_id: int
+    order_type: str
+    order_name: str
+    status: str
+    notes: Optional[str] = None
+    ordered_by: Optional[str] = None
+    created_at: str
+
+
 # --- DDx schemas ---
 
 class DiagnosisItem(BaseModel):
