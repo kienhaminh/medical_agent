@@ -363,6 +363,12 @@ class OrderResponse(BaseModel):
     created_at: str
 
 
+class HandoffResponse(BaseModel):
+    document: str
+    patient_count: int
+    department: Optional[str] = None
+
+
 # --- DDx schemas ---
 
 class DiagnosisItem(BaseModel):

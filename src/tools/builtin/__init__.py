@@ -24,6 +24,7 @@ from . import create_visit_tool
 from . import pre_visit_brief_tool
 from . import differential_diagnosis_tool
 from . import create_order_tool
+from . import shift_handoff_tool
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -45,6 +46,7 @@ from .create_visit_tool import create_visit
 from .pre_visit_brief_tool import pre_visit_brief
 from .differential_diagnosis_tool import generate_differential_diagnosis
 from .create_order_tool import create_order
+from .shift_handoff_tool import generate_shift_handoff
 
 __all__ = [
     "get_current_datetime",
@@ -70,4 +72,5 @@ __all__ = [
     "pre_visit_brief",
     "generate_differential_diagnosis",
     "create_order",
+    "generate_shift_handoff",
 ]

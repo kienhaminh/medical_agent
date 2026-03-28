@@ -1,6 +1,7 @@
 """Visit API routes — create, list, detail, and routing approval."""
 import logging
 from datetime import date, datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -8,8 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import get_db, Visit, Patient, ChatSession, SubAgent
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse
 from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
+from src.tools.builtin.shift_handoff_tool import generate_shift_handoff as _handoff_fn
 from src.models.department import Department
 
 logger = logging.getLogger(__name__)
@@ -126,6 +128,22 @@ async def list_visits(
             wait_minutes=wait_minutes,
         ))
     return result_list
+
+
+@router.get("/api/visits/handoff", response_model=HandoffResponse)
+async def get_shift_handoff(
+    department: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a shift handoff document for all active in-department patients."""
+    # Count active patients for the response metadata
+    count_query = select(func.count(Visit.id)).where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+    if department:
+        count_query = count_query.where(Visit.current_department == department)
+    count = (await db.execute(count_query)).scalar() or 0
+
+    document = _handoff_fn(department=department)
+    return HandoffResponse(document=document, patient_count=count, department=department)
 
 
 @router.get("/api/visits/{visit_id}/brief")
