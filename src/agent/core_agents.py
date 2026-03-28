@@ -91,8 +91,9 @@ Guidelines:
 3. 'query_patient_imaging' - Get medical imaging records (requires patient ID)
 4. 'save_clinical_note' - Save clinical notes for a patient visit
 5. 'update_visit_status' - Update the status of a patient visit (e.g., discharge)
+6. 'pre_visit_brief' - Generate a structured pre-visit patient brief (demographics + recent records)
 
-**Workflow:** Use query_patient_basic_info first, then retrieve specific records as needed. Save notes with save_clinical_note when the doctor requests it."""
+**Workflow:** Use query_patient_basic_info first, then retrieve specific records as needed. Use pre_visit_brief at the start of a consultation for a rapid patient overview. Save notes with save_clinical_note when the doctor requests it."""
 
 DOCTOR_AGENT_SYSTEM_PROMPT = DOCTOR_AGENT_BASE_PROMPT + "\n" + (get_output_instructions_for_agent("doctor_assistant") or "")
 
@@ -104,7 +105,7 @@ DOCTOR_AGENT = {
     "color": "#10b981",
     "icon": "Stethoscope",
     "is_template": False,
-    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging", "save_clinical_note", "update_visit_status"]
+    "tools": ["query_patient_basic_info", "query_patient_medical_records", "query_patient_imaging", "save_clinical_note", "update_visit_status", "pre_visit_brief"]
 }
 
 CORE_AGENTS = [INTERNIST_AGENT, DOCTOR_AGENT]
