@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -346,7 +346,7 @@ class DepartmentUpdate(BaseModel):
 # --- Order schemas ---
 
 class OrderCreate(BaseModel):
-    order_type: str  # "lab" | "imaging"
+    order_type: Literal["lab", "imaging"]
     order_name: str
     notes: Optional[str] = None
     ordered_by: Optional[str] = None
