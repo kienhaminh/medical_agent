@@ -24,22 +24,18 @@ export function DdxPanel({ diagnoses, loading, onGenerate, disabled, chiefCompla
   const [expanded, setExpanded] = useState<number | null>(null);
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      {/* Panel header with title, complaint context, and generate button */}
-      <div className="flex items-center justify-between p-3 bg-muted/30 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-violet-600" />
-          <span className="text-sm font-medium">Differential Diagnosis</span>
-          {chiefComplaint && (
-            <span className="text-xs text-muted-foreground truncate max-w-[160px]">
-              · {chiefComplaint}
-            </span>
-          )}
-        </div>
+    <div className="overflow-hidden">
+      {/* Generate button */}
+      <div className="flex items-center justify-between p-3 border-b border-border/50">
+        {chiefComplaint && (
+          <span className="text-xs text-muted-foreground truncate">
+            {chiefComplaint}
+          </span>
+        )}
         <button
           onClick={onGenerate}
           disabled={disabled || loading}
-          className="text-xs px-2.5 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+          className="text-xs px-2.5 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors ml-auto"
         >
           {loading ? "Generating..." : diagnoses.length ? "Refresh" : "Generate"}
         </button>

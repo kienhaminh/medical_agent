@@ -65,7 +65,18 @@ def complete_triage(
 
         if confidence >= AUTO_ROUTE_THRESHOLD:
             visit.routing_decision = normalized
-            visit.status = VisitStatus.AUTO_ROUTED.value
+            visit.status = VisitStatus.IN_DEPARTMENT.value
+            # Auto-assign department and queue position
+            target_dept = normalized[0] if normalized else None
+            if target_dept:
+                visit.current_department = target_dept
+                from sqlalchemy import func
+                max_pos = db.execute(
+                    select(func.max(Visit.queue_position))
+                    .where(Visit.current_department == target_dept)
+                    .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
+                ).scalar() or 0
+                visit.queue_position = max_pos + 1
             route_msg = f"Auto-routed to: {', '.join(routing_suggestion)} (confidence: {confidence:.2f})"
         else:
             visit.status = VisitStatus.PENDING_REVIEW.value
@@ -82,7 +93,7 @@ def complete_triage(
 _registry = ToolRegistry()
 _registry.register(
     complete_triage,
-    scope="assignable",
+    scope="global",
     symbol="complete_triage",
     allow_overwrite=True,
 )

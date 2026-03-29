@@ -13,6 +13,8 @@ from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailR
 from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
 from src.tools.builtin.shift_handoff_tool import generate_shift_handoff as _handoff_fn
 from src.models.department import Department
+from src.api.ws.event_bus import event_bus
+from src.api.ws.events import WSEventType
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +230,16 @@ async def route_visit(visit_id: int, route_data: VisitRouteUpdate, db: AsyncSess
     visit.status = VisitStatus.ROUTED.value
     await db.commit()
     await db.refresh(visit)
+
+    target_dept = route_data.routing_decision[0] if route_data.routing_decision else None
+    if target_dept:
+        await event_bus.emit_to_room(target_dept, WSEventType.VISIT_ROUTED, {
+            "visit_id": visit.visit_id,
+            "routing_decision": visit.routing_decision,
+            "reviewed_by": visit.reviewed_by,
+            "status": visit.status,
+        })
+
     return _visit_to_response(visit)
 
 
@@ -265,6 +277,16 @@ async def check_in_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
     visit.queue_position = max_pos + 1
     await db.commit()
     await db.refresh(visit)
+
+    if visit.current_department:
+        await event_bus.emit_to_room(visit.current_department, WSEventType.VISIT_CHECKED_IN, {
+            "visit_id": visit.visit_id,
+            "patient_id": visit.patient_id,
+            "current_department": visit.current_department,
+            "queue_position": visit.queue_position,
+            "status": visit.status,
+        })
+
     return _visit_to_response(visit)
 
 
@@ -287,11 +309,23 @@ async def complete_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
         )
         for v in source_visits_result.scalars().all():
             v.queue_position -= 1
+    completed_dept = visit.current_department
     visit.status = VisitStatus.COMPLETED.value
     visit.current_department = None
     visit.queue_position = None
     await db.commit()
     await db.refresh(visit)
+
+    if completed_dept:
+        await event_bus.emit_to_room(completed_dept, WSEventType.VISIT_COMPLETED, {
+            "visit_id": visit.visit_id,
+            "patient_id": visit.patient_id,
+            "status": visit.status,
+        })
+        await event_bus.emit_to_room(completed_dept, WSEventType.QUEUE_UPDATED, {
+            "department": completed_dept,
+        })
+
     return _visit_to_response(visit)
 
 
@@ -338,6 +372,26 @@ async def transfer_visit(visit_id: int, transfer: VisitTransferRequest, db: Asyn
     visit.queue_position = max_pos + 1
     await db.commit()
     await db.refresh(visit)
+
+    # Notify both source and target departments
+    await event_bus.emit_to_room(source_dept, WSEventType.VISIT_TRANSFERRED, {
+        "visit_id": visit.visit_id,
+        "patient_id": visit.patient_id,
+        "old_department": source_dept,
+        "new_department": transfer.target_department,
+        "status": visit.status,
+    })
+    await event_bus.emit_to_room(transfer.target_department, WSEventType.VISIT_TRANSFERRED, {
+        "visit_id": visit.visit_id,
+        "patient_id": visit.patient_id,
+        "old_department": source_dept,
+        "new_department": transfer.target_department,
+        "status": visit.status,
+    })
+    # Queue position updates for both departments
+    await event_bus.emit_to_room(source_dept, WSEventType.QUEUE_UPDATED, {"department": source_dept})
+    await event_bus.emit_to_room(transfer.target_department, WSEventType.QUEUE_UPDATED, {"department": transfer.target_department})
+
     return _visit_to_response(visit)
 
 
@@ -353,4 +407,16 @@ async def update_clinical_notes(visit_id: int, data: ClinicalNotesUpdate, db: As
         visit.assigned_doctor = data.assigned_doctor
     await db.commit()
     await db.refresh(visit)
+
+    # Notify assigned doctor if set
+    if visit.assigned_doctor:
+        await event_bus.emit_to_room(
+            visit.current_department or "",
+            WSEventType.VISIT_NOTES_UPDATED,
+            {
+                "visit_id": visit.visit_id,
+                "assigned_doctor": visit.assigned_doctor,
+            },
+        )
+
     return _visit_to_response(visit)

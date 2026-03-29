@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, RotateCcw } from "lucide-react";
+import { Loader2, Send, RotateCcw, CheckCircle2, MapPin, Clock } from "lucide-react";
 import { AnswerContent } from "@/components/agent/answer-content";
 import { useIntakeChat } from "./use-intake-chat";
 
@@ -15,6 +15,23 @@ const SUGGESTIONS = [
   "This is my first time here",
 ];
 
+const DEPT_LABELS: Record<string, string> = {
+  emergency: "Emergency Department",
+  cardiology: "Cardiology",
+  neurology: "Neurology",
+  orthopedics: "Orthopedics",
+  radiology: "Radiology",
+  internal_medicine: "Internal Medicine",
+  general_checkup: "General Check-up",
+  dermatology: "Dermatology",
+  gastroenterology: "Gastroenterology",
+  pulmonology: "Pulmonology",
+  endocrinology: "Endocrinology",
+  ophthalmology: "Ophthalmology",
+  ent: "ENT",
+  urology: "Urology",
+};
+
 export default function PatientIntakePage() {
   const {
     messages,
@@ -24,6 +41,7 @@ export default function PatientIntakePage() {
     messagesEndRef,
     sendMessage,
     handleNewChat,
+    triageStatus,
   } = useIntakeChat();
 
   return (
@@ -105,7 +123,7 @@ export default function PatientIntakePage() {
                   {SUGGESTIONS.map((suggestion) => (
                     <button
                       key={suggestion}
-                      onClick={() => setInput(suggestion)}
+                      onClick={() => sendMessage(undefined, suggestion)}
                       className="text-xs text-left px-3 py-2 rounded-lg border border-border/60 bg-card/40 hover:bg-card/70 hover:border-cyan-500/40 transition-all text-muted-foreground hover:text-foreground"
                     >
                       {suggestion}
@@ -147,6 +165,41 @@ export default function PatientIntakePage() {
                 </div>
               </div>
             ))}
+
+            {/* Triage Status Card */}
+            {triageStatus && !isLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <h3 className="text-sm font-semibold text-emerald-400">Check-in Complete</h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      <span className="text-xs text-muted-foreground">Directed to</span>
+                      <span className="text-sm font-semibold text-foreground">
+                        {DEPT_LABELS[triageStatus.department.toLowerCase()] || triageStatus.department}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      <span className="text-xs text-muted-foreground">
+                        A medical team will see you shortly
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-emerald-500/15">
+                    <p className="text-[11px] text-muted-foreground/50">
+                      Please proceed to the department and wait for your name to be called.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -160,12 +213,12 @@ export default function PatientIntakePage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Tell us why you're visiting today..."
-            disabled={isLoading}
+            disabled={isLoading || !!triageStatus}
             className="bg-card/50"
           />
           <Button
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || !!triageStatus}
             size="icon"
             className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white flex-shrink-0"
           >

@@ -103,7 +103,7 @@ def create_visit(patient_id: int) -> str:
 _registry = ToolRegistry()
 _registry.register(
     create_visit,
-    scope="assignable",
+    scope="global",
     symbol="create_visit",
     allow_overwrite=True,
 )

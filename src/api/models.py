@@ -360,7 +360,25 @@ class OrderResponse(BaseModel):
     status: str
     notes: Optional[str] = None
     ordered_by: Optional[str] = None
+    result_notes: Optional[str] = None
+    fulfilled_by: Optional[str] = None
     created_at: str
+    updated_at: str
+
+
+class OrderListItem(OrderResponse):
+    """OrderResponse extended with patient/visit context for the nurse queue."""
+    patient_name: str
+    visit_ref: str
+
+
+class ClaimOrderRequest(BaseModel):
+    fulfilled_by: str
+
+
+class CompleteOrderRequest(BaseModel):
+    fulfilled_by: str
+    result_notes: Optional[str] = None
 
 
 class HandoffResponse(BaseModel):

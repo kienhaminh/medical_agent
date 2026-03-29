@@ -517,6 +517,26 @@ export function useDoctorWorkspace() {
     }
   };
 
+  // Re-fetch orders for the currently selected visit (used by refresh button + focus listener)
+  const refreshOrders = useCallback(async () => {
+    if (!selectedVisit) return;
+    setOrdersLoading(true);
+    try {
+      const updated = await listOrders(selectedVisit.id);
+      setOrders(updated);
+    } catch {
+      // silently ignore
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [selectedVisit]);
+
+  // Refresh orders when the window regains focus (nurse may have completed orders)
+  useEffect(() => {
+    window.addEventListener("focus", refreshOrders);
+    return () => window.removeEventListener("focus", refreshOrders);
+  }, [refreshOrders]);
+
   // Open shift handoff modal and fetch the AI-generated handoff document
   const openShiftHandoff = async () => {
     setHandoffOpen(true);
@@ -586,6 +606,7 @@ export function useDoctorWorkspace() {
     orders,
     ordersLoading,
     handleCreateOrder,
+    refreshOrders,
     // AI Panel
     aiWidth,
     setAiWidth,

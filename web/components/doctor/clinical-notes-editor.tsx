@@ -58,33 +58,25 @@ export function ClinicalNotesEditor({
   drafting = false,
 }: ClinicalNotesEditorProps) {
   return (
-    <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-cyan-500/5 to-teal-500/5">
-        <div className="flex items-center gap-2">
-          <FileEdit className="w-4 h-4 text-cyan-500" />
-          <h2 className="font-display text-sm font-semibold">
-            Clinical Notes
-          </h2>
-        </div>
-        <div className="flex items-center gap-3">
-          {onDraftWithAI && (
-            <button
-              type="button"
-              onClick={onDraftWithAI}
-              disabled={disabled || drafting}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
-            >
-              <Sparkles className="w-3 h-3" />
-              {drafting ? "Drafting..." : "Draft with AI"}
-            </button>
-          )}
-          <SaveStatusIndicator saving={saving} saved={saved} />
-        </div>
+    <div className="overflow-hidden flex flex-col">
+      {/* Toolbar */}
+      <div className="flex items-center justify-end gap-3 px-3 py-2 border-b border-border/50">
+        {onDraftWithAI && (
+          <button
+            type="button"
+            onClick={onDraftWithAI}
+            disabled={disabled || drafting}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+          >
+            <Sparkles className="w-3 h-3" />
+            {drafting ? "Drafting..." : "Draft with AI"}
+          </button>
+        )}
+        <SaveStatusIndicator saving={saving} saved={saved} />
       </div>
 
       {/* Editor */}
-      <div className="p-4 flex-1">
+      <div className="p-3 flex-1">
         <Textarea
           value={notes}
           onChange={(e) => onChange(e.target.value)}

@@ -58,7 +58,7 @@ def create_patient(name: str, dob: str, gender: str) -> str:
 _registry = ToolRegistry()
 _registry.register(
     create_patient,
-    scope="assignable",
+    scope="global",
     symbol="create_patient",
     allow_overwrite=True,
 )

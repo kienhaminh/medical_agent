@@ -9,6 +9,10 @@ import {
   History,
   BarChart3,
   Monitor,
+  LogOut,
+  Stethoscope,
+  UserRound,
+  BriefcaseMedical,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,9 +32,22 @@ interface NavGroup {
 
 const navigationGroups: NavGroup[] = [
   {
+    label: "Workspace",
+    items: [
+      { name: "Clinical Workstation", href: "/doctor", icon: BriefcaseMedical, roles: ["doctor", "admin"] },
+      { name: "Officer Portal", href: "/officer", icon: UserRound, roles: ["officer", "admin"] },
+    ],
+  },
+  {
     label: "Metrics",
     items: [
-      { name: "Operations", href: "/operations", icon: Monitor },
+      { name: "Operations", href: "/operations", icon: Monitor, roles: ["officer", "admin"] },
+    ],
+  },
+  {
+    label: "Fulfillment",
+    items: [
+      { name: "Orders Queue", href: "/nurse", icon: Stethoscope, roles: ["nurse", "admin"] },
     ],
   },
   {
@@ -47,7 +64,7 @@ const navigationGroups: NavGroup[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const isItemActive = (item: NavItem) => {
     if (item.href === "/agent") {
@@ -80,14 +97,17 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-5">
-        {navigationGroups.map((group) => (
+        {navigationGroups.map((group) => {
+          const visibleItems = group.items.filter((item) => !item.roles || item.roles.includes(user?.role ?? ""));
+          if (visibleItems.length === 0) return null;
+          return (
           <div key={group.label}>
             <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
               {group.label}
             </p>
 
             <div className="space-y-1">
-              {group.items.filter((item) => !item.roles || item.roles.includes(user?.role ?? "")).map((item) => {
+              {visibleItems.map((item) => {
                 const isActive = isItemActive(item);
                 const Icon = item.icon;
 
@@ -109,11 +129,12 @@ export function Sidebar() {
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-border p-4">
+      <div className="border-t border-border p-4 space-y-3">
         <div className="text-xs text-muted-foreground space-y-1">
           <p className="font-medium">System Status</p>
           <div className="flex items-center gap-2">
@@ -123,6 +144,16 @@ export function Sidebar() {
             </span>
           </div>
         </div>
+
+        {user && (
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            <span className="truncate">Sign out</span>
+          </button>
+        )}
       </div>
     </div>
   );

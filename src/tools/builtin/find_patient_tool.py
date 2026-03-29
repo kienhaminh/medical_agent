@@ -51,7 +51,7 @@ def find_patient(name: str, dob: Optional[str] = None) -> str:
 _registry = ToolRegistry()
 _registry.register(
     find_patient,
-    scope="assignable",
+    scope="global",
     symbol="find_patient",
     allow_overwrite=True,
 )

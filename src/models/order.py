@@ -38,6 +38,8 @@ class Order(Base):
     )
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ordered_by: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    result_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fulfilled_by: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.now(), onupdate=func.now()

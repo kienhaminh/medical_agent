@@ -8,22 +8,29 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface TriageStatus {
+  department: string;
+  confidence: number;
+  visitId?: string;
+}
+
 export function useIntakeChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [triageStatus, setTriageStatus] = useState<TriageStatus | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, triageStatus]);
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const sendMessage = async (e?: React.FormEvent, directMessage?: string) => {
+    e?.preventDefault();
+    const content = (directMessage ?? input).trim();
+    if (!content || isLoading) return;
 
-    const content = input.trim();
     setInput("");
 
     const userMsg: ChatMessage = {
@@ -80,6 +87,21 @@ export function useIntakeChat() {
               if (parsed.session_id && !sessionId) {
                 setSessionId(parsed.session_id);
               }
+              // Detect triage completion from tool results
+              if (parsed.tool_result) {
+                const result = parsed.tool_result;
+                const resultText = result.result || "";
+                if (typeof resultText === "string" && resultText.includes("Triage completed")) {
+                  const deptMatch = resultText.match(/Auto-routed to:\s*([^(]+)/);
+                  const confMatch = resultText.match(/confidence:\s*([\d.]+)/);
+                  if (deptMatch) {
+                    setTriageStatus({
+                      department: deptMatch[1].trim(),
+                      confidence: confMatch ? parseFloat(confMatch[1]) : 0,
+                    });
+                  }
+                }
+              }
               if (parsed.done) break;
             } catch {
               // ignore malformed SSE lines
@@ -104,6 +126,7 @@ export function useIntakeChat() {
     setMessages([]);
     setInput("");
     setSessionId(null);
+    setTriageStatus(null);
   };
 
   return {
@@ -114,5 +137,6 @@ export function useIntakeChat() {
     messagesEndRef,
     sendMessage,
     handleNewChat,
+    triageStatus,
   };
 }

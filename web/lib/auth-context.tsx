@@ -33,7 +33,8 @@ const ADMIN_ONLY_ROUTES = ["/agent/usage", "/agent/settings"];
 const ROLE_ROUTES: Record<string, string[]> = {
   doctor: ["/doctor", "/patient", "/agent"],
   officer: ["/officer", "/operations", "/patient"],
-  admin: ["/doctor", "/officer", "/patient", "/agent", "/operations", "/design-system"],
+  admin: ["/doctor", "/officer", "/patient", "/agent", "/operations", "/design-system", "/nurse"],
+  nurse: ["/nurse"],
 };
 
 export function canAccessRoute(role: string | undefined, pathname: string): boolean {
@@ -53,6 +54,8 @@ export function getDefaultRoute(role: string): string {
       return "/officer";
     case "admin":
       return "/officer";
+    case "nurse":
+      return "/nurse";
     default:
       return "/login";
   }

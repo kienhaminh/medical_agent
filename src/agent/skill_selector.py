@@ -72,7 +72,7 @@ class SkillSelector:
         
         # Discover skills if not already loaded
         if not self.registry.get_all_skills():
-            count = self.registry.discover_skills(skills_dir)
+            count = self.registry.discover_skills([skills_dir])
             logger.info(f"SkillSelector discovered {count} skills from {skills_dir}")
     
     def select(self, query: str, top_k: int = 3, min_confidence: float = 0.3) -> List[Skill]:

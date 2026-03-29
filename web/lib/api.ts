@@ -6,7 +6,7 @@ export interface AuthUser {
   id: number;
   username: string;
   name: string;
-  role: "doctor" | "officer" | "admin";
+  role: "doctor" | "officer" | "admin" | "nurse";
   department?: string | null;
 }
 
@@ -995,7 +995,15 @@ export interface Order {
   status: "pending" | "in_progress" | "completed" | "cancelled";
   notes?: string;
   ordered_by?: string;
+  result_notes?: string;
+  fulfilled_by?: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface OrderListItem extends Order {
+  patient_name: string;
+  visit_ref: string;
 }
 
 export async function listOrders(visitId: number): Promise<Order[]> {
@@ -1016,6 +1024,42 @@ export async function createOrder(visitId: number, data: {
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error("Failed to create order");
+  return response.json();
+}
+
+export async function listAllOrders(params?: {
+  status?: string;
+  order_type?: string;
+}): Promise<OrderListItem[]> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+  if (params?.order_type) query.set("order_type", params.order_type);
+  const qs = query.toString();
+  const response = await fetch(`${API_BASE_URL}/orders${qs ? `?${qs}` : ""}`);
+  if (!response.ok) throw new Error("Failed to fetch orders");
+  return response.json();
+}
+
+export async function claimOrder(orderId: number, fulfilledBy: string): Promise<Order> {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}/claim`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fulfilled_by: fulfilledBy }),
+  });
+  if (!response.ok) throw new Error("Failed to claim order");
+  return response.json();
+}
+
+export async function completeOrder(
+  orderId: number,
+  data: { result_notes?: string; fulfilled_by: string }
+): Promise<Order> {
+  const response = await fetch(`${API_BASE_URL}/orders/${orderId}/complete`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to complete order");
   return response.json();
 }
 

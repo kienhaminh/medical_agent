@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ShiftHandoffModalProps {
   open: boolean;
@@ -57,7 +58,7 @@ export function ShiftHandoffModal({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto mt-2">
+        <ScrollArea className="flex-1 mt-2">
           {loading ? (
             <div className="space-y-3 animate-pulse">
               {[1, 2, 3].map((i) => (
@@ -75,7 +76,7 @@ export function ShiftHandoffModal({
               </pre>
             </div>
           )}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

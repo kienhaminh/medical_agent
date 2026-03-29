@@ -19,7 +19,7 @@ from ..models.base import AsyncSessionLocal
 from ..models.department import Department
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders
+from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws
 import src.tools.builtin  # Register builtin tools
 import src.skills.builtin  # Register skill search tools
 
@@ -108,7 +108,7 @@ async def lifespan(app: FastAPI):
         if (user_count.scalar() or 0) == 0:
             default_users = [
                 User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="internal_medicine"),
-                User(username="nurse", password_hash=hash_password("nurse123"), name="Nurse James Park", role="doctor", department="emergency"),
+                User(username="nurse", password_hash=hash_password("nurse123"), name="Nurse James Park", role="nurse", department="emergency"),
                 User(username="officer", password_hash=hash_password("officer123"), name="Admin Maria Lopez", role="officer"),
                 User(username="admin", password_hash=hash_password("admin123"), name="System Admin", role="admin"),
             ]
@@ -155,6 +155,7 @@ app.include_router(departments.router)
 app.include_router(hospital.router)
 app.include_router(auth.router)
 app.include_router(orders.router)
+app.include_router(ws.router)
 
 @app.get("/")
 async def root():
