@@ -142,65 +142,6 @@ class RecordResponse(BaseModel):
     file_type: Optional[str]
     created_at: str
 
-# --- Agent Models ---
-
-class SubAgentResponse(BaseModel):
-    """Sub-agent response model."""
-    id: int
-    name: str
-    role: str
-    description: str
-    system_prompt: str
-    enabled: bool
-    color: str
-    icon: str
-    is_template: bool
-    parent_template_id: Optional[int]
-    created_at: str
-    updated_at: str
-    tools: Optional[List[str]] = None  # Tool symbols for core agents
-
-class SubAgentCreate(BaseModel):
-    """Create sub-agent request."""
-    name: str
-    role: str
-    description: str
-    system_prompt: str
-    color: str = "#06b6d4"
-    icon: str = "Bot"
-    is_template: bool = False
-    parent_template_id: Optional[int] = None
-
-class SubAgentUpdate(BaseModel):
-    """Update sub-agent request."""
-    name: Optional[str] = None
-    role: Optional[str] = None
-    description: Optional[str] = None
-    system_prompt: Optional[str] = None
-    color: Optional[str] = None
-    icon: Optional[str] = None
-    enabled: Optional[bool] = None
-
-class ToggleRequest(BaseModel):
-    """Toggle enabled status request."""
-    enabled: bool
-
-class AssignToolRequest(BaseModel):
-    """Assign tool to agent request."""
-    tool_name: str
-
-class BulkToolsRequest(BaseModel):
-    """Bulk update tool assignments request."""
-    tool_names: list[str]
-
-class AgentToolAssignmentResponse(BaseModel):
-    """Agent-tool assignment response."""
-    # id: int # Removed as assignment is not a separate entity
-    agent_id: int
-    tool_name: str
-    # enabled: bool # specific assignment enabled status is removed
-    # created_at: str
-
 class ToolResponse(BaseModel):
     """Tool response model."""
     id: int
@@ -217,14 +158,12 @@ class ToolResponse(BaseModel):
     enabled: bool
     test_passed: bool
     scope: str
-    assigned_agent_id: Optional[int] = None
 
 class ChatSessionResponse(BaseModel):
     """Chat session response model."""
     id: int
     title: str
-    agent_id: Optional[int] = None
-    agent_name: Optional[str] = None
+    agent_role: Optional[str] = None
     message_count: int
     preview: Optional[str] = None
     tags: Optional[list[str]] = None
@@ -254,7 +193,7 @@ class ChatMessageResponse(BaseModel):
 class ChatSessionCreate(BaseModel):
     """Create chat session request."""
     title: str
-    agent_id: Optional[int] = None
+    agent_role: Optional[str] = None
 
 class TaskStatusResponse(BaseModel):
     """Task status response model."""

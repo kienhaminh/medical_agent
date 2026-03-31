@@ -1,500 +1,104 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, update
-from datetime import datetime
+"""Agents router — read-only, core-registry-backed.
 
-from ...config.database import get_db, SubAgent, Tool
+Sub-agents DB table has been dropped. All agents are defined in CORE_AGENTS.
+CRUD endpoints return 410 Gone; the list endpoint serves from the registry.
+"""
+from datetime import datetime
+from fastapi import APIRouter, HTTPException
 from ...agent.core_agents import CORE_AGENTS
-from ..models import (
-    SubAgentResponse, SubAgentCreate, SubAgentUpdate, ToggleRequest,
-    ToolResponse, AssignToolRequest, AgentToolAssignmentResponse, BulkToolsRequest
-)
 
 router = APIRouter(tags=["Agents"])
 
-@router.get("/api/agents", response_model=list[SubAgentResponse])
-async def list_agents(db: AsyncSession = Depends(get_db)):
-    """List all sub-agents, including core agents."""
-    result = await db.execute(
-        select(SubAgent)
-        .order_by(SubAgent.created_at.desc())
-    )
-    agents = result.scalars().all()
-    
-    # Build response with database agents
-    agent_list = [
-        SubAgentResponse(
-            id=agent.id,
-            name=agent.name,
-            role=agent.role,
-            description=agent.description,
-            system_prompt=agent.system_prompt,
-            enabled=agent.enabled,
-            color=agent.color,
-            icon=agent.icon,
-            is_template=agent.is_template,
-            parent_template_id=agent.parent_template_id,
-            created_at=agent.created_at.isoformat(),
-            updated_at=agent.updated_at.isoformat(),
-            tools=None  # Database agents don't have hardcoded tools
-        ) for agent in agents
-    ]
-    
-    # Add core agents with special negative IDs to distinguish from DB agents
-    # Use negative IDs starting from -1 to avoid conflicts
-    for idx, core_agent in enumerate(CORE_AGENTS):
-        # Check if a DB agent with the same role already exists
-        # If so, skip the core agent (DB agent takes precedence)
-        if any(agent.role == core_agent["role"] for agent in agents):
-            continue
-            
-        agent_list.append(
-            SubAgentResponse(
-                id=-(idx + 1),  # Negative IDs for core agents: -1, -2, etc.
-                name=core_agent["name"],
-                role=core_agent["role"],
-                description=core_agent["description"],
-                system_prompt=core_agent["system_prompt"],
-                enabled=True,  # Core agents are always enabled
-                color=core_agent["color"],
-                icon=core_agent["icon"],
-                is_template=core_agent.get("is_template", False),
-                parent_template_id=None,
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
-                tools=core_agent.get("tools", [])  # Include tool symbols for core agents
-            )
-        )
-    
-    return agent_list
 
-@router.post("/api/agents", response_model=SubAgentResponse)
-async def create_agent(agent_data: SubAgentCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new sub-agent."""
-    # Check if agent with same name exists
-    result = await db.execute(select(SubAgent).where(SubAgent.name == agent_data.name))
-    existing = result.scalar_one_or_none()
-    if existing:
-        raise HTTPException(status_code=400, detail=f"Agent with name '{agent_data.name}' already exists")
+def _core_agent_to_response(idx: int, core_agent: dict) -> dict:
+    """Serialize a core agent entry to a response dict."""
+    now = datetime.now().isoformat()
+    return {
+        "id": -(idx + 1),
+        "name": core_agent["name"],
+        "role": core_agent["role"],
+        "description": core_agent["description"],
+        "system_prompt": core_agent["system_prompt"],
+        "enabled": True,
+        "color": core_agent["color"],
+        "icon": core_agent["icon"],
+        "is_template": core_agent.get("is_template", False),
+        "parent_template_id": None,
+        "created_at": now,
+        "updated_at": now,
+        "tools": core_agent.get("tools", []),
+    }
 
-    new_agent = SubAgent(
-        name=agent_data.name,
-        role=agent_data.role,
-        description=agent_data.description,
-        system_prompt=agent_data.system_prompt,
-        color=agent_data.color,
-        icon=agent_data.icon,
-        is_template=agent_data.is_template,
-        parent_template_id=agent_data.parent_template_id,
-        enabled=True
-    )
-    db.add(new_agent)
-    await db.commit()
-    await db.refresh(new_agent)
 
-    return SubAgentResponse(
-        id=new_agent.id,
-        name=new_agent.name,
-        role=new_agent.role,
-        description=new_agent.description,
-        system_prompt=new_agent.system_prompt,
-        enabled=new_agent.enabled,
-        color=new_agent.color,
-        icon=new_agent.icon,
-        is_template=new_agent.is_template,
-        parent_template_id=new_agent.parent_template_id,
-        created_at=new_agent.created_at.isoformat(),
-        updated_at=new_agent.updated_at.isoformat()
-    )
+@router.get("/api/agents")
+async def list_agents():
+    """List all agents from the core registry."""
+    return [_core_agent_to_response(i, a) for i, a in enumerate(CORE_AGENTS)]
 
-@router.get("/api/agents/{agent_id}", response_model=SubAgentResponse)
-async def get_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
-    """Get a specific sub-agent."""
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
+
+@router.get("/api/agents/{agent_id}")
+async def get_agent(agent_id: int):
+    """Get a specific agent by its negative core-registry ID."""
+    if agent_id >= 0:
+        raise HTTPException(status_code=410, detail="Custom DB agents no longer supported")
+    core_index = abs(agent_id) - 1
+    if core_index >= len(CORE_AGENTS):
         raise HTTPException(status_code=404, detail="Agent not found")
+    return _core_agent_to_response(core_index, CORE_AGENTS[core_index])
 
-    return SubAgentResponse(
-        id=agent.id,
-        name=agent.name,
-        role=agent.role,
-        description=agent.description,
-        system_prompt=agent.system_prompt,
-        enabled=agent.enabled,
-        color=agent.color,
-        icon=agent.icon,
-        is_template=agent.is_template,
-        parent_template_id=agent.parent_template_id,
-        created_at=agent.created_at.isoformat(),
-        updated_at=agent.updated_at.isoformat()
-    )
 
-@router.put("/api/agents/{agent_id}", response_model=SubAgentResponse)
-async def update_agent(agent_id: int, agent_data: SubAgentUpdate, db: AsyncSession = Depends(get_db)):
-    """Update a sub-agent."""
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+@router.post("/api/agents")
+async def create_agent():
+    raise HTTPException(status_code=410, detail="Custom agent creation no longer supported")
 
-    # Update fields
-    if agent_data.name is not None:
-        # Check for name conflicts
-        result = await db.execute(
-            select(SubAgent).where(SubAgent.name == agent_data.name, SubAgent.id != agent_id)
-        )
-        if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail=f"Agent with name '{agent_data.name}' already exists")
-        agent.name = agent_data.name
 
-    if agent_data.role is not None:
-        agent.role = agent_data.role
-    if agent_data.description is not None:
-        agent.description = agent_data.description
-    if agent_data.system_prompt is not None:
-        agent.system_prompt = agent_data.system_prompt
-    if agent_data.color is not None:
-        agent.color = agent_data.color
-    if agent_data.icon is not None:
-        agent.icon = agent_data.icon
-    if agent_data.enabled is not None:
-        agent.enabled = agent_data.enabled
+@router.put("/api/agents/{agent_id}")
+async def update_agent(agent_id: int):
+    raise HTTPException(status_code=410, detail="Custom agent update no longer supported")
 
-    await db.commit()
-    await db.refresh(agent)
-
-    return SubAgentResponse(
-        id=agent.id,
-        name=agent.name,
-        role=agent.role,
-        description=agent.description,
-        system_prompt=agent.system_prompt,
-        enabled=agent.enabled,
-        color=agent.color,
-        icon=agent.icon,
-        is_template=agent.is_template,
-        parent_template_id=agent.parent_template_id,
-        created_at=agent.created_at.isoformat(),
-        updated_at=agent.updated_at.isoformat()
-    )
 
 @router.delete("/api/agents/{agent_id}")
-async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete a sub-agent and its tool assignments."""
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
+async def delete_agent(agent_id: int):
+    raise HTTPException(status_code=410, detail="Custom agent deletion no longer supported")
+
+
+@router.post("/api/agents/{agent_id}/toggle")
+async def toggle_agent(agent_id: int):
+    raise HTTPException(status_code=410, detail="Agent toggle no longer supported")
+
+
+@router.post("/api/agents/{agent_id}/clone")
+async def clone_agent(agent_id: int):
+    raise HTTPException(status_code=410, detail="Agent cloning no longer supported")
+
+
+@router.get("/api/agents/{agent_id}/tools")
+async def get_agent_tools(agent_id: int):
+    """Return tool symbols for a core agent."""
+    if agent_id >= 0:
+        raise HTTPException(status_code=410, detail="Custom DB agents no longer supported")
+    core_index = abs(agent_id) - 1
+    if core_index >= len(CORE_AGENTS):
         raise HTTPException(status_code=404, detail="Agent not found")
+    return CORE_AGENTS[core_index].get("tools", [])
 
-    await db.delete(agent)
-    await db.commit()
-    return {"status": "ok", "message": f"Agent '{agent.name}' deleted successfully"}
 
-@router.post("/api/agents/{agent_id}/toggle", response_model=SubAgentResponse)
-async def toggle_agent(agent_id: int, request: ToggleRequest, db: AsyncSession = Depends(get_db)):
-    """Enable or disable a sub-agent."""
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+@router.post("/api/agents/{agent_id}/tools")
+async def assign_tool_to_agent(agent_id: int):
+    raise HTTPException(status_code=410, detail="Tool assignment no longer supported")
 
-    agent.enabled = request.enabled
-    await db.commit()
-    await db.refresh(agent)
-
-    return SubAgentResponse(
-        id=agent.id,
-        name=agent.name,
-        role=agent.role,
-        description=agent.description,
-        system_prompt=agent.system_prompt,
-        enabled=agent.enabled,
-        color=agent.color,
-        icon=agent.icon,
-        is_template=agent.is_template,
-        parent_template_id=agent.parent_template_id,
-        created_at=agent.created_at.isoformat(),
-        updated_at=agent.updated_at.isoformat()
-    )
-
-@router.post("/api/agents/{agent_id}/clone", response_model=SubAgentResponse)
-async def clone_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
-    """Clone an existing agent (create a copy based on a template)."""
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    template_agent = result.scalar_one_or_none()
-    if not template_agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-
-    # Generate unique name
-    base_name = f"{template_agent.name} Copy"
-    clone_name = base_name
-    counter = 1
-    while True:
-        result = await db.execute(select(SubAgent).where(SubAgent.name == clone_name))
-        if not result.scalar_one_or_none():
-            break
-        counter += 1
-        clone_name = f"{base_name} {counter}"
-
-    # Create clone
-    cloned_agent = SubAgent(
-        name=clone_name,
-        role=template_agent.role,
-        description=template_agent.description,
-        system_prompt=template_agent.system_prompt,
-        color=template_agent.color,
-        icon=template_agent.icon,
-        is_template=False,
-        parent_template_id=agent_id,
-        enabled=True
-    )
-    db.add(cloned_agent)
-    await db.commit()
-    await db.refresh(cloned_agent)
-
-    # Note: Tool assignments are not copied because tools are unique 1:N resources.
-    # The user must explicitly assign tools to the new agent (stealing them from others)
-    # or create new tools for the clone.
-
-    return SubAgentResponse(
-        id=cloned_agent.id,
-        name=cloned_agent.name,
-        role=cloned_agent.role,
-        description=cloned_agent.description,
-        system_prompt=cloned_agent.system_prompt,
-        enabled=cloned_agent.enabled,
-        color=cloned_agent.color,
-        icon=cloned_agent.icon,
-        is_template=cloned_agent.is_template,
-        parent_template_id=cloned_agent.parent_template_id,
-        created_at=cloned_agent.created_at.isoformat(),
-        updated_at=cloned_agent.updated_at.isoformat()
-    )
-
-# --- Tool Assignment Endpoints ---
-
-@router.get("/api/agents/{agent_id}/tools", response_model=list[ToolResponse])
-async def get_agent_tools(agent_id: int, db: AsyncSession = Depends(get_db)):
-    """Get all tools assigned to an agent (including core agents)."""
-    # Handle core agents (negative IDs)
-    if agent_id < 0:
-        # Find the core agent by matching the negative ID
-        # Core agents use negative IDs: -1, -2, etc. (mapped to CORE_AGENTS index)
-        core_agent_index = abs(agent_id) - 1
-        if core_agent_index >= len(CORE_AGENTS):
-            raise HTTPException(status_code=404, detail="Core agent not found")
-        
-        core_agent = CORE_AGENTS[core_agent_index]
-        tool_symbols = core_agent.get("tools", [])
-        
-        # Find tools in database by matching symbols
-        if not tool_symbols:
-            return []
-        
-        result = await db.execute(
-            select(Tool).where(Tool.symbol.in_(tool_symbols))
-        )
-        tools = result.scalars().all()
-        
-        return [
-            ToolResponse(
-                id=tool.id,
-                name=tool.name,
-                symbol=tool.symbol,
-                description=tool.description,
-                tool_type=tool.tool_type,
-                code=tool.code,
-                api_endpoint=tool.api_endpoint,
-                api_request_payload=tool.api_request_payload,
-                api_request_example=tool.api_request_example,
-                api_response_payload=tool.api_response_payload,
-                api_response_example=tool.api_response_example,
-                enabled=tool.enabled,
-                test_passed=tool.test_passed,
-                scope=tool.scope,
-                assigned_agent_id=agent_id  # Set to core agent ID for consistency
-            ) for tool in tools
-        ]
-    
-    # Handle regular database agents
-    # Verify agent exists
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-
-    # Get assigned tools
-    result = await db.execute(
-        select(Tool).where(Tool.assigned_agent_id == agent_id)
-    )
-    tools = result.scalars().all()
-
-    return [
-        ToolResponse(
-            id=tool.id,
-            name=tool.name,
-            symbol=tool.symbol,
-            description=tool.description,
-            tool_type=tool.tool_type,
-            code=tool.code,
-            api_endpoint=tool.api_endpoint,
-            api_request_payload=tool.api_request_payload,
-            api_request_example=tool.api_request_example,
-            api_response_payload=tool.api_response_payload,
-            api_response_example=tool.api_response_example,
-            enabled=tool.enabled,
-            test_passed=tool.test_passed,
-            scope=tool.scope,
-            assigned_agent_id=tool.assigned_agent_id
-        ) for tool in tools
-    ]
-
-@router.post("/api/agents/{agent_id}/tools", response_model=AgentToolAssignmentResponse)
-async def assign_tool_to_agent(agent_id: int, request: AssignToolRequest, db: AsyncSession = Depends(get_db)):
-    """Assign a tool to an agent."""
-    # Verify agent exists
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Agent not found")
-
-    # Verify tool exists
-    result = await db.execute(select(Tool).where(Tool.name == request.tool_name))
-    tool = result.scalar_one_or_none()
-    if not tool:
-        raise HTTPException(status_code=404, detail="Tool not found")
-
-    # Check if assignment already exists
-    if tool.assigned_agent_id == agent_id:
-        raise HTTPException(status_code=400, detail="Tool already assigned to this agent")
-
-    # Update assignment
-    tool.assigned_agent_id = agent_id
-    await db.commit()
-    await db.refresh(tool)
-
-    return AgentToolAssignmentResponse(
-        agent_id=tool.assigned_agent_id,
-        tool_name=tool.name
-    )
 
 @router.delete("/api/agents/{agent_id}/tools/{tool_id}")
-async def unassign_tool_from_agent(agent_id: int, tool_id: int, db: AsyncSession = Depends(get_db)):
-    """Remove a tool assignment from an agent."""
-    result = await db.execute(select(Tool).where(Tool.id == tool_id))
-    tool = result.scalar_one_or_none()
-    
-    if not tool:
-        raise HTTPException(status_code=404, detail="Tool not found")
-        
-    if tool.assigned_agent_id != agent_id:
-        raise HTTPException(status_code=404, detail="Tool is not assigned to this agent")
+async def unassign_tool_from_agent(agent_id: int, tool_id: int):
+    raise HTTPException(status_code=410, detail="Tool unassignment no longer supported")
 
-    tool_name = tool.name
-    tool.assigned_agent_id = None
-    await db.commit()
-    return {"status": "ok", "message": f"Tool '{tool_name}' unassigned from agent"}
 
-@router.put("/api/agents/{agent_id}/tools", response_model=list[AgentToolAssignmentResponse])
-async def bulk_update_agent_tools(agent_id: int, request: BulkToolsRequest, db: AsyncSession = Depends(get_db)):
-    """Bulk update tool assignments for an agent (replaces all assignments)."""
-    # Verify agent exists
-    result = await db.execute(select(SubAgent).where(SubAgent.id == agent_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Agent not found")
+@router.put("/api/agents/{agent_id}/tools")
+async def bulk_update_agent_tools(agent_id: int):
+    raise HTTPException(status_code=410, detail="Bulk tool update no longer supported")
 
-    # Unassign all currently assigned tools
-    await db.execute(
-        update(Tool)
-        .where(Tool.assigned_agent_id == agent_id)
-        .values(assigned_agent_id=None)
-    )
-
-    # Assign new tools
-    if request.tool_names:
-        await db.execute(
-            update(Tool)
-            .where(Tool.name.in_(request.tool_names))
-            .values(assigned_agent_id=agent_id)
-        )
-
-    await db.commit()
-
-    # Return new assignments
-    # We need to fetch them to be sure
-    result = await db.execute(
-        select(Tool).where(Tool.assigned_agent_id == agent_id)
-    )
-    tools = result.scalars().all()
-
-    return [
-        AgentToolAssignmentResponse(
-            agent_id=tool.assigned_agent_id,
-            tool_name=tool.name
-        ) for tool in tools
-    ]
 
 @router.get("/api/agent-tool-assignments")
-async def get_all_assignments(db: AsyncSession = Depends(get_db)):
-    """Get all agent-tool assignments (for matrix view)."""
-    # Get assigned tools
-    result = await db.execute(
-        select(Tool)
-        .where(Tool.assigned_agent_id.isnot(None))
-        .join(SubAgent, Tool.assigned_agent_id == SubAgent.id)
-    )
-    tools = result.scalars().all()
-    
-    # Eager load or fetch agents? We can just join. 
-    # Let's refetch agents to build the response context if needed, 
-    # but we can probably just use the Tool's assigned_agent_id to lookup if we load all agents.
-    
-    agents_result = await db.execute(select(SubAgent))
-    agents = {agent.id: agent for agent in agents_result.scalars().all()}
-
-    # Return list of assignments
-    assignments = []
-    for tool in tools:
-        if tool.assigned_agent_id not in agents:
-            continue
-            
-        agent = agents[tool.assigned_agent_id]
-        
-        assignments.append({
-            "id": 0, # Dummy ID as assignment entity is gone
-            "agent": SubAgentResponse(
-                id=agent.id,
-                name=agent.name,
-                role=agent.role,
-                description=agent.description,
-                system_prompt=agent.system_prompt,
-                enabled=agent.enabled,
-                color=agent.color,
-                icon=agent.icon,
-                is_template=agent.is_template,
-                parent_template_id=agent.parent_template_id,
-                created_at=agent.created_at.isoformat(),
-                updated_at=agent.updated_at.isoformat()
-            ),
-            "tool": ToolResponse(
-                id=tool.id,
-                name=tool.name,
-                symbol=tool.symbol,
-                description=tool.description,
-                tool_type=tool.tool_type,
-                code=tool.code,
-                api_endpoint=tool.api_endpoint,
-                api_request_payload=tool.api_request_payload,
-                api_request_example=tool.api_request_example,
-                api_response_payload=tool.api_response_payload,
-                api_response_example=tool.api_response_example,
-                enabled=tool.enabled,
-                test_passed=tool.test_passed,
-                scope=tool.scope,
-                assigned_agent_id=tool.assigned_agent_id
-            ),
-            # "enabled": tool.enabled, # Removed as enabled column is gone
-            "created_at": tool.created_at.isoformat() # Use tool's created_at
-        })
-
-    return assignments
+async def get_all_assignments():
+    """Return empty list — agent-tool assignments via DB are no longer supported."""
+    return []

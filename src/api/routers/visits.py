@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import get_db, Visit, Patient, ChatSession, SubAgent
+from src.models import get_db, Visit, Patient, ChatSession
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
 from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse
 from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
@@ -70,18 +70,12 @@ async def create_visit(visit_data: VisitCreate, db: AsyncSession = Depends(get_d
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Patient already has an active intake visit")
 
-    # Look up Reception agent
-    reception_agent = await db.execute(select(SubAgent).where(SubAgent.role == "reception_triage"))
-    reception_agent = reception_agent.scalar_one_or_none()
-    if not reception_agent:
-        raise HTTPException(status_code=500, detail="Reception agent not configured. Create a SubAgent with role='reception_triage'.")
-
     from sqlalchemy.exc import IntegrityError
     visit = None
     for attempt in range(3):
         try:
             vid = await _generate_visit_id(db)
-            session = ChatSession(title=f"Intake - {vid}", agent_id=reception_agent.id)
+            session = ChatSession(title=f"Intake - {vid}", agent_role="reception_triage")
             db.add(session)
             await db.flush()
             visit = Visit(visit_id=vid, patient_id=visit_data.patient_id, status=VisitStatus.INTAKE.value, intake_session_id=session.id)

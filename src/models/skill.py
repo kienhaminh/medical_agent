@@ -46,12 +46,6 @@ class Skill(Base):
         lazy="selectin"
     )
     
-    # Relationship to sub-agents that use this skill
-    assigned_agents: Mapped[List["SubAgent"]] = relationship(
-        secondary="agent_skills",
-        back_populates="skills"
-    )
-    
     def to_dict(self) -> dict:
         """Convert skill to dictionary."""
         return {
@@ -129,13 +123,3 @@ class SkillTool(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
-
-# Association table for many-to-many relationship between SubAgent and Skill
-class AgentSkill(Base):
-    """Association table linking SubAgents to Skills."""
-    __tablename__ = "agent_skills"
-    
-    agent_id: Mapped[int] = mapped_column(ForeignKey("sub_agents.id"), primary_key=True)
-    skill_id: Mapped[int] = mapped_column(ForeignKey("skills.id"), primary_key=True)
-    assigned_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-    config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # Skill-specific config for this agent

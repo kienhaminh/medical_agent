@@ -12,7 +12,6 @@ from src.models import SessionLocal
 from src.models.visit import Visit, VisitStatus
 from src.models.patient import Patient
 from src.models.chat import ChatSession
-from src.models.agent import SubAgent
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -52,11 +51,6 @@ def create_visit(patient_id: int) -> str:
                 f"Continue the intake with this visit."
             )
 
-        # Find reception agent
-        reception_agent = db.execute(
-            select(SubAgent).where(SubAgent.role == "reception_triage")
-        ).scalar_one_or_none()
-
         # Generate visit ID
         today = date.today()
         prefix = f"VIS-{today.strftime('%Y%m%d')}-"
@@ -71,7 +65,7 @@ def create_visit(patient_id: int) -> str:
         # Create chat session
         session = ChatSession(
             title=f"Intake - {visit_id}",
-            agent_id=reception_agent.id if reception_agent else None,
+            agent_role="reception_triage",
         )
         db.add(session)
         db.flush()

@@ -14,7 +14,7 @@ class ChatSession(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
-    agent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("sub_agents.id"), nullable=True, index=True)
+    agent_role: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=func.now(), onupdate=func.now())
 
@@ -23,7 +23,6 @@ class ChatSession(Base):
         cascade="all, delete-orphan",
         order_by="ChatMessage.created_at"
     )
-    agent: Mapped[Optional["SubAgent"]] = relationship()
 
 
 class ChatMessage(Base):

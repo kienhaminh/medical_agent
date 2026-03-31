@@ -1,55 +1,29 @@
 """Agent introspection tool - allows agent to query its own capabilities.
 
-Provides information about sub-agents, tools, and overall architecture.
+Provides information about agents and their architecture from the core registry.
 """
 
 from typing import Dict, List, Any
-from sqlalchemy import select
-from ...config.database import SubAgent, Tool
 
 
-def _get_enabled_subagents_sync() -> List[Dict[str, Any]]:
-    """Query database for enabled sub-agents using sync connection.
-
-    This version uses synchronous database access to avoid asyncpg threading issues.
+def _get_core_agents_info() -> List[Dict[str, Any]]:
+    """Return information about core agents from the static registry.
 
     Returns:
-        List of sub-agent information dictionaries
+        List of agent information dictionaries
     """
-    from ...config.database import SessionLocal
+    from ...agent.core_agents import CORE_AGENTS
 
-    agents_info = []
-
-    try:
-        with SessionLocal() as db:
-            # Get all enabled agents
-            result = db.execute(
-                select(SubAgent).where(SubAgent.enabled == True)
-            )
-            agents = result.scalars().all()
-
-            for agent in agents:
-                # Get agent's assigned tools
-                tools_result = db.execute(
-                    select(Tool).where(
-                        Tool.assigned_agent_id == agent.id
-                    )
-                )
-                tools = tools_result.scalars().all()
-
-                agents_info.append({
-                    "id": agent.id,
-                    "name": agent.name,
-                    "role": agent.role,
-                    "description": agent.description,
-                    "tools": [tool.name for tool in tools],
-                    "tool_count": len(tools),
-                    "enabled": agent.enabled
-                })
-    except Exception as e:
-        return [{"error": f"Failed to query sub-agents: {str(e)}"}]
-
-    return agents_info
+    return [
+        {
+            "name": agent["name"],
+            "role": agent["role"],
+            "description": agent["description"],
+            "tools": agent.get("tools", []),
+            "tool_count": len(agent.get("tools", [])),
+        }
+        for agent in CORE_AGENTS
+    ]
 
 
 def get_agent_architecture() -> str:
@@ -63,39 +37,32 @@ def get_agent_architecture() -> str:
     - "Can you tell me about yourself?"
 
     Returns:
-        Detailed information about sub-agents, their roles, and capabilities
+        Detailed information about agents, their roles, and capabilities
     """
-    # Use synchronous database access to avoid asyncpg threading issues
-    # This is safer than trying to run async code in different event loops
-    sub_agents = _get_enabled_subagents_sync()
+    agents = _get_core_agents_info()
 
-    if not sub_agents:
-        return """I am a standalone agent with no sub-agents currently enabled.
-I have direct access to various tools for medical consultation, but no specialized sub-agents."""
+    if not agents:
+        return """I am a standalone agent with no specialist agents currently configured.
+I have direct access to various tools for medical consultation."""
 
-    # Check for errors
-    if sub_agents and "error" in sub_agents[0]:
-        return f"Error retrieving architecture: {sub_agents[0]['error']}"
-
-    # Build detailed response
     response_parts = [
-        f"I am a supervisor agent managing {len(sub_agents)} specialized sub-agents:\n"
+        f"I am a supervisor agent managing {len(agents)} specialized agents:\n"
     ]
 
-    for agent in sub_agents:
+    for agent in agents:
         response_parts.append(
             f"\n{agent['name']} ({agent['role']}):\n"
             f"  - Description: {agent['description']}\n"
             f"  - Available tools: {agent['tool_count']}"
         )
-        if agent['tools']:
+        if agent["tools"]:
             response_parts.append(f"  - Tool names: {', '.join(agent['tools'])}")
 
     response_parts.append(
-        f"\n\nArchitecture: I use a supervisor pattern where I analyze queries "
-        f"and delegate to the most appropriate specialist(s). I can also consult "
-        f"multiple specialists in parallel for complex cases requiring multiple "
-        f"areas of expertise."
+        "\n\nArchitecture: I use a supervisor pattern where I analyze queries "
+        "and delegate to the most appropriate specialist(s). I can also consult "
+        "multiple specialists in parallel for complex cases requiring multiple "
+        "areas of expertise."
     )
 
     return "".join(response_parts)

@@ -16,9 +16,8 @@ from .intake_submission import IntakeSubmission
 from .medical_record import MedicalRecord
 from .imaging import Imaging, ImageGroup
 from .chat import ChatSession, ChatMessage
-from .agent import SubAgent
 from .tool import CustomTool
-from .skill import Skill, SkillTool, AgentSkill
+from .skill import Skill, SkillTool
 from .visit import Visit, VisitStatus
 from .case_thread import CaseThread, CaseMessage
 from .department import Department
@@ -45,12 +44,10 @@ __all__ = [
     "ImageGroup",
     "ChatSession",
     "ChatMessage",
-    "SubAgent",
     "CustomTool",
     # Skill models
     "Skill",
     "SkillTool",
-    "AgentSkill",
     # Visit models
     "Visit",
     "VisitStatus",

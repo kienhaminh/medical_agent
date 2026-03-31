@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal
-from src.models.agent import SubAgent
 from src.config.settings import load_config
 from ...models import (
     ChatRequest, ChatResponse, ChatTaskResponse, TaskStatusResponse,
@@ -84,19 +83,9 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             session = result.scalar_one_or_none()
 
         if not session:
-            # Look up agent by role if specified
-            agent_id = None
-            if request.agent_role:
-                result = await db.execute(
-                    select(SubAgent).where(SubAgent.role == request.agent_role)
-                )
-                agent = result.scalar_one_or_none()
-                if agent:
-                    agent_id = agent.id
-
             session = ChatSession(
                 title=request.message[:50] + "..." if len(request.message) > 50 else request.message,
-                agent_id=agent_id,
+                agent_role=request.agent_role,
             )
             db.add(session)
             await db.commit()
@@ -159,13 +148,11 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
         # Load session agent's system prompt if linked
         agent_system_prompt = None
-        if session and session.agent_id:
-            result = await db.execute(
-                select(SubAgent).where(SubAgent.id == session.agent_id)
-            )
-            session_agent = result.scalar_one_or_none()
-            if session_agent and session_agent.system_prompt:
-                agent_system_prompt = session_agent.system_prompt
+        if session and session.agent_role:
+            from src.agent.core_agents import CORE_AGENTS
+            matched = next((a for a in CORE_AGENTS if a["role"] == session.agent_role), None)
+            if matched:
+                agent_system_prompt = matched.get("system_prompt")
 
         # If streaming is requested
         if request.stream:
@@ -373,20 +360,10 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             session = result.scalar_one_or_none()
 
         if not session:
-            # Resolve agent_role to agent_id if specified
-            agent_id = None
-            if request.agent_role:
-                result = await db.execute(
-                    select(SubAgent).where(SubAgent.role == request.agent_role)
-                )
-                agent = result.scalar_one_or_none()
-                if agent:
-                    agent_id = agent.id
-
             # Create new session
             session = ChatSession(
                 title=request.message[:50] + "..." if len(request.message) > 50 else request.message,
-                agent_id=agent_id,
+                agent_role=request.agent_role,
             )
             db.add(session)
             await db.commit()
@@ -422,7 +399,7 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             user_message=request.message,
             patient_id=request.patient_id,
             record_id=request.record_id,
-            agent_id=session.agent_id,
+            agent_role=session.agent_role,
         )
 
         # 5. Update assistant message with task_id

@@ -3,7 +3,6 @@
 This module re-exports from src.models for backwards compatibility.
 New code should import directly from src.models.
 """
-# Re-export all models and database utilities from src.models
 from src.models import (
     Base,
     AsyncSessionLocal,
@@ -21,11 +20,9 @@ from src.models import (
     ImageGroup,
     ChatSession,
     ChatMessage,
-    SubAgent,
     CustomTool,
     Skill,
     SkillTool,
-    AgentSkill,
 )
 
 # For backwards compatibility - Tool was renamed to CustomTool
@@ -48,10 +45,8 @@ __all__ = [
     "ImageGroup",
     "ChatSession",
     "ChatMessage",
-    "SubAgent",
     "CustomTool",
-    "Tool",  # Backwards compatibility alias
+    "Tool",
     "Skill",
     "SkillTool",
-    "AgentSkill",
 ]
