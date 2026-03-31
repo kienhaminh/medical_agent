@@ -50,10 +50,11 @@ class TeamConsultationHandler:
         synthesis = await handler.run(case_summary=..., patient_id=...)
     """
 
-    def __init__(self, llm, max_concurrent: int = 5, timeout: float = 120.0):
+    def __init__(self, llm, max_concurrent: int = 5, timeout: float = 120.0, max_rounds: int = 3):
         self.llm = llm
         self.max_concurrent = max_concurrent
         self.timeout = timeout
+        self.max_rounds = max_rounds
 
     # ──────────────────────────────────────────────────────────
     # Public entry point
@@ -76,38 +77,44 @@ class TeamConsultationHandler:
 
         thread_id, max_rounds = await self._open_thread(patient_id, visit_id, created_by, trigger, brief)
 
-        final_status = "closed"
-        for round_num in range(1, max_rounds + 1):
-            await adispatch_custom_event(
-                "agent_log",
-                {"message": f"Round {round_num} — {', '.join(team)} posting...", "level": "info"},
-            )
-            prior = await self._fetch_messages(thread_id)
-            await self._run_round(thread_id, team, brief, prior, round_num)
-            await self._set_current_round(thread_id, round_num)
+        # thread_id is now defined; wrap remaining logic so unexpected failures mark the thread as error
+        try:
+            final_status = "closed"
+            for round_num in range(1, max_rounds + 1):
+                await adispatch_custom_event(
+                    "agent_log",
+                    {"message": f"Round {round_num} — {', '.join(team)} posting...", "level": "info"},
+                )
+                prior = await self._fetch_messages(thread_id)
+                await self._run_round(thread_id, team, brief, prior, round_num)
+                await self._set_current_round(thread_id, round_num)
 
-            await adispatch_custom_event(
-                "agent_log",
-                {"message": f"Chief reviewing round {round_num}...", "level": "info"},
-            )
+                await adispatch_custom_event(
+                    "agent_log",
+                    {"message": f"Chief reviewing round {round_num}...", "level": "info"},
+                )
+                all_msgs = await self._fetch_messages(thread_id)
+                directive = await self._chief_review(brief, all_msgs, round_num)
+
+                if directive.converged:
+                    final_status = "converged"
+                    break
+
+                if directive.message and round_num < max_rounds:
+                    await self._post_chief_message(thread_id, directive.message, round_num)
+
+            await self._update_thread_status(thread_id, final_status)
+
+            await adispatch_custom_event("agent_log", {"message": "Synthesizing...", "level": "info"})
             all_msgs = await self._fetch_messages(thread_id)
-            directive = await self._chief_review(brief, all_msgs, round_num)
+            synthesis = await self._synthesize(brief, all_msgs)
+            await self._save_synthesis(thread_id, synthesis)
 
-            if directive.converged:
-                final_status = "converged"
-                break
-
-            if directive.message and round_num < max_rounds:
-                await self._post_chief_message(thread_id, directive.message, round_num)
-
-        await self._update_thread_status(thread_id, final_status)
-
-        await adispatch_custom_event("agent_log", {"message": "Synthesizing...", "level": "info"})
-        all_msgs = await self._fetch_messages(thread_id)
-        synthesis = await self._synthesize(brief, all_msgs)
-        await self._save_synthesis(thread_id, synthesis)
-
-        return synthesis
+            return synthesis
+        except Exception:
+            logger.exception("Unexpected failure in TeamConsultationHandler.run (thread_id=%s)", thread_id)
+            await self._update_thread_status(thread_id, "error")
+            raise
 
     # ──────────────────────────────────────────────────────────
     # Chief LLM calls
@@ -162,7 +169,10 @@ class TeamConsultationHandler:
         response = await self.llm.ainvoke([prompt])
         content = response.content
 
-        converged = "converged: yes" in content.lower()
+        converged = any(
+            line.strip().lower() == "converged: yes"
+            for line in content.splitlines()
+        )
         directive_text = ""
         for line in content.splitlines():
             if line.lower().startswith("directive:"):
@@ -237,7 +247,13 @@ class TeamConsultationHandler:
                     db.add(msg)
                     await db.commit()
 
-        await asyncio.gather(*[call_specialist(role) for role in team])
+        results = await asyncio.gather(
+            *[call_specialist(role) for role in team],
+            return_exceptions=True,
+        )
+        for role, result in zip(team, results):
+            if isinstance(result, BaseException):
+                logger.error("Specialist %s failed in round %s: %s", role, round_num, result)
 
     # ──────────────────────────────────────────────────────────
     # Helper methods
@@ -252,7 +268,8 @@ class TeamConsultationHandler:
             if msg.sender_type == "chief":
                 lines.append(f"[Chief Director] {msg.content}")
             else:
-                lines.append(f"[{msg.specialist_role.title()}] {msg.content}")
+                role_label = (msg.specialist_role or "unknown").title()
+                lines.append(f"[{role_label}] {msg.content}")
         return "\n\n".join(lines)
 
     def _parse_stance(self, content: str, peers: list[str]) -> tuple[Optional[list], Optional[list]]:
@@ -287,13 +304,13 @@ class TeamConsultationHandler:
                 created_by=created_by,
                 trigger=trigger,
                 status="open",
-                max_rounds=3,
+                max_rounds=self.max_rounds,
                 current_round=0,
                 case_summary=brief,
             )
             db.add(thread)
             await db.commit()
-        return thread_id, 3
+        return thread_id, self.max_rounds
 
     async def _fetch_messages(self, thread_id: str) -> list:
         """Fetch all CaseMessage rows for a thread, ordered by created_at."""
