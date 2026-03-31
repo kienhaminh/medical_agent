@@ -34,12 +34,14 @@ class FormTemplate:
     message: str = ""
 
     def to_schema(self) -> dict:
-        return {
+        schema: dict = {
             "title": self.title,
             "form_type": self.form_type,
-            "message": self.message,
             "fields": [f.to_dict() for f in self.fields],
         }
+        if self.message:
+            schema["message"] = self.message
+        return schema
 
 
 TEMPLATES: dict[str, FormTemplate] = {
