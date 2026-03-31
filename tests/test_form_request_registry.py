@@ -62,3 +62,8 @@ def test_get_form_entry_returns_none_for_unknown():
 
 def test_context_var_default_is_none():
     assert current_session_id_var.get() is None
+
+
+def test_get_session_queue_with_none_session_id_returns_none():
+    reg = FormRequestRegistry()
+    assert reg.get_session_queue(None) is None

@@ -772,7 +772,7 @@ form_registry = FormRequestRegistry()
 ```bash
 pytest tests/test_form_request_registry.py -v
 ```
-Expected: 8 PASSED
+Expected: 8 PASSED (7 existing + 1 new test for None session_id)
 
 - [ ] **Step 5: Commit**
 

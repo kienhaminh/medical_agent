@@ -5,6 +5,11 @@ generate() function reads from alongside the agent event stream.
 
 Each pending form gets an asyncio.Event that the ask_user tool awaits.
 The POST /form-response endpoint resolves it by calling resolve_form().
+
+Cleanup contracts:
+    - ask_user tool MUST call cleanup_form() in a finally block after awaiting the event.
+    - SSE generate() MUST call unregister_session_queue() in a finally block.
+    Failure to call these will leave orphan entries in memory.
 """
 import asyncio
 import contextvars
@@ -67,12 +72,12 @@ class FormRequestRegistry:
 
     def resolve_form(self, form_id: str, result: str) -> None:
         """Store result and fire the event so the waiting tool can return."""
-        self._form_results[form_id] = result
         event = self._form_events.get(form_id)
-        if event:
-            event.set()
-        else:
+        if event is None:
             logger.warning("resolve_form called for unknown form_id: %s", form_id)
+            return
+        self._form_results[form_id] = result
+        event.set()
 
     def get_form_result(self, form_id: str) -> Optional[str]:
         return self._form_results.get(form_id)
