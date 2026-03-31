@@ -44,8 +44,8 @@ async def get_case_thread(thread_id: str, db: AsyncSession = Depends(get_db)):
         "current_round": thread.current_round,
         "case_summary": thread.case_summary,
         "synthesis": thread.synthesis,
-        "created_at": thread.created_at.isoformat(),
-        "updated_at": thread.updated_at.isoformat(),
+        "created_at": thread.created_at.isoformat() if thread.created_at else None,
+        "updated_at": thread.updated_at.isoformat() if thread.updated_at else None,
         "messages": [
             {
                 "id": m.id,
@@ -55,7 +55,7 @@ async def get_case_thread(thread_id: str, db: AsyncSession = Depends(get_db)):
                 "content": m.content,
                 "agrees_with": m.agrees_with,
                 "challenges": m.challenges,
-                "created_at": m.created_at.isoformat(),
+                "created_at": m.created_at.isoformat() if m.created_at else None,
             }
             for m in messages
         ],

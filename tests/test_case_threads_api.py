@@ -52,13 +52,22 @@ async def thread_in_db():
             specialist_role="internist",
             content="Agree with cardiologist.",
         ))
+        db.add(CaseMessage(
+            id=str(uuid.uuid4()),
+            thread_id=thread_id,
+            round=2,
+            sender_type="specialist",
+            specialist_role="internist",
+            content="Confirming recommendation after chief directive.",
+        ))
         await db.commit()
 
     yield thread_id
 
-    # Teardown — delete thread (cascades to messages) then patient
+    # Teardown — explicitly delete messages, then thread, then patient
     from sqlalchemy import delete
     async with AsyncSessionLocal() as db:
+        await db.execute(delete(CaseMessage).where(CaseMessage.thread_id == thread_id))
         await db.execute(delete(CaseThread).where(CaseThread.id == thread_id))
         if patient_id:
             await db.execute(delete(Patient).where(Patient.id == patient_id))
@@ -74,7 +83,7 @@ async def test_get_case_thread_returns_thread_and_messages(thread_in_db):
     assert data["id"] == thread_in_db
     assert data["status"] == "converged"
     assert data["synthesis"] == "PRIMARY RECOMMENDATION: Start aspirin."
-    assert len(data["messages"]) == 2
+    assert len(data["messages"]) == 3
     roles = {m["specialist_role"] for m in data["messages"]}
     assert "cardiologist" in roles
     assert "internist" in roles
@@ -93,4 +102,6 @@ async def test_messages_ordered_by_round(thread_in_db):
         resp = await client.get(f"/api/case-threads/{thread_in_db}")
     data = resp.json()
     rounds = [m["round"] for m in data["messages"]]
+    # Fixture has 2 round-1 messages then 1 round-2 message — verify ordering
     assert rounds == sorted(rounds)
+    assert rounds[-1] == 2
