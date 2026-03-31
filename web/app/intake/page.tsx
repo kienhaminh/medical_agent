@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Send, RotateCcw, CheckCircle2, MapPin, Clock } from "lucide-react";
 import { AnswerContent } from "@/components/agent/answer-content";
 import { useIntakeChat } from "./use-intake-chat";
+import { FormInputBar } from "@/components/reception/form-input-bar";
 
 const SUGGESTIONS = [
   "I'd like to check in for a visit",
@@ -42,6 +43,9 @@ export default function PatientIntakePage() {
     sendMessage,
     handleNewChat,
     triageStatus,
+    activeForm,
+    sessionId,
+    handleFormSubmitted,
   } = useIntakeChat();
 
   return (
@@ -204,27 +208,35 @@ export default function PatientIntakePage() {
           </div>
         </div>
 
-        {/* Input */}
-        <form
-          onSubmit={sendMessage}
-          className="py-4 border-t border-border/50 flex gap-2"
-        >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Tell us why you're visiting today..."
-            disabled={isLoading || !!triageStatus}
-            className="bg-card/50"
+        {/* Input — swapped out for FormInputBar when agent requests a form */}
+        {activeForm && sessionId ? (
+          <FormInputBar
+            activeForm={activeForm}
+            sessionId={sessionId}
+            onSubmitted={handleFormSubmitted}
           />
-          <Button
-            type="submit"
-            disabled={!input.trim() || isLoading || !!triageStatus}
-            size="icon"
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white flex-shrink-0"
+        ) : (
+          <form
+            onSubmit={sendMessage}
+            className="py-4 border-t border-border/50 flex gap-2"
           >
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Tell us why you're visiting today..."
+              disabled={isLoading || !!triageStatus}
+              className="bg-card/50"
+            />
+            <Button
+              type="submit"
+              disabled={!input.trim() || isLoading || !!triageStatus}
+              size="icon"
+              className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white flex-shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </form>
+        )}
       </div>
     </div>
   );

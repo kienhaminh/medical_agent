@@ -1,6 +1,8 @@
+// web/app/intake/use-intake-chat.ts
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import type { ActiveForm } from "@/components/reception/form-input-bar";
 
 export interface ChatMessage {
   id: string;
@@ -20,6 +22,7 @@ export function useIntakeChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [triageStatus, setTriageStatus] = useState<TriageStatus | null>(null);
+  const [activeForm, setActiveForm] = useState<ActiveForm | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,6 +77,7 @@ export function useIntakeChat() {
           if (line.startsWith("data: ")) {
             try {
               const parsed = JSON.parse(line.slice(6));
+
               if (parsed.chunk) {
                 accumulated += parsed.chunk;
                 setMessages((prev) =>
@@ -84,13 +88,19 @@ export function useIntakeChat() {
                   )
                 );
               }
+
               if (parsed.session_id && !sessionId) {
                 setSessionId(parsed.session_id);
               }
+
+              // Show the form — hide the input bar
+              if (parsed.form_request) {
+                setActiveForm(parsed.form_request as ActiveForm);
+              }
+
               // Detect triage completion from tool results
               if (parsed.tool_result) {
-                const result = parsed.tool_result;
-                const resultText = result.result || "";
+                const resultText = parsed.tool_result.result || "";
                 if (typeof resultText === "string" && resultText.includes("Triage completed")) {
                   const deptMatch = resultText.match(/Auto-routed to:\s*([^(]+)/);
                   const confMatch = resultText.match(/confidence:\s*([\d.]+)/);
@@ -102,6 +112,7 @@ export function useIntakeChat() {
                   }
                 }
               }
+
               if (parsed.done) break;
             } catch {
               // ignore malformed SSE lines
@@ -122,11 +133,16 @@ export function useIntakeChat() {
     }
   };
 
+  const handleFormSubmitted = () => {
+    setActiveForm(null);
+  };
+
   const handleNewChat = () => {
     setMessages([]);
     setInput("");
     setSessionId(null);
     setTriageStatus(null);
+    setActiveForm(null);
   };
 
   return {
@@ -138,5 +154,8 @@ export function useIntakeChat() {
     sendMessage,
     handleNewChat,
     triageStatus,
+    activeForm,
+    sessionId,
+    handleFormSubmitted,
   };
 }
