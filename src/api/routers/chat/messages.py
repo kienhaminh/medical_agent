@@ -214,56 +214,64 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                             except asyncio.CancelledError:
                                 pass
 
-                        event = done_set.pop().result()
+                        # Process ALL completed tasks — done_set may contain more than
+                        # one when both queues are ready in the same event loop turn.
+                        agent_done = False
+                        for completed_task in done_set:
+                            event = completed_task.result()
 
-                        if event is None:
-                            break  # agent stream finished
+                            if event is None:
+                                agent_done = True
+                                continue
 
-                        # Form side-channel event — emit and continue
-                        if isinstance(event, dict) and event.get("type") == "form_request":
-                            yield f"data: {json.dumps({'form_request': event['payload']})}\n\n"
-                            continue
+                            # Form side-channel event — emit and continue
+                            if isinstance(event, dict) and event.get("type") == "form_request":
+                                yield f"data: {json.dumps({'form_request': event['payload']})}\n\n"
+                                continue
 
-                        # Regular agent events (unchanged logic)
-                        if isinstance(event, dict):
-                            if event["type"] == "content":
-                                chunk_content = event["content"]
-                                full_response += chunk_content
-                                yield f"data: {json.dumps({'chunk': chunk_content})}\n\n"
-                            elif event["type"] == "tool_call":
-                                tool_calls_buffer.append(event)
-                                yield f"data: {json.dumps({'tool_call': event})}\n\n"
-                            elif event["type"] == "tool_result":
-                                for tc in tool_calls_buffer:
-                                    if tc.get("id") == event.get("id"):
-                                        tc["result"] = event.get("result")
-                                logs_buffer.append({
-                                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                                    "type": "tool_result",
-                                    "content": event,
-                                })
-                                yield f"data: {json.dumps({'tool_result': event})}\n\n"
-                            elif event["type"] == "reasoning":
-                                yield f"data: {json.dumps({'reasoning': event['content']})}\n\n"
-                            elif event["type"] == "log":
-                                logs_buffer.append({
-                                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                                    "type": "log",
-                                    "content": event["content"],
-                                })
-                                yield f"data: {json.dumps({'log': event['content']})}\n\n"
-                            elif event["type"] == "patient_references":
-                                all_patient_references = event["patient_references"]
-                                yield f"data: {json.dumps({'patient_references': event['patient_references']})}\n\n"
-                            elif event["type"] == "usage":
-                                usage = event["usage"]
-                                total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
-                                total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
-                                total_usage["total_tokens"] += usage.get("total_tokens", 0)
-                                yield f"data: {json.dumps({'usage': event['usage']})}\n\n"
-                        else:
-                            full_response = event
-                            yield f"data: {json.dumps({'chunk': event})}\n\n"
+                            # Regular agent events (unchanged logic)
+                            if isinstance(event, dict):
+                                if event["type"] == "content":
+                                    chunk_content = event["content"]
+                                    full_response += chunk_content
+                                    yield f"data: {json.dumps({'chunk': chunk_content})}\n\n"
+                                elif event["type"] == "tool_call":
+                                    tool_calls_buffer.append(event)
+                                    yield f"data: {json.dumps({'tool_call': event})}\n\n"
+                                elif event["type"] == "tool_result":
+                                    for tc in tool_calls_buffer:
+                                        if tc.get("id") == event.get("id"):
+                                            tc["result"] = event.get("result")
+                                    logs_buffer.append({
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                                        "type": "tool_result",
+                                        "content": event,
+                                    })
+                                    yield f"data: {json.dumps({'tool_result': event})}\n\n"
+                                elif event["type"] == "reasoning":
+                                    yield f"data: {json.dumps({'reasoning': event['content']})}\n\n"
+                                elif event["type"] == "log":
+                                    logs_buffer.append({
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                                        "type": "log",
+                                        "content": event["content"],
+                                    })
+                                    yield f"data: {json.dumps({'log': event['content']})}\n\n"
+                                elif event["type"] == "patient_references":
+                                    all_patient_references = event["patient_references"]
+                                    yield f"data: {json.dumps({'patient_references': event['patient_references']})}\n\n"
+                                elif event["type"] == "usage":
+                                    usage = event["usage"]
+                                    total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
+                                    total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
+                                    total_usage["total_tokens"] += usage.get("total_tokens", 0)
+                                    yield f"data: {json.dumps({'usage': event['usage']})}\n\n"
+                            else:
+                                full_response = event
+                                yield f"data: {json.dumps({'chunk': event})}\n\n"
+
+                        if agent_done:
+                            break
 
                     if full_response or tool_calls_buffer:
                         async with AsyncSessionLocal() as local_db:
@@ -298,6 +306,11 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                     yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
                 finally:
+                    agent_task.cancel()
+                    try:
+                        await agent_task
+                    except asyncio.CancelledError:
+                        pass
                     form_registry.unregister_session_queue(session.id)
 
             return StreamingResponse(generate(), media_type="text/event-stream")
