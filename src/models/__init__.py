@@ -12,6 +12,7 @@ from .base import (
     SYNC_DATABASE_URL,
 )
 from .patient import Patient
+from .intake_submission import IntakeSubmission
 from .medical_record import MedicalRecord
 from .imaging import Imaging, ImageGroup
 from .chat import ChatSession, ChatMessage
@@ -37,6 +38,7 @@ __all__ = [
     "SYNC_DATABASE_URL",
     # Models
     "Patient",
+    "IntakeSubmission",
     "MedicalRecord",
     "Imaging",
     "ImageGroup",
