@@ -60,6 +60,7 @@ export function ConsultationCard({ content, threadId }: ConsultationCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [thread, setThread] = useState<ConsultationThread | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   const parsed = parseSynthesis(content);
 
@@ -69,12 +70,19 @@ export function ConsultationCard({ content, threadId }: ConsultationCardProps) {
       return;
     }
     setLoading(true);
+    setFetchError(false);
     try {
       const resp = await fetch(`/api/case-threads/${threadId}`);
-      if (resp.ok) setThread(await resp.json());
+      if (resp.ok) {
+        setThread(await resp.json());
+        setExpanded(true);
+      } else {
+        setFetchError(true);
+      }
+    } catch {
+      setFetchError(true);
     } finally {
       setLoading(false);
-      setExpanded(true);
     }
   };
 
@@ -139,6 +147,8 @@ export function ConsultationCard({ content, threadId }: ConsultationCardProps) {
         >
           {loading ? (
             "Loading discussion..."
+          ) : fetchError ? (
+            "Could not load discussion thread"
           ) : (
             <>
               {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}

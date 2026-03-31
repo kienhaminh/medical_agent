@@ -141,8 +141,9 @@ export function AnswerContent({
     ),
   };
 
-  // Render team consultation synthesis as a structured card (after all hooks)
-  if (isConsultationSynthesis(content)) {
+  // Render team consultation synthesis as a structured card (after all hooks).
+  // Defer until streaming is complete to avoid rendering a partial synthesis.
+  if (isConsultationSynthesis(content) && !(isLoading && isLatest)) {
     return <ConsultationCard content={content} />;
   }
 

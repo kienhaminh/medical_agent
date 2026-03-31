@@ -170,7 +170,7 @@ class TeamConsultationHandler:
         content = response.content
 
         converged = any(
-            line.strip().lower() == "converged: yes"
+            line.strip().lower().startswith("converged: yes")
             for line in content.splitlines()
         )
         directive_text = ""

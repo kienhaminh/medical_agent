@@ -37,7 +37,13 @@ async def request_specialist_team(case_summary: str, patient_id: int) -> str:
     from src.agent.team_consultation_handler import TeamConsultationHandler
     from src.api.dependencies import llm_provider
 
-    handler = TeamConsultationHandler(llm=llm_provider.llm)
+    # bind_tools() replaces self.llm with a RunnableBinding. Unwrap to get the
+    # base ChatLLM so specialist calls produce plain-text responses, not tool calls.
+    llm = llm_provider.llm
+    while hasattr(llm, "bound"):
+        llm = llm.bound
+
+    handler = TeamConsultationHandler(llm=llm)
     return await handler.run(
         case_summary=case_summary,
         patient_id=patient_id,
