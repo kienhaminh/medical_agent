@@ -323,12 +323,6 @@ export default function Home() {
                 >
                   AI Agent
                 </Link>
-                <Link
-                  href="/agent/tools"
-                  className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors"
-                >
-                  Tools
-                </Link>
               </div>
             </div>
           </div>

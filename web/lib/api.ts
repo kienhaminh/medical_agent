@@ -272,133 +272,20 @@ export async function deleteImagingRecord(
 }
 
 // --- Agent API ---
-import type {
-  SubAgent,
-  SubAgentCreate,
-  SubAgentUpdate,
-  AgentToolAssignment,
-  AssignmentMatrixItem,
-} from "@/types/agent";
 
-export async function getAgents(): Promise<SubAgent[]> {
+export interface AgentConfig {
+  name: string;
+  role: string;
+  description: string;
+  color: string;
+  icon: string;
+  is_template: boolean;
+  tools: string[];
+}
+
+export async function getAgents(): Promise<AgentConfig[]> {
   const res = await fetch(`${API_BASE_URL}/agents`);
   if (!res.ok) throw new Error("Failed to fetch agents");
-  return res.json();
-}
-
-export async function getAgent(id: number): Promise<SubAgent> {
-  const res = await fetch(`${API_BASE_URL}/agents/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch agent");
-  return res.json();
-}
-
-export async function createAgent(data: SubAgentCreate): Promise<SubAgent> {
-  const res = await fetch(`${API_BASE_URL}/agents`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.detail || "Failed to create agent");
-  }
-  return res.json();
-}
-
-export async function updateAgent(
-  id: number,
-  data: SubAgentUpdate
-): Promise<SubAgent> {
-  const res = await fetch(`${API_BASE_URL}/agents/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.detail || "Failed to update agent");
-  }
-  return res.json();
-}
-
-export async function deleteAgent(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/agents/${id}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to delete agent");
-}
-
-export async function toggleAgent(
-  id: number,
-  enabled: boolean
-): Promise<SubAgent> {
-  const res = await fetch(`${API_BASE_URL}/agents/${id}/toggle`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled }),
-  });
-  if (!res.ok) throw new Error("Failed to toggle agent");
-  return res.json();
-}
-
-export async function cloneAgent(id: number): Promise<SubAgent> {
-  const res = await fetch(`${API_BASE_URL}/agents/${id}/clone`, {
-    method: "POST",
-  });
-  if (!res.ok) throw new Error("Failed to clone agent");
-  return res.json();
-}
-
-// --- Tool Assignment API ---
-
-export async function getAgentTools(agentId: number): Promise<Tool[]> {
-  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools`);
-  if (!res.ok) throw new Error("Failed to fetch agent tools");
-  return res.json();
-}
-
-export async function assignTool(
-  agentId: number,
-  toolName: string
-): Promise<AgentToolAssignment> {
-  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tool_name: toolName }),
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.detail || "Failed to assign tool");
-  }
-  return res.json();
-}
-
-export async function unassignTool(
-  agentId: number,
-  toolId: number
-): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools/${toolId}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error("Failed to unassign tool");
-}
-
-export async function bulkUpdateAgentTools(
-  agentId: number,
-  toolNames: string[]
-): Promise<AgentToolAssignment[]> {
-  const res = await fetch(`${API_BASE_URL}/agents/${agentId}/tools`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tool_names: toolNames }),
-  });
-  if (!res.ok) throw new Error("Failed to update agent tools");
-  return res.json();
-}
-
-export async function getAssignments(): Promise<AssignmentMatrixItem[]> {
-  const res = await fetch(`${API_BASE_URL}/agent-tool-assignments`);
-  if (!res.ok) throw new Error("Failed to fetch assignments");
   return res.json();
 }
 

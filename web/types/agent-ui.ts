@@ -1,5 +1,3 @@
-import { SubAgent } from "./agent";
-import { Tool } from "@/lib/api";
 import { MessageRole } from "@/types/enums";
 
 export interface TokenUsage {
@@ -89,45 +87,6 @@ export interface AgentMessageProps {
 
 export interface UserMessageProps {
   content: string;
-}
-
-export interface AssignmentCanvasProps {
-  agents: SubAgent[];
-  tools: Tool[];
-  onAssign: (toolName: string, agentId: number) => Promise<void>;
-  onUnassign: (toolId: number, agentId: number) => Promise<void>;
-}
-
-export interface AgentCreatePanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-export interface ToolCreatePanelProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-export interface AgentCardProps {
-  agent: SubAgent;
-  onUpdate: (updatedAgent?: SubAgent) => void;
-  onDelete: () => void;
-}
-
-export interface AgentFormDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  agent?: SubAgent;
-  onSuccess: () => void;
-}
-
-export interface ToolAssignmentDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  agent: SubAgent;
-  onSuccess: () => void;
 }
 
 export interface ToolCallLogProps {

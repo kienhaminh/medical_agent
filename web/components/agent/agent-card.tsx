@@ -1,183 +1,39 @@
 "use client";
 
-import { Copy, Edit, MoreVertical, Trash, Wrench } from "lucide-react";
-import * as Icons from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { AgentFormDialog } from "./agent-form-dialog";
-import { ToolAssignmentDialog } from "./tool-assignment-dialog";
-import type { AgentCardProps } from "@/types/agent-ui";
-import { useAgentCard } from "./use-agent-card";
 
-export function AgentCard({ agent, onUpdate, onDelete }: AgentCardProps) {
-  const {
-    isToggling,
-    showEditDialog, setShowEditDialog,
-    showDeleteDialog, setShowDeleteDialog,
-    showToolsDialog, setShowToolsDialog,
-    toolCount,
-    isLoadingTools,
-    handleToggle,
-    handleClone,
-    handleDelete,
-    refreshToolCount,
-  } = useAgentCard({ agent, onUpdate, onDelete });
+interface AgentConfig {
+  name: string;
+  role: string;
+  description: string;
+  color: string;
+  icon: string;
+  is_template: boolean;
+  tools: string[];
+}
 
-  const IconComponent =
-    (Icons as unknown as Record<string, Icons.LucideIcon | undefined>)[agent.icon] ?? Icons.Bot;
+interface AgentCardProps {
+  agent: AgentConfig;
+}
 
+export function AgentCard({ agent }: AgentCardProps) {
   return (
-    <>
-      <Card className="group relative overflow-hidden transition-all hover:shadow-lg">
-        {/* Background gradient based on agent color */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{ background: `linear-gradient(135deg, ${agent.color}22 0%, transparent 100%)` }}
-        />
-
-        <div className="relative p-6 space-y-4">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="p-3 rounded-xl" style={{ backgroundColor: `${agent.color}15` }}>
-              <IconComponent className="h-6 w-6" style={{ color: agent.color }} />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={agent.enabled}
-                onCheckedChange={handleToggle}
-                disabled={isToggling}
-              />
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowToolsDialog(true)}>
-                    <Wrench className="mr-2 h-4 w-4" />
-                    Manage Tools
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleClone}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Clone
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setShowDeleteDialog(true)}
-                    className="text-destructive"
-                  >
-                    <Trash className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-lg">{agent.name}</h3>
-              {agent.is_template && (
-                <Badge variant="secondary" className="text-xs">Template</Badge>
-              )}
-            </div>
-
-            <p className="text-sm text-muted-foreground line-clamp-2">{agent.description}</p>
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="capitalize" style={{ borderColor: agent.color }}>
-                {agent.role.replace(/_/g, " ")}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary h-8 px-2 -ml-2"
-              onClick={() => setShowToolsDialog(true)}
-              title="Manage Assigned Tools"
-            >
-              <Wrench className="h-3.5 w-3.5" />
-              <span>
-                {isLoadingTools ? "..." : `${toolCount} tool${toolCount !== 1 ? "s" : ""}`}
-              </span>
-            </Button>
-
-            <Badge variant={agent.enabled ? "default" : "secondary"}>
-              {agent.enabled ? "Active" : "Disabled"}
-            </Badge>
-          </div>
-        </div>
-      </Card>
-
-      {/* Dialogs */}
-      <AgentFormDialog
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        agent={agent}
-        onSuccess={() => { setShowEditDialog(false); onUpdate(); }}
-      />
-
-      <ToolAssignmentDialog
-        open={showToolsDialog}
-        onOpenChange={setShowToolsDialog}
-        agent={agent}
-        onSuccess={async () => {
-          await refreshToolCount();
-          onUpdate();
-        }}
-      />
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Agent</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{agent.name}"? This action cannot
-              be undone and will remove all tool assignments.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    <div
+      className="rounded-lg border bg-card p-4 flex flex-col gap-2"
+      style={{ borderColor: `${agent.color}33` }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold text-sm">{agent.name}</h3>
+        <Badge variant="outline" className="text-xs shrink-0">
+          {agent.role.replace(/_/g, " ")}
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{agent.description}</p>
+      {agent.tools.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Tools: {agent.tools.join(", ")}
+        </p>
+      )}
+    </div>
   );
 }

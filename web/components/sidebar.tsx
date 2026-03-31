@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   MessageSquare,
-  Settings,
   History,
   BarChart3,
   Monitor,
@@ -55,7 +54,6 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: "Chat", href: "/agent", icon: MessageSquare },
       { name: "History", href: "/agent/history", icon: History },
-      { name: "Settings", href: "/agent/settings", icon: Settings, roles: ["admin"] },
       { name: "Usage", href: "/agent/usage", icon: BarChart3, roles: ["admin"] },
     ],
   },
