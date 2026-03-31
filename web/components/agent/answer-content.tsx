@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import type { AnswerContentProps } from "@/types/agent-ui";
 import { PatientLink } from "./patient-link";
+import { ConsultationCard, isConsultationSynthesis } from "@/components/doctor/consultation-card";
 
 export function AnswerContent({
   content,
@@ -14,6 +15,11 @@ export function AnswerContent({
   patientReferences,
   sessionId,
 }: AnswerContentProps) {
+  // Render team consultation synthesis as a structured card
+  if (isConsultationSynthesis(content)) {
+    return <ConsultationCard content={content} />;
+  }
+
   // Preprocess content to convert standalone image URLs to markdown images
   const processedContent = React.useMemo(() => {
     // Regular expression to match image URLs (not already in markdown syntax)
