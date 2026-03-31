@@ -22,7 +22,19 @@ async def save_intake(answers: dict[str, str]) -> tuple[int, str]:
 
     Returns:
         (patient_id, intake_id) — opaque identifiers, no PII exposed to caller.
+
+    Raises:
+        ValueError: If required fields are missing from answers.
+
+    Note:
+        This function is not safe for concurrent calls with identical (name, dob) pairs.
+        A unique constraint migration should be added before production rollout.
     """
+    required = {"first_name", "last_name", "dob", "gender"}
+    missing = required - answers.keys()
+    if missing:
+        raise ValueError(f"save_intake: missing required fields: {sorted(missing)}")
+
     full_name = f"{answers['first_name'].strip()} {answers['last_name'].strip()}"
     dob = answers["dob"].strip()
     gender = answers["gender"].strip()
@@ -41,7 +53,6 @@ async def save_intake(answers: dict[str, str]) -> tuple[int, str]:
             patient = Patient(name=full_name, dob=dob, gender=gender)
             db.add(patient)
             await db.flush()  # get patient.id before creating submission
-            await db.refresh(patient)
 
         submission = IntakeSubmission(
             id=str(uuid.uuid4()),

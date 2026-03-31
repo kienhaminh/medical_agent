@@ -18,21 +18,22 @@ async def test_save_intake_returns_patient_id_and_intake_id():
         "emergency_contact_phone": "555-0101",
     }
 
-    mock_patient = MagicMock()
-    mock_patient.id = 42
-
     mock_db = AsyncMock()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None  # new patient
     mock_db.execute.return_value = mock_result
 
-    call_count = [0]
+    # When add() is called, set IDs on Patient and IntakeSubmission objects
+    def fake_add(obj):
+        if hasattr(obj, 'name') and not hasattr(obj, 'first_name'):  # Patient (has name, no first_name)
+            obj.id = 42
+        # submission is added later, ID will be set by refresh
+
+    mock_db.add = MagicMock(side_effect=fake_add)
+
     async def fake_refresh(obj):
-        call_count[0] += 1
-        if call_count[0] == 1:
-            obj.id = 42  # patient
-        else:
-            obj.id = "vault-abc"  # submission
+        if hasattr(obj, 'first_name'):  # submission object
+            obj.id = "vault-abc"
 
     mock_db.refresh.side_effect = fake_refresh
 
@@ -46,6 +47,8 @@ async def test_save_intake_returns_patient_id_and_intake_id():
 
     assert isinstance(patient_id, int)
     assert isinstance(intake_id, str)
+    assert patient_id == 42
+    assert intake_id == "vault-abc"
 
 
 @pytest.mark.asyncio
@@ -83,3 +86,4 @@ async def test_save_intake_reuses_existing_patient():
         patient_id, intake_id = await save_intake(answers)
 
     assert patient_id == 7
+    assert isinstance(intake_id, str)
