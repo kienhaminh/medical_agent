@@ -29,9 +29,6 @@ async def get_chat_sessions(db: AsyncSession = Depends(get_db)):
             msg_result = await db.execute(msg_stmt)
             messages = msg_result.scalars().all()
 
-            # Get agent name if applicable
-            agent_name = None
-
             # Get preview from last message
             preview = None
             if messages:
@@ -41,8 +38,7 @@ async def get_chat_sessions(db: AsyncSession = Depends(get_db)):
             response.append(ChatSessionResponse(
                 id=session.id,
                 title=session.title,
-                agent_id=session.agent_id,
-                agent_name=agent_name,
+                agent_role=session.agent_role,
                 message_count=len(messages),
                 preview=preview,
                 tags=[],  # TODO: Extract tags from content
