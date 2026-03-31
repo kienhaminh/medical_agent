@@ -1,6 +1,6 @@
 """ask_user — lets the reception agent collect structured input from the patient.
 
-Registered at import time with scope="assignable".
+Registered at import time with scope="global".
 
 Privacy contract: this tool NEVER returns raw PII. It returns status strings
 and opaque IDs only. The vault handles PII storage.
@@ -89,7 +89,7 @@ async def ask_user(template: str) -> str:
 _registry = ToolRegistry()
 _registry.register(
     ask_user,
-    scope="assignable",
+    scope="global",
     symbol="ask_user",
     allow_overwrite=True,
 )
