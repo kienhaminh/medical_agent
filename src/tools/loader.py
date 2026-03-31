@@ -29,14 +29,13 @@ async def load_custom_tools():
                     import sqlalchemy
                     import sqlalchemy.orm
                     from src.models import (
-                        SessionLocal, 
+                        SessionLocal,
                         AsyncSessionLocal as DbAsyncSessionLocal,
-                        Patient, 
+                        Patient,
                         MedicalRecord,
-                        SubAgent,
                         CustomTool as ToolModel
                     )
-                    
+
                     global_scope = {
                         # Typing imports
                         # 'Optional': typing.Optional, # Removed to avoid inspection errors
@@ -44,19 +43,18 @@ async def load_custom_tools():
                         # 'Dict': typing.Dict,
                         # 'Any': typing.Any,
                         'typing': typing, # Add typing module instead
-                        
+
                         # SQLAlchemy imports
                         'select': sqlalchemy.select,
                         'or_': sqlalchemy.or_,
                         'and_': sqlalchemy.and_,
                         'Session': sqlalchemy.orm.Session,
-                        
+
                         # Database imports
                         'SessionLocal': SessionLocal,
                         'AsyncSessionLocal': DbAsyncSessionLocal,
                         'Patient': Patient,
                         'MedicalRecord': MedicalRecord,
-                        'SubAgent': SubAgent,
                         'Tool': ToolModel,
                     }
                     
