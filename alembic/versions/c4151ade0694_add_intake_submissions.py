@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table(
         'intake_submissions',
         sa.Column('id', sa.String(length=36), nullable=False),
-        sa.Column('patient_id', sa.Integer(), nullable=False),
+        sa.Column('patient_id', sa.Integer(), sa.ForeignKey('patients.id'), nullable=False),
         sa.Column('first_name', sa.String(length=100), nullable=False),
         sa.Column('last_name', sa.String(length=100), nullable=False),
         sa.Column('dob', sa.String(length=20), nullable=False),
@@ -38,21 +38,18 @@ def upgrade() -> None:
         sa.Column('emergency_contact_name', sa.String(length=200), nullable=False),
         sa.Column('emergency_contact_relationship', sa.String(length=50), nullable=False),
         sa.Column('emergency_contact_phone', sa.String(length=30), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['patient_id'], ['patients.id']),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text("now()")),
         sa.PrimaryKeyConstraint('id'),
-        if_not_exists=True,
     )
     op.create_index(
-        op.f('ix_intake_submissions_patient_id'),
+        'ix_intake_submissions_patient_id',
         'intake_submissions',
         ['patient_id'],
         unique=False,
-        if_not_exists=True,
     )
 
 
 def downgrade() -> None:
     """Drop intake_submissions table."""
-    op.drop_index(op.f('ix_intake_submissions_patient_id'), table_name='intake_submissions')
+    op.drop_index('ix_intake_submissions_patient_id', table_name='intake_submissions')
     op.drop_table('intake_submissions')
