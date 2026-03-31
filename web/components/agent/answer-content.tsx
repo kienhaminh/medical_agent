@@ -15,11 +15,6 @@ export function AnswerContent({
   patientReferences,
   sessionId,
 }: AnswerContentProps) {
-  // Render team consultation synthesis as a structured card
-  if (isConsultationSynthesis(content)) {
-    return <ConsultationCard content={content} />;
-  }
-
   // Preprocess content to convert standalone image URLs to markdown images
   const processedContent = React.useMemo(() => {
     // Regular expression to match image URLs (not already in markdown syntax)
@@ -145,6 +140,11 @@ export function AnswerContent({
       <li {...props}>{React.Children.map(children, processChildren)}</li>
     ),
   };
+
+  // Render team consultation synthesis as a structured card (after all hooks)
+  if (isConsultationSynthesis(content)) {
+    return <ConsultationCard content={content} />;
+  }
 
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere prose-p:leading-7 prose-p:my-3 prose-headings:mt-6 prose-headings:mb-3 prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-pre:my-4 prose-code:text-cyan-400">

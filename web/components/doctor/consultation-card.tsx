@@ -31,7 +31,7 @@ interface ParsedSynthesis {
 
 function parseSynthesis(content: string): ParsedSynthesis {
   const get = (label: string): string => {
-    const regex = new RegExp(`${label}:\\s*([\\s\\S]*?)(?=\\n[A-Z ]+:|$)`, "i");
+    const regex = new RegExp(`${label}:[\\t ]*([\\s\\S]*?)(?=\\n[A-Z][A-Z ]*:|\\s*$)`, "i");
     const match = content.match(regex);
     return match ? match[1].trim() : "";
   };
