@@ -45,8 +45,7 @@ async def request_specialist_team(case_summary: str, patient_id: int) -> str:
     )
 
 
-_registry = ToolRegistry()
-_registry.register(
+ToolRegistry().register(
     request_specialist_team,
     scope="global",
     symbol="request_specialist_team",

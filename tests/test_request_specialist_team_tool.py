@@ -14,6 +14,7 @@ def test_tool_is_registered():
 
 
 def test_tool_has_correct_scope():
+    importlib.import_module("src.tools.builtin.request_specialist_team_tool")
     registry = ToolRegistry()
     scope = registry._tool_scopes.get("request_specialist_team")
     assert scope == "global"
