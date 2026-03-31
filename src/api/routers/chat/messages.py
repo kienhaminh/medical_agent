@@ -37,6 +37,10 @@ async def submit_form_response(session_id: int, body: FormResponseRequest):
 
     Validates the form_id, processes PII via the vault (for patient_intake),
     stores the opaque result, then fires the asyncio.Event so the tool returns.
+
+    Note: session_id is included in the path for REST semantics but is not used
+    to authorize the form lookup. Security relies on the unguessability of the
+    uuid4 form_id. Future hardening: validate form belongs to this session.
     """
     template = form_registry.get_form_template(body.form_id)
     if template is None:

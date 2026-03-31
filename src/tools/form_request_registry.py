@@ -10,6 +10,13 @@ Cleanup contracts:
     - ask_user tool MUST call cleanup_form() in a finally block after awaiting the event.
     - SSE generate() MUST call unregister_session_queue() in a finally block.
     Failure to call these will leave orphan entries in memory.
+
+IMPORTANT — single-process only:
+    This registry is an in-process singleton. Multi-worker deployments (e.g.
+    uvicorn --workers N > 1) will silently break form requests: the
+    POST /form-response can land on a different worker than the one holding
+    the asyncio.Event, resulting in a 404. Deploy with a single worker or
+    replace with a cross-process backend (e.g. Redis pub/sub) before scaling.
 """
 import asyncio
 import contextvars

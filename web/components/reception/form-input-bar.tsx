@@ -12,7 +12,7 @@ export interface ActiveForm {
   schema: {
     title: string;
     form_type: "multi_field" | "yes_no";
-    message: string;
+    message?: string;
     fields: FormFieldDef[];
   };
 }
