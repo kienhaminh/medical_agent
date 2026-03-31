@@ -20,6 +20,7 @@ from .agent import SubAgent
 from .tool import CustomTool
 from .skill import Skill, SkillTool, AgentSkill
 from .visit import Visit, VisitStatus
+from .case_thread import CaseThread, CaseMessage
 from .department import Department
 from .user import User, UserRole
 from .order import Order, OrderType, OrderStatus
@@ -53,6 +54,9 @@ __all__ = [
     # Visit models
     "Visit",
     "VisitStatus",
+    # Case thread models
+    "CaseThread",
+    "CaseMessage",
     # Department models
     "Department",
     # User models
