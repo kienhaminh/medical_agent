@@ -21,6 +21,7 @@ from ...dependencies import get_or_create_agent
 from ....tasks.agent_tasks import process_agent_message
 from src.tools.form_request_registry import form_registry, current_session_id_var
 from src.forms.vault import save_intake
+from src.agent.agent_registry import get_agent_config
 
 logger = logging.getLogger(__name__)
 
@@ -147,12 +148,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                     })
 
         # Load session agent's system prompt if linked
-        agent_system_prompt = None
-        if session and session.agent_role:
-            from src.agent.core_agents import CORE_AGENTS
-            matched = next((a for a in CORE_AGENTS if a["role"] == session.agent_role), None)
-            if matched:
-                agent_system_prompt = matched.get("system_prompt")
+        agent_config = get_agent_config(session.agent_role) if session.agent_role else None
+        agent_system_prompt = agent_config["system_prompt"] if agent_config else None
 
         # If streaming is requested
         if request.stream:

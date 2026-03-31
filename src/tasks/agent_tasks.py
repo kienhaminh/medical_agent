@@ -15,6 +15,7 @@ import src.tools.builtin  # Register builtin tools
 import src.skills.builtin  # Register skill search tools
 import redis.asyncio as redis
 import os
+from src.agent.agent_registry import get_agent_config
 
 # Load configuration
 config = load_config()
@@ -175,12 +176,8 @@ async def _process_message_async(
                     })
 
             # 4. Resolve optional specialist system prompt override
-            agent_system_prompt = None
-            if agent_role:
-                from src.agent.core_agents import CORE_AGENTS
-                matched = next((a for a in CORE_AGENTS if a["role"] == agent_role), None)
-                if matched:
-                    agent_system_prompt = matched.get("system_prompt")
+            agent_config = get_agent_config(agent_role) if agent_role else None
+            agent_system_prompt = agent_config["system_prompt"] if agent_config else None
 
             # 5. Get agent and process message
             user_agent = get_or_create_agent(user_id)
