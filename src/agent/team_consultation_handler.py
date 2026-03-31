@@ -251,9 +251,13 @@ class TeamConsultationHandler:
             *[call_specialist(role) for role in team],
             return_exceptions=True,
         )
+        failures = []
         for role, result in zip(team, results):
             if isinstance(result, BaseException):
                 logger.error("Specialist %s failed in round %s: %s", role, round_num, result)
+                failures.append(role)
+        if len(failures) == len(team):
+            raise RuntimeError(f"All specialists failed in round {round_num}: {failures}")
 
     # ──────────────────────────────────────────────────────────
     # Helper methods
