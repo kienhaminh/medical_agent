@@ -126,7 +126,7 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
 
       <ScrollArea className="max-h-72 px-4 pb-2">
         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pb-1">
-          {schema.fields.map((field, idx) => {
+          {schema.fields.map((field) => {
             const sectionLabel = getSectionLabel(field.name);
             return (
               <div
