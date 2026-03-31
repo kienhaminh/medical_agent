@@ -18,7 +18,7 @@ class IntakeSubmission(Base):
     __tablename__ = "intake_submissions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), nullable=False)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), nullable=False, index=True)
 
     # Personal info
     first_name: Mapped[str] = mapped_column(String(100))
@@ -29,7 +29,7 @@ class IntakeSubmission(Base):
     # Contact
     phone: Mapped[str] = mapped_column(String(30))
     email: Mapped[str] = mapped_column(String(254))
-    address: Mapped[Text] = mapped_column(Text)
+    address: Mapped[str] = mapped_column(Text)
 
     # Visit
     chief_complaint: Mapped[str] = mapped_column(Text)
@@ -46,4 +46,6 @@ class IntakeSubmission(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
+    # No back_populates on Patient — intake submissions are write-only from
+    # the agent's perspective. The agent only ever receives opaque IDs.
     patient: Mapped["Patient"] = relationship("Patient")
