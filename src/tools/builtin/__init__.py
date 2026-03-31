@@ -26,6 +26,7 @@ from . import differential_diagnosis_tool
 from . import create_order_tool
 from . import shift_handoff_tool
 from . import ask_user_tool
+from . import request_specialist_team_tool
 
 # Also import the functions for convenience
 from .datetime_tool import get_current_datetime
@@ -49,6 +50,7 @@ from .differential_diagnosis_tool import generate_differential_diagnosis
 from .create_order_tool import create_order
 from .shift_handoff_tool import generate_shift_handoff
 from .ask_user_tool import ask_user
+from .request_specialist_team_tool import request_specialist_team
 
 __all__ = [
     "get_current_datetime",
@@ -76,4 +78,5 @@ __all__ = [
     "create_order",
     "generate_shift_handoff",
     "ask_user",
+    "request_specialist_team",
 ]
