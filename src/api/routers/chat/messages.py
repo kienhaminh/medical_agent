@@ -16,9 +16,12 @@ from src.models.agent import SubAgent
 from src.config.settings import load_config
 from ...models import (
     ChatRequest, ChatResponse, ChatTaskResponse, TaskStatusResponse,
+    FormResponseRequest,
 )
 from ...dependencies import get_or_create_agent
 from ....tasks.agent_tasks import process_agent_message
+from src.tools.form_request_registry import form_registry, current_session_id_var
+from src.forms.vault import save_intake
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,34 @@ logger = logging.getLogger(__name__)
 config = load_config()
 
 router = APIRouter()
+
+
+@router.post("/api/chat/{session_id}/form-response")
+async def submit_form_response(session_id: int, body: FormResponseRequest):
+    """Receive patient form submission and unblock the waiting ask_user tool.
+
+    Validates the form_id, processes PII via the vault (for patient_intake),
+    stores the opaque result, then fires the asyncio.Event so the tool returns.
+    """
+    template = form_registry.get_form_template(body.form_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Form not found or expired")
+
+    if template == "patient_intake":
+        try:
+            patient_id, intake_id = await save_intake(body.answers)
+            result = f"intake_completed. patient_id={patient_id}, intake_id={intake_id}"
+        except Exception as e:
+            logger.error("Vault save failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to save intake data")
+    elif template == "confirm_visit":
+        confirmed = body.answers.get("confirmed", "false").lower()
+        result = "confirmed" if confirmed in ("true", "yes", "1") else "declined"
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown template: {template}")
+
+    form_registry.resolve_form(body.form_id, result)
+    return {"status": "ok"}
 
 
 @router.post("/api/chat")
@@ -137,45 +168,79 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             async def generate():
                 full_response = ""
                 all_patient_references = []
-                total_usage = {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
-                }
+                total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
                 tool_calls_buffer = []
                 logs_buffer = []
-                try:
-                    # Process message through agent with streaming (await to get async generator)
-                    stream = await user_agent.process_message(
-                        user_message=context_message.strip(),
-                        stream=True,
-                        chat_history=chat_history,
-                        patient_id=patient.id if patient else None,
-                        patient_name=patient.name if patient else None,
-                        system_prompt_override=agent_system_prompt,
-                    )
 
-                    # Stream each chunk as Server-Sent Events (async iteration)
-                    async for event in stream:
+                # --- form side-channel setup ---
+                form_event_queue: asyncio.Queue = asyncio.Queue()
+                form_registry.register_session_queue(session.id, form_event_queue)
+                current_session_id_var.set(session.id)
+                # --------------------------------
+
+                try:
+                    # Drain the agent stream into a queue so we can race it
+                    # against the form side-channel.
+                    agent_event_queue: asyncio.Queue = asyncio.Queue()
+
+                    async def drain_agent():
+                        stream = await user_agent.process_message(
+                            user_message=context_message.strip(),
+                            stream=True,
+                            chat_history=chat_history,
+                            patient_id=patient.id if patient else None,
+                            patient_name=patient.name if patient else None,
+                            system_prompt_override=agent_system_prompt,
+                        )
+                        async for evt in stream:
+                            await agent_event_queue.put(evt)
+                        await agent_event_queue.put(None)  # sentinel
+
+                    agent_task = asyncio.create_task(drain_agent())
+
+                    while True:
+                        get_agent = asyncio.create_task(agent_event_queue.get())
+                        get_form = asyncio.create_task(form_event_queue.get())
+
+                        done_set, pending_set = await asyncio.wait(
+                            {get_agent, get_form},
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+
+                        for t in pending_set:
+                            t.cancel()
+                            try:
+                                await t
+                            except asyncio.CancelledError:
+                                pass
+
+                        event = done_set.pop().result()
+
+                        if event is None:
+                            break  # agent stream finished
+
+                        # Form side-channel event — emit and continue
+                        if isinstance(event, dict) and event.get("type") == "form_request":
+                            yield f"data: {json.dumps({'form_request': event['payload']})}\n\n"
+                            continue
+
+                        # Regular agent events (unchanged logic)
                         if isinstance(event, dict):
                             if event["type"] == "content":
-                                # Map content to chunk for backward compatibility
-                                chunk_content = event['content']
-                                full_response += chunk_content  # Accumulate
+                                chunk_content = event["content"]
+                                full_response += chunk_content
                                 yield f"data: {json.dumps({'chunk': chunk_content})}\n\n"
                             elif event["type"] == "tool_call":
                                 tool_calls_buffer.append(event)
                                 yield f"data: {json.dumps({'tool_call': event})}\n\n"
                             elif event["type"] == "tool_result":
-                                # Update tool calls buffer with result
                                 for tc in tool_calls_buffer:
                                     if tc.get("id") == event.get("id"):
                                         tc["result"] = event.get("result")
-
                                 logs_buffer.append({
                                     "timestamp": datetime.now(timezone.utc).isoformat(),
                                     "type": "tool_result",
-                                    "content": event
+                                    "content": event,
                                 })
                                 yield f"data: {json.dumps({'tool_result': event})}\n\n"
                             elif event["type"] == "reasoning":
@@ -184,25 +249,22 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                 logs_buffer.append({
                                     "timestamp": datetime.now(timezone.utc).isoformat(),
                                     "type": "log",
-                                    "content": event['content']
+                                    "content": event["content"],
                                 })
                                 yield f"data: {json.dumps({'log': event['content']})}\n\n"
                             elif event["type"] == "patient_references":
-                                # Forward patient references to frontend
-                                all_patient_references = event['patient_references']
+                                all_patient_references = event["patient_references"]
                                 yield f"data: {json.dumps({'patient_references': event['patient_references']})}\n\n"
                             elif event["type"] == "usage":
-                                usage = event['usage']
+                                usage = event["usage"]
                                 total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
                                 total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
                                 total_usage["total_tokens"] += usage.get("total_tokens", 0)
                                 yield f"data: {json.dumps({'usage': event['usage']})}\n\n"
                         else:
-                            # Fallback for string chunks if any
                             full_response = event
                             yield f"data: {json.dumps({'chunk': event})}\n\n"
 
-                    # 3. Save Assistant Message (after streaming is done)
                     if full_response or tool_calls_buffer:
                         async with AsyncSessionLocal() as local_db:
                             assistant_msg = ChatMessage(
@@ -212,37 +274,33 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                                 tool_calls=json.dumps(tool_calls_buffer) if tool_calls_buffer else None,
                                 logs=json.dumps(logs_buffer) if logs_buffer else None,
                                 patient_references=json.dumps(all_patient_references) if all_patient_references else None,
-                                token_usage=json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None
+                                token_usage=json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None,
                             )
                             local_db.add(assistant_msg)
                             await local_db.commit()
 
-                    # Send session_id and done signal
                     yield f"data: {json.dumps({'session_id': session.id})}\n\n"
                     yield f"data: {json.dumps({'done': True})}\n\n"
 
                 except Exception as e:
-                    # Save error to database
                     async with AsyncSessionLocal() as local_db:
                         assistant_msg = ChatMessage(
                             session_id=session.id,
                             role="assistant",
-                            content=full_response,  # Save partial content
+                            content=full_response,
                             status="error",
                             error_message=str(e),
                             patient_references=json.dumps(all_patient_references) if all_patient_references else None,
-                            token_usage=json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None
+                            token_usage=json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None,
                         )
                         local_db.add(assistant_msg)
                         await local_db.commit()
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-                    error_data = json.dumps({'error': str(e)})
-                    yield f"data: {error_data}\n\n"
+                finally:
+                    form_registry.unregister_session_queue(session.id)
 
-            return StreamingResponse(
-                generate(),
-                media_type="text/event-stream",
-            )
+            return StreamingResponse(generate(), media_type="text/event-stream")
         else:
             # Non-streaming response (await the async call)
             response = await user_agent.process_message(

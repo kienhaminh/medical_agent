@@ -401,3 +401,9 @@ class DDxResponse(BaseModel):
     chief_complaint: Optional[str] = None
     diagnoses: List[DiagnosisItem] = []
     error: Optional[str] = None
+
+
+class FormResponseRequest(BaseModel):
+    """Body for POST /api/chat/{session_id}/form-response."""
+    form_id: str
+    answers: dict[str, str]
