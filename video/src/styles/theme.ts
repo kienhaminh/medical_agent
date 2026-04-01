@@ -46,3 +46,16 @@ export const gradients = {
   scanLine: "linear-gradient(90deg, transparent, rgba(0,217,255,0.7), transparent)",
   dotMatrix: "radial-gradient(circle, rgba(0,217,255,0.1) 1px, transparent 1px)",
 } as const;
+
+export const windowChrome = {
+  trafficRed: "#FF5F57",
+  trafficYellow: "#FFBD2E",
+  trafficGreen: "#27C93F",
+  titleBarBg: "rgba(255,255,255,0.03)",
+  containerBorder: "rgba(255,255,255,0.08)",
+  containerShadow: "0 25px 60px rgba(0,0,0,0.5)",
+  dotSize: 8,
+  dotGap: 8,
+  titleBarHeight: 32,
+  borderRadius: 12,
+} as const;

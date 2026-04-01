@@ -62,3 +62,31 @@ export const SUGGESTIONS = [
   "I need to see a doctor today",
   "This is my first time here",
 ] as const;
+
+// --- Promo Video Content ---
+
+export const PROMO_TAGLINE = "Intelligent Healthcare, Automated";
+
+export const PROMO_CLOSING_TAGLINE = "THE FUTURE OF PATIENT CARE";
+
+export const AGENT_INTRO_HEADLINES = {
+  line1: "ONE AGENT.",
+  line2: "EVERY WORKFLOW.",
+} as const;
+
+export const AGENT_INTRO_FEATURES = [
+  { text: "Screens patients automatically", icon: "stethoscope" as const },
+  { text: "Routes to the right department", icon: "routing" as const },
+  { text: "Assists doctors in real-time", icon: "brain" as const },
+] as const;
+
+export const AGENT_ADVANTAGES = [
+  { title: "Automated Patient Screening", icon: "stethoscope" as const },
+  { title: "Intelligent Department Routing", icon: "routing" as const },
+  { title: "Real-Time Clinical Support", icon: "brain" as const },
+] as const;
+
+export const PROMO_CALLOUTS = {
+  patientScreening: "AUTOMATIC PATIENT SCREENING",
+  routingSupport: "INTELLIGENT ROUTING & CLINICAL SUPPORT",
+} as const;
