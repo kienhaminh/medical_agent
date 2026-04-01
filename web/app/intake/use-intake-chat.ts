@@ -4,6 +4,43 @@
 import { useState, useRef, useEffect } from "react";
 import type { ActiveForm } from "@/components/reception/form-input-bar";
 
+const INTAKE_SESSION_KEY = "intake_session";
+
+interface StoredSession {
+  sessionId: number;
+  date: string; // "YYYY-MM-DD"
+}
+
+function getTodayDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function readStoredSession(): StoredSession | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(INTAKE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed: StoredSession = JSON.parse(raw);
+    if (parsed.date !== getTodayDate()) {
+      localStorage.removeItem(INTAKE_SESSION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSession(sessionId: number): void {
+  const entry: StoredSession = { sessionId, date: getTodayDate() };
+  localStorage.setItem(INTAKE_SESSION_KEY, JSON.stringify(entry));
+}
+
+function clearStoredSession(): void {
+  localStorage.removeItem(INTAKE_SESSION_KEY);
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -28,6 +65,42 @@ export function useIntakeChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, triageStatus]);
+
+  useEffect(() => {
+    const stored = readStoredSession();
+    if (!stored) return;
+
+    setSessionId(stored.sessionId);
+
+    fetch(`/api/chat/sessions/${stored.sessionId}/messages`)
+      .then((res) => {
+        if (!res.ok) {
+          clearStoredSession();
+          setSessionId(null);
+          return;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        const restored: ChatMessage[] = data
+          .filter(
+            (m: { role: string }) =>
+              m.role === "user" || m.role === "assistant"
+          )
+          .map((m: { id: number; role: string; content: string }) => ({
+            id: String(m.id),
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+        if (restored.length > 0) {
+          setMessages(restored);
+        }
+      })
+      .catch(() => {
+        // Network unavailable — session ID kept so next message continues the same session
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMessage = async (e?: React.FormEvent, directMessage?: string) => {
     e?.preventDefault();
@@ -91,6 +164,7 @@ export function useIntakeChat() {
 
               if (parsed.session_id && !sessionId) {
                 setSessionId(parsed.session_id);
+                writeStoredSession(parsed.session_id);
               }
 
               // Show the form — hide the input bar
@@ -138,6 +212,7 @@ export function useIntakeChat() {
   };
 
   const handleNewChat = () => {
+    clearStoredSession();
     setMessages([]);
     setInput("");
     setSessionId(null);
