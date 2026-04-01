@@ -10,7 +10,7 @@ from langgraph.graph import StateGraph, END
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from .state import AgentState
-from .agent_loader import AgentLoader
+from .agent_registry import get_agent_config, list_agents
 from .specialist_handler import SpecialistHandler
 from ..tools.registry import ToolRegistry
 
@@ -24,7 +24,6 @@ class GraphBuilder:
         self,
         llm,
         tool_registry: ToolRegistry,
-        agent_loader: AgentLoader,
         specialist_handler: SpecialistHandler,
         system_prompt: str,
         max_iterations: int = 10,
@@ -35,12 +34,11 @@ class GraphBuilder:
         self.llm = llm
         self.fast_llm = fast_llm or llm  # Use fast LLM if provided, otherwise use main LLM
         if fast_llm:
-            logger.info("GraphBuilder initialized with fast_llm (model: %s)", 
+            logger.info("GraphBuilder initialized with fast_llm (model: %s)",
                        getattr(fast_llm, 'model_name', 'unknown'))
         else:
             logger.warning("GraphBuilder: No fast_llm provided, will use main LLM for routing (SLOW!)")
         self.tool_registry = tool_registry
-        self.agent_loader = agent_loader
         self.specialist_handler = specialist_handler
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
@@ -75,17 +73,17 @@ class GraphBuilder:
             # This allows LLM to use natural names like "internist" instead of "clinical_text"
             name_to_role = {}
             role_to_name = {}
-            for role, info in self.agent_loader.sub_agents.items():
-                agent_name = info.get("name", "").lower()
-                name_to_role[agent_name] = role
-                role_to_name[role] = info.get("name", role)
+            for agent in list_agents():
+                agent_name = agent.get("name", "").lower()
+                name_to_role[agent_name] = agent["role"]
+                role_to_name[agent["role"]] = agent.get("name", agent["role"])
 
             # Normalize specialist_name to lowercase for matching
             specialist_name_lower = specialist_name.lower()
 
             # Try to resolve to role ID
             # 1. Check if it's already a role ID
-            if specialist_name in self.agent_loader.sub_agents:
+            if get_agent_config(specialist_name) is not None:
                 resolved_role = specialist_name
             # 2. Check if it matches a name
             elif specialist_name_lower in name_to_role:
@@ -93,7 +91,7 @@ class GraphBuilder:
                 logger.info(f"[DELEGATION] Resolved '{specialist_name}' to role '{resolved_role}'")
             else:
                 # Not found - provide helpful error
-                available = ", ".join([f"{role_to_name.get(r, r)} ({r})" for r in self.agent_loader.sub_agents.keys()])
+                available = ", ".join([f"{role_to_name.get(r, r)} ({r})" for r in [a["role"] for a in list_agents()]])
                 return f"Specialist '{specialist_name}' not found. Available specialists: {available}"
 
             # Create a dummy message to pass to consult_specialists
@@ -121,8 +119,9 @@ class GraphBuilder:
 
         # Update docstring with available agents - show both role and name
         available_agents_list = []
-        for role, info in self.agent_loader.sub_agents.items():
-            agent_name = info.get("name", role)
+        for agent in list_agents():
+            role = agent["role"]
+            agent_name = agent.get("name", role)
             available_agents_list.append(f"{agent_name} ({role})")
 
         delegate_to_specialist.description = delegate_to_specialist.description.format(

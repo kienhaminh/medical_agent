@@ -15,7 +15,6 @@ from .state import AgentState
 from .agent_config import AgentConfig
 from ..prompt.system import get_default_system_prompt, build_specialist_list_message
 from ..utils.token_budget import trim_to_token_budget, count_message_tokens, count_text_tokens
-from .agent_loader import AgentLoader
 from .specialist_handler import SpecialistHandler
 from .graph_builder import GraphBuilder
 from .response_generator import ResponseGenerator
@@ -94,9 +93,13 @@ class LangGraphAgent:
             self.skill_orchestrator = None
             self.tool_pool = None
         
-        # Initialize agent loader
-        self.agent_loader = AgentLoader()
-        
+        # Register builtin tools and skills (side-effect imports)
+        from ..tools import builtin  # noqa: F401
+        from ..skills import builtin as skill_builtin  # noqa: F401
+
+        # Lazy-init flag for custom tool loading
+        self._tools_loaded = False
+
         # Initialize specialist handler
         self.specialist_handler = SpecialistHandler(
             llm=self.llm,
@@ -109,7 +112,6 @@ class LangGraphAgent:
         self.graph_builder = GraphBuilder(
             llm=self.llm,
             tool_registry=self.tool_registry,
-            agent_loader=self.agent_loader,
             specialist_handler=self.specialist_handler,
             system_prompt=self.system_prompt,
             max_iterations=max_iterations,
@@ -183,24 +185,11 @@ class LangGraphAgent:
             return self.skill_orchestrator.explain_selection(query)
         return {"error": "Skill orchestrator not enabled"}
     
-    async def _reload_graph(self, sub_agents: dict = None):
-        """Reload the graph after loading sub-agents.
+    async def _load_custom_tools(self) -> None:
+        """Load custom tools from the database (called once lazily)."""
+        from ..tools.loader import load_custom_tools
+        await load_custom_tools()
 
-        Args:
-            sub_agents: Optional dict of sub-agents to use. If provided,
-                       updates the agent_loader's sub_agents.
-        """
-        # Update agent_loader's sub_agents if provided
-        if sub_agents is not None:
-            logger.debug("Reloading graph with %d sub-agents", len(sub_agents))
-            self.agent_loader.sub_agents = sub_agents
-
-        # Rebuild graph with updated sub-agents
-        self.graph = self.graph_builder.build()
-        logger.debug("Graph rebuilt successfully")
-        # Update response generator with new graph
-        self.response_generator.update_graph(self.graph)
-    
     async def process_message(
         self,
         user_message: str,
@@ -225,17 +214,11 @@ class LangGraphAgent:
         """
         logger.info("Processing user message: %s (patient_id=%s)", user_message, patient_id)
 
-        # Load sub-agents from database
-        sub_agents = await self.agent_loader.load_enabled_agents()
-        logger.debug("Loaded %d sub-agents", len(sub_agents))
+        # Load custom tools on first request (lazy init)
+        if not self._tools_loaded:
+            await self._load_custom_tools()
+            self._tools_loaded = True
 
-        # Update specialist handler with loaded agents
-        self.specialist_handler.set_sub_agents(sub_agents)
-        logger.debug("Specialist handler updated with latest agents")
-
-        # Rebuild graph with updated sub-agents (pass sub_agents explicitly)
-        await self._reload_graph(sub_agents)
-        
         # Retrieve memories if available
         memories = []
         if self.memory_manager:
@@ -260,9 +243,8 @@ class LangGraphAgent:
             messages.append(SystemMessage(content=active_system_prompt))
 
         # 2. Specialist list (separate message so static prefix stays cacheable)
-        if sub_agents:
-            specialist_list_content = build_specialist_list_message(sub_agents)
-            messages.append(SystemMessage(content=specialist_list_content))
+        specialist_list_content = build_specialist_list_message()
+        messages.append(SystemMessage(content=specialist_list_content))
 
         # 3. Memory context — deduplicated and capped at 500 tokens
         if memories:
@@ -341,4 +323,4 @@ class LangGraphAgent:
     
     def __repr__(self) -> str:
         """String representation."""
-        return f"LangGraphAgent(user_id={self.config.user_id}, sub_agents={len(self.agent_loader.sub_agents)}, tools={len(self.tool_registry.get_langchain_tools())})"
+        return f"LangGraphAgent(user_id={self.config.user_id}, tools={len(self.tool_registry.get_langchain_tools())})"

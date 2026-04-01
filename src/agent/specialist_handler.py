@@ -16,6 +16,7 @@ from ..tools.registry import ToolRegistry
 from ..tools.executor import ToolExecutor
 from ..tools.base import ToolResult
 from ..utils.token_budget import count_text_tokens
+from .agent_registry import get_agent_config, list_agents
 from ..prompt.templates import (
     format_specialist_report,
     format_specialist_error,
@@ -52,16 +53,7 @@ class SpecialistHandler:
         self.tool_registry = tool_registry
         self.max_concurrent_subagents = max_concurrent_subagents
         self.subagent_timeout = subagent_timeout
-        self.sub_agents = {}
-    
-    def set_sub_agents(self, sub_agents: dict) -> None:
-        """Update the sub-agents dictionary.
-        
-        Args:
-            sub_agents: Dictionary of sub-agent configurations
-        """
-        self.sub_agents = sub_agents
-    
+
     def has_specialist_request(self, message: BaseMessage) -> bool:
         """Check if message contains specialist consultation request.
         
@@ -95,10 +87,10 @@ class SpecialistHandler:
         if "consult:" not in content:
             return []
         
-        # Extract specialists using dynamic roles from loaded sub-agents
+        # Extract specialists using dynamic roles from the agent registry
         specialists = []
-        valid_roles = list(self.sub_agents.keys())
-        
+        valid_roles = [a["role"] for a in list_agents()]
+
         for role in valid_roles:
             if role in content:
                 specialists.append(role)
@@ -210,7 +202,7 @@ class SpecialistHandler:
                 {"message": f"Investigating {specialist_role}...", "level": "info"}
             )
             
-            agent_info = self.sub_agents.get(specialist_role)
+            agent_info = get_agent_config(specialist_role)
             if not agent_info:
                 await adispatch_custom_event(
                     "agent_log", 
@@ -243,16 +235,12 @@ class SpecialistHandler:
                 t0 = time.time()
                 agent_tools = []
                 
-                # Check if agent has hardcoded tools (Core Agent)
+                # Fetch agent's tools from registry config
                 if "tools" in agent_info and agent_info["tools"]:
                     logger.debug(
                         "Using hardcoded tools for %s: %s", specialist_role, agent_info["tools"]
                     )
                     agent_tools = self.tool_registry.get_tools_by_symbols(agent_info["tools"])
-                else:
-                    # Fetch from DB for custom agents
-                    agent_id = agent_info["id"]
-                    agent_tools = await self.tool_registry.get_langchain_tools_for_agent(agent_id)
                 
                 logger.debug(
                     "Fetched %d agent-specific tools for %s",

@@ -7,9 +7,6 @@ Dynamic content (specialist list, memory context) is injected as separate
 SystemMessage entries appended after this constant in langgraph_agent.py.
 """
 
-from typing import Dict, Any
-
-
 STATIC_SYSTEM_PROMPT = """You are an intelligent AI assistant supporting healthcare providers with both general queries and specialized medical information retrieval.
 
 **Audience:** Healthcare providers (doctors, nurses, clinicians).
@@ -50,23 +47,24 @@ def get_default_system_prompt() -> str:
     return STATIC_SYSTEM_PROMPT
 
 
-def build_specialist_list_message(sub_agents: Dict[str, Dict[str, Any]]) -> str:
+def build_specialist_list_message() -> str:
     """Build a specialist list block for injection as a separate SystemMessage.
 
     Kept separate from STATIC_SYSTEM_PROMPT so the static prefix is
     byte-identical across requests (enabling provider-side caching) while
     the specialist list can vary as agents are added/removed.
 
-    Args:
-        sub_agents: Dict mapping role → agent info dict (name, description).
+    Fetches agents directly from the static agent registry.
 
     Returns:
         Formatted string listing available specialists, or a brief note if none.
     """
-    if not sub_agents:
+    from src.agent.agent_registry import list_agents
+    agents = list_agents()
+    if not agents:
         return "No specialist sub-agents are currently available."
 
     lines = ["Available specialist sub-agents:"]
-    for role, info in sub_agents.items():
-        lines.append(f"- {info['name']} (role: {role}): {info.get('description', '')}")
+    for agent in agents:
+        lines.append(f"- {agent['name']} (role: {agent['role']}): {agent.get('description', '')}")
     return "\n".join(lines)
