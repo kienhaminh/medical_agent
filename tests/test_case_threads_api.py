@@ -3,6 +3,7 @@
 import uuid
 import pytest
 import pytest_asyncio
+from datetime import date
 from httpx import AsyncClient, ASGITransport
 
 from src.api.server import app
@@ -18,7 +19,7 @@ async def thread_in_db():
     thread_id = str(uuid.uuid4())
 
     async with AsyncSessionLocal() as db:
-        patient = Patient(name="Test Patient", dob="1980-01-01", gender="male")
+        patient = Patient(name="Test Patient", dob=date(1980, 1, 1), gender="male")
         db.add(patient)
         await db.commit()
         await db.refresh(patient)

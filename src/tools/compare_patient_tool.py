@@ -55,7 +55,7 @@ def compare_patient(vault_key: str, patient_id: int) -> str:
     lines = [
         f"comparison_result. patient_id={patient_id}",
         f"name: {_cmp(vault_name, patient.name)}",
-        f"dob: {_cmp(entry.data['dob'], patient.dob)}",
+        f"dob: {_cmp(entry.data['dob'], patient.dob.isoformat() if patient.dob else '')}",
         f"gender: {_cmp(entry.data.get('gender', ''), patient.gender)}",
     ]
 

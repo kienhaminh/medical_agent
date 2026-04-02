@@ -5,6 +5,7 @@ Returns only the new patient_id — no PII exposed to the agent.
 """
 
 import logging
+from datetime import date as _date
 
 from src.vault import VaultStore
 from src.models import SessionLocal
@@ -34,7 +35,7 @@ def register_patient(vault_key: str) -> str:
         return f"Error: vault entry is type '{entry.entry_type}', expected 'patient'."
 
     full_name = f"{entry.data['first_name']} {entry.data['last_name']}"
-    dob = entry.data["dob"]
+    dob = _date.fromisoformat(entry.data["dob"])
     gender = entry.data.get("gender", "")
 
     with SessionLocal() as db:

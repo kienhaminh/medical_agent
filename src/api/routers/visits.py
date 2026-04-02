@@ -75,7 +75,7 @@ async def create_visit(visit_data: VisitCreate, db: AsyncSession = Depends(get_d
     for attempt in range(3):
         try:
             vid = await _generate_visit_id(db)
-            session = ChatSession(title=f"Intake - {vid}", agent_role="reception_triage")
+            session = ChatSession(title=f"Intake - {vid}")
             db.add(session)
             await db.flush()
             visit = Visit(visit_id=vid, patient_id=visit_data.patient_id, status=VisitStatus.INTAKE.value, intake_session_id=session.id)
@@ -205,7 +205,7 @@ async def get_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
         created_at=visit.created_at.isoformat(),
         updated_at=visit.updated_at.isoformat(),
         patient_name=patient.name if patient else "Unknown",
-        patient_dob=patient.dob if patient else "",
+        patient_dob=patient.dob.isoformat() if patient and patient.dob else "",
         patient_gender=patient.gender if patient else "",
         intake_notes=visit.intake_notes,
     )

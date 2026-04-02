@@ -1,6 +1,7 @@
 """Tests for the Department model."""
 import pytest
 import pytest_asyncio
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.department import Department
@@ -52,7 +53,7 @@ async def test_department_name_is_unique(db_session: AsyncSession, sample_depart
 
 @pytest_asyncio.fixture
 async def sample_patient(db_session: AsyncSession) -> Patient:
-    patient = Patient(name="Test Patient", dob="1990-01-01", gender="male")
+    patient = Patient(name="Test Patient", dob=date(1990, 1, 1), gender="male")
     db_session.add(patient)
     await db_session.commit()
     await db_session.refresh(patient)

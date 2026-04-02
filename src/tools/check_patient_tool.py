@@ -5,6 +5,7 @@ status and patient_id — never raw PII.
 """
 
 import logging
+from datetime import date as _date
 
 from sqlalchemy import select, func
 
@@ -41,7 +42,7 @@ def check_patient(vault_key: str) -> str:
         return f"Error: vault entry is type '{entry.entry_type}', expected 'patient'."
 
     full_name = f"{entry.data['first_name']} {entry.data['last_name']}"
-    dob = entry.data["dob"]
+    dob = _date.fromisoformat(entry.data["dob"])
 
     with SessionLocal() as db:
         query = (

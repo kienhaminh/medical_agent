@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+from datetime import date
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 
@@ -27,7 +28,7 @@ async def setup_transfer(db_session):
     radiology = Department(name="radiology", label="Radiology", capacity=5, is_open=True, color="#f59e0b", icon="Scan")
     closed_dept = Department(name="ent", label="ENT", capacity=2, is_open=False, color="#fb923c", icon="Ear")
     db_session.add_all([cardio, radiology, closed_dept])
-    patient = Patient(name="John Doe", dob="1990-01-01", gender="male")
+    patient = Patient(name="John Doe", dob=date(1990, 1, 1), gender="male")
     db_session.add(patient)
     await db_session.flush()
     visit = Visit(
@@ -74,7 +75,7 @@ async def test_transfer_to_full_department(client, db_session, setup_transfer):
 
 @pytest.mark.asyncio
 async def test_transfer_non_department_visit(client, db_session):
-    patient = Patient(name="Jane Doe", dob="1985-05-15", gender="female")
+    patient = Patient(name="Jane Doe", dob=date(1985, 5, 15), gender="female")
     db_session.add(patient)
     await db_session.flush()
     visit = Visit(visit_id="VIS-20260325-002", patient_id=patient.id, status=VisitStatus.INTAKE.value)
@@ -88,7 +89,7 @@ async def test_transfer_non_department_visit(client, db_session):
 async def test_check_in_sets_current_department(client, db_session):
     dept = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#10b981", icon="Heart")
     db_session.add(dept)
-    patient = Patient(name="Alice", dob="1992-03-15", gender="female")
+    patient = Patient(name="Alice", dob=date(1992, 3, 15), gender="female")
     db_session.add(patient)
     await db_session.flush()
     visit = Visit(visit_id="VIS-20260325-010", patient_id=patient.id,
@@ -107,7 +108,7 @@ async def test_check_in_sets_current_department(client, db_session):
 async def test_complete_clears_department_and_compacts(client, db_session):
     dept = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#10b981", icon="Heart")
     db_session.add(dept)
-    patient = Patient(name="Bob", dob="1985-07-20", gender="male")
+    patient = Patient(name="Bob", dob=date(1985, 7, 20), gender="male")
     db_session.add(patient)
     await db_session.flush()
     visit1 = Visit(visit_id="VIS-20260325-020", patient_id=patient.id,

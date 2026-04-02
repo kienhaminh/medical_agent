@@ -3,6 +3,7 @@ import asyncio
 import os
 import pytest
 import pytest_asyncio
+from datetime import date
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -73,7 +74,7 @@ async def sample_patient(db_session):
     """Create a sample patient for testing."""
     patient = Patient(
         name="John Doe",
-        dob="1990-01-01",
+        dob=date(1990, 1, 1),
         gender="male"
     )
     db_session.add(patient)

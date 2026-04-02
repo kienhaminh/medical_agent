@@ -1,5 +1,6 @@
 """Unit tests for Patient model."""
 import pytest
+from datetime import date
 from sqlalchemy import select
 
 from src.models import Patient, MedicalRecord
@@ -10,7 +11,7 @@ async def test_create_patient(db_session):
     """Test creating a patient."""
     patient = Patient(
         name="Jane Smith",
-        dob="1985-05-15",
+        dob=date(1985, 5, 15),
         gender="female"
     )
     db_session.add(patient)
@@ -19,7 +20,7 @@ async def test_create_patient(db_session):
     
     assert patient.id is not None
     assert patient.name == "Jane Smith"
-    assert patient.dob == "1985-05-15"
+    assert patient.dob == date(1985, 5, 15)
     assert patient.gender == "female"
 
 

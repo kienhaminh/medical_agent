@@ -1,9 +1,10 @@
 """Patient core CRUD operations."""
 import logging
 import os
+from datetime import date as _date
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import or_, select
+from sqlalchemy import cast, or_, select, String as SAString
 
 from src.models import get_db, Patient, MedicalRecord, Imaging, ImageGroup
 from ...models import (
@@ -18,14 +19,14 @@ router = APIRouter(tags=["Patients"])
 @router.post("/api/patients", response_model=PatientResponse)
 async def create_patient(patient: PatientCreate, db: AsyncSession = Depends(get_db)):
     """Create a new patient."""
-    new_patient = Patient(name=patient.name, dob=patient.dob, gender=patient.gender)
+    new_patient = Patient(name=patient.name, dob=_date.fromisoformat(patient.dob), gender=patient.gender)
     db.add(new_patient)
     await db.commit()
     await db.refresh(new_patient)
     return PatientResponse(
         id=new_patient.id,
         name=new_patient.name,
-        dob=new_patient.dob,
+        dob=new_patient.dob.isoformat(),
         gender=new_patient.gender,
         created_at=new_patient.created_at.isoformat()
     )
@@ -38,7 +39,7 @@ async def list_patients(q: str | None = None, db: AsyncSession = Depends(get_db)
     if q:
         filters = [
             Patient.name.ilike(f"%{q}%"),
-            Patient.dob.ilike(f"%{q}%"),
+            cast(Patient.dob, SAString).ilike(f"%{q}%"),
         ]
         if q.isdigit():
             filters.append(Patient.id == int(q))
@@ -49,7 +50,7 @@ async def list_patients(q: str | None = None, db: AsyncSession = Depends(get_db)
         PatientResponse(
             id=p.id,
             name=p.name,
-            dob=p.dob,
+            dob=p.dob.isoformat(),
             gender=p.gender,
             created_at=p.created_at.isoformat()
         ) for p in patients
@@ -123,7 +124,7 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
     return PatientDetailResponse(
         id=patient.id,
         name=patient.name,
-        dob=patient.dob,
+        dob=patient.dob.isoformat(),
         gender=patient.gender,
         created_at=patient.created_at.isoformat(),
         records=formatted_records,

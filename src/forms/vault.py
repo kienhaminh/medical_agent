@@ -2,6 +2,7 @@
 import json
 import uuid
 import logging
+from datetime import date as _date
 from typing import Optional
 from sqlalchemy import select
 
@@ -34,7 +35,8 @@ async def identify_patient(answers: dict[str, str]) -> tuple[Optional[int], bool
         raise ValueError(f"identify_patient: missing required fields: {sorted(missing)}")
 
     full_name = f"{answers['first_name'].strip()} {answers['last_name'].strip()}"
-    dob = answers["dob"].strip()
+    dob_str = answers["dob"].strip()
+    dob = _date.fromisoformat(dob_str)
     gender = answers["gender"].strip()
 
     async with AsyncSessionLocal() as db:
@@ -89,7 +91,8 @@ async def save_intake(answers: dict[str, str], patient_id: int | None = None) ->
                 raise ValueError(f"save_intake: missing required fields: {sorted(missing)}")
 
             full_name = f"{answers['first_name'].strip()} {answers['last_name'].strip()}"
-            dob = answers["dob"].strip()
+            dob_str = answers["dob"].strip()
+            dob = _date.fromisoformat(dob_str)
             gender = answers["gender"].strip()
 
             result = await db.execute(
@@ -108,7 +111,7 @@ async def save_intake(answers: dict[str, str], patient_id: int | None = None) ->
         # Resolve identity fields — prefer answers, fall back to Patient row.
         first_name = _get("first_name") or (patient.name.split(" ", 1)[0] if patient.name else "")
         last_name = _get("last_name") or (patient.name.split(" ", 1)[-1] if patient.name else "")
-        dob_val = _get("dob") or (patient.dob if patient.dob else "")
+        dob_val = _get("dob") or (patient.dob.isoformat() if patient.dob else "")
         gender_val = _get("gender") or (patient.gender if patient.gender else "")
 
         # Collect extra fields not mapped to dedicated columns.
