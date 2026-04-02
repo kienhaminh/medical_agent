@@ -155,11 +155,13 @@ async def _process_message_async(
                     chat_history.append({"role": msg.role, "content": msg.content})
 
             # 4. Get agent and process message
+            from src.prompt.system import get_system_prompt
             user_agent = get_or_create_agent(user_id)
             stream = await user_agent.process_message(
                 user_message=context_message.strip(),
                 stream=True,
                 chat_history=chat_history,
+                system_prompt_override=get_system_prompt(agent_role),
             )
 
             # 5. Process streaming events via shared processor

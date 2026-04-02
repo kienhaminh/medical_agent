@@ -7,7 +7,6 @@ import logging
 from typing import Union, AsyncGenerator
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
-from .state import AgentState
 from ..prompt.system import SYSTEM_PROMPT
 from ..utils.token_budget import trim_to_token_budget
 from .builder import GraphBuilder
@@ -36,9 +35,8 @@ class LangGraphAgent:
 
         self.tool_registry = ToolRegistry()
 
-        # Register builtin tools and skills (side-effect imports)
-        from ..tools import builtin  # noqa: F401
-        from ..skills import builtin as skill_builtin  # noqa: F401
+        # Register tools (side-effect imports)
+        import src.tools  # noqa: F401
 
         # Build the graph
         self.graph_builder = GraphBuilder(
@@ -58,14 +56,16 @@ class LangGraphAgent:
         chat_history: list = None,
         patient_id: int = None,
         patient_name: str = None,
+        system_prompt_override: str = None,
     ) -> Union[str, AsyncGenerator[dict, None]]:
         """Process user message through the agent."""
         logger.info("Processing message (patient_id=%s)", patient_id)
 
         messages = []
 
-        if self.system_prompt:
-            messages.append(SystemMessage(content=self.system_prompt))
+        active_prompt = system_prompt_override or self.system_prompt
+        if active_prompt:
+            messages.append(SystemMessage(content=active_prompt))
 
         if chat_history:
             history_messages = []
@@ -78,15 +78,8 @@ class LangGraphAgent:
 
         messages.append(HumanMessage(content=user_message))
 
-        patient_profile = {}
-        if patient_id and patient_name:
-            patient_profile = {"id": patient_id, "name": patient_name}
-
         initial_state = {
             "messages": messages,
-            "patient_profile": patient_profile,
-            "steps_taken": 0,
-            "final_report": None,
         }
 
         config = {"recursion_limit": self.max_iterations * 3}
