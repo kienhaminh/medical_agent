@@ -6,6 +6,7 @@ from ..llm.kimi import KimiProvider
 from ..llm.openai_provider import OpenAIProvider
 from ..config.settings import load_config
 from ..tools.registry import ToolRegistry
+from ..prompt.intake import INTAKE_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,13 @@ else:
 _agent: LangGraphAgent = LangGraphAgent(llm_with_tools=llm_provider.llm)
 logger.info("Global agent initialized (%s)", provider_name)
 
+# Intake agent with patient-facing system prompt
+_intake_agent: LangGraphAgent = LangGraphAgent(
+    llm_with_tools=llm_provider.llm,
+    system_prompt=INTAKE_SYSTEM_PROMPT,
+)
+logger.info("Intake agent initialized (%s)", provider_name)
+
 
 def get_agent() -> LangGraphAgent:
     """Return the global agent instance."""
@@ -45,3 +53,8 @@ def get_agent() -> LangGraphAgent:
 def get_or_create_agent(user_id: str = None) -> LangGraphAgent:
     """Compatibility shim — user_id is ignored, returns the global agent."""
     return _agent
+
+
+def get_intake_agent() -> LangGraphAgent:
+    """Return the intake-mode agent (patient-facing system prompt)."""
+    return _intake_agent
