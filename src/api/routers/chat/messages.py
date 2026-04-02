@@ -133,35 +133,52 @@ async def _process_dynamic_input(session_id: int, answers: dict[str, str]) -> st
             patient_id, is_new = await identify_patient(answers)
             result_parts.append(f"patient_id={patient_id}")
             result_parts.append(f"is_new={'true' if is_new else 'false'}")
-            # Persist patient_id for subsequent steps in this session.
-            form_registry.accumulate_answers(session_id, {"__patient_id": str(patient_id)})
+            # Persist patient_id and phone for subsequent steps in this session.
+            form_registry.accumulate_answers(session_id, {
+                "__patient_id": str(patient_id),
+                "__phone": answers.get("phone", ""),
+            })
         except Exception as e:
             logger.error("identify_patient failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to identify patient")
     else:
-        # Recover patient_id established in a previous step of this session.
+        # Recover patient_id (and phone) established in a previous step of this session.
         accumulated = form_registry.get_accumulated_answers(session_id)
         pid_str = accumulated.get("__patient_id")
         if pid_str:
             patient_id = int(pid_str)
+        # Inject phone so save_intake can populate the non-nullable column.
+        if "__phone" in accumulated and "phone" not in answers:
+            answers = {**answers, "phone": accumulated["__phone"]}
 
     # --- Step 2: create VitalSign when height/weight are provided ---
     height_cm_str = answers.get("height_cm", "").strip()
     weight_kg_str = answers.get("weight_kg", "").strip()
     if patient_id and (height_cm_str or weight_kg_str):
         try:
-            async with AsyncSessionLocal() as db:
-                vital = VitalSign(
-                    patient_id=patient_id,
-                    recorded_at=datetime.now(timezone.utc),
-                    height_cm=float(height_cm_str) if height_cm_str else None,
-                    weight_kg=float(weight_kg_str) if weight_kg_str else None,
-                )
-                db.add(vital)
-                await db.commit()
-            result_parts.append("vitals_recorded=true")
-        except Exception as e:
-            logger.error("VitalSign creation failed: %s", e, exc_info=True)
+            height_cm_val = float(height_cm_str) if height_cm_str else None
+        except ValueError:
+            logger.warning("Invalid height_cm value (not numeric): %r — skipping", height_cm_str)
+            height_cm_val = None
+        try:
+            weight_kg_val = float(weight_kg_str) if weight_kg_str else None
+        except ValueError:
+            logger.warning("Invalid weight_kg value (not numeric): %r — skipping", weight_kg_str)
+            weight_kg_val = None
+        if height_cm_val is not None or weight_kg_val is not None:
+            try:
+                async with AsyncSessionLocal() as db:
+                    vital = VitalSign(
+                        patient_id=patient_id,
+                        recorded_at=datetime.now(timezone.utc),
+                        height_cm=height_cm_val,
+                        weight_kg=weight_kg_val,
+                    )
+                    db.add(vital)
+                    await db.commit()
+                result_parts.append("vitals_recorded=true")
+            except Exception as e:
+                logger.error("VitalSign creation failed: %s", e, exc_info=True)
 
     # --- Step 3: persist intake data ---
     pii_answers = {k: v for k, v in answers.items() if k in PII_FIELDS}
