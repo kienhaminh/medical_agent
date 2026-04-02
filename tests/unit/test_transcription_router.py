@@ -23,7 +23,7 @@ async def test_transcribe_audio_returns_text(mock_db_visit):
 
     with (
         patch("src.api.routers.transcription.get_db") as mock_get_db,
-        patch("src.api.routers.transcription.OpenAI") as mock_openai_cls,
+        patch("src.api.routers.transcription._openai_client") as mock_client,
     ):
         mock_session = MagicMock()
         mock_result = MagicMock()
@@ -36,14 +36,8 @@ async def test_transcribe_audio_returns_text(mock_db_visit):
         mock_session.commit = AsyncMock()
         mock_session.refresh = AsyncMock()
 
-        async def mock_db_gen():
-            yield mock_session
-
         mock_get_db.return_value = mock_session
-
-        mock_client = MagicMock()
         mock_client.audio.transcriptions.create.return_value = mock_whisper_response
-        mock_openai_cls.return_value = mock_client
 
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
