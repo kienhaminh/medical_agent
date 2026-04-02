@@ -2,7 +2,7 @@
 
 import React, { RefObject, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Send, FileText, Stethoscope, Zap, Pill } from "lucide-react";
+import { Sparkles, Send, FileText, Stethoscope, Zap, Pill, RotateCcw } from "lucide-react";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
 import type { AgentActivity, Message } from "@/types/agent-ui";
@@ -17,6 +17,7 @@ interface AiChatModeProps {
   activityDetails?: string;
   handleSendMessage: (e: React.FormEvent) => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
+  onResetChat?: () => void;
 }
 
 const QUICK_PROMPTS = [
@@ -84,6 +85,7 @@ export function AiChatMode({
   activityDetails,
   handleSendMessage,
   messagesEndRef,
+  onResetChat,
 }: AiChatModeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [focused, setFocused] = useState(false);
@@ -208,9 +210,21 @@ export function AiChatMode({
             />
 
             <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-2.5">
-              <span className="text-[10px] text-muted-foreground/30 font-mono select-none">
-                ↵ send · ⇧↵ newline
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground/30 font-mono select-none">
+                  ↵ send · ⇧↵ newline
+                </span>
+                {!isEmpty && onResetChat && (
+                  <button
+                    type="button"
+                    onClick={onResetChat}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground/35 hover:text-muted-foreground/70 transition-colors font-mono"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    reset
+                  </button>
+                )}
+              </div>
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}

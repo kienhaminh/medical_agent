@@ -117,6 +117,7 @@ export default function DoctorPage() {
           setWidth={workspace.setAiWidth}
           isResizing={workspace.isResizing}
           setIsResizing={workspace.setIsResizing}
+          onResetChat={workspace.handleResetChat}
         />
       </div>
 

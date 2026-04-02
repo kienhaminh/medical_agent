@@ -30,6 +30,7 @@ interface DoctorAiPanelProps {
   setWidth: (width: number) => void;
   isResizing: boolean;
   setIsResizing: (isResizing: boolean) => void;
+  onResetChat?: () => void;
 }
 
 const MODE_TABS: { key: AiMode; label: string; icon: typeof Lightbulb }[] = [
@@ -52,6 +53,7 @@ export function DoctorAiPanel({
   setWidth,
   isResizing,
   setIsResizing,
+  onResetChat,
 }: DoctorAiPanelProps) {
   const [activeMode, setActiveMode] = useState<AiMode>("insights");
   const panelRef = useRef<HTMLDivElement>(null);
@@ -177,6 +179,7 @@ export function DoctorAiPanel({
             activityDetails={activityDetails}
             handleSendMessage={handleSendMessage}
             messagesEndRef={messagesEndRef}
+            onResetChat={onResetChat}
           />
         )}
       </div>
