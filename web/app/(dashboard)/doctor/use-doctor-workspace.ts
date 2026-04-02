@@ -132,6 +132,7 @@ export function useDoctorWorkspace() {
   const chatSessionIdRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cancelStreamRef = useRef<(() => void) | null>(null);
+  const selectVisitTokenRef = useRef(0);
 
   // Differential diagnosis state
   const [ddxDiagnoses, setDdxDiagnoses] = useState<DiagnosisItem[]>([]);
@@ -170,40 +171,66 @@ export function useDoctorWorkspace() {
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
-  // Restore session from localStorage and load chat history
-  useEffect(() => {
-    // Note: This will be removed in Task 3
-    // For now, we do not restore from localStorage automatically
-    // Each patient selection will start fresh
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Load patient when visit selected
   const selectVisit = useCallback(async (visit: VisitListItem) => {
+    const token = ++selectVisitTokenRef.current;
+
     setSelectedVisit(visit);
     setActiveTab("patient");
     setPatientLoading(true);
-    // Reset chat, brief, and DDx for new patient
+    // Reset chat state before loading new patient
     setChatMessages([]);
     setChatSessionId(null);
     chatSessionIdRef.current = null;
     setVisitBrief("");
     setDdxDiagnoses([]);
     setDdxLoading(false);
+
+    let patientLoadFailed = false;
     try {
       const patient = await getPatient(visit.patient_id);
+      if (token !== selectVisitTokenRef.current) return;
       setSelectedPatient(patient);
       setClinicalNotes((visit as any).clinical_notes || "");
       setNotesSaved(false);
     } catch {
       toast.error("Failed to load patient details");
+      patientLoadFailed = true;
     } finally {
       setPatientLoading(false);
     }
+
+    // Don't restore session without a loaded patient
+    if (patientLoadFailed) return;
+
+    // Restore this patient's previous session if available
+    const storedSessionId = loadPatientSession(visit.patient_id);
+    if (storedSessionId) {
+      try {
+        const messages = await getSessionMessages(storedSessionId);
+        if (token !== selectVisitTokenRef.current) return;
+        const uiMessages = messages
+          .filter((m) => m.content && m.content.trim())
+          .map(mapApiMessageToUi);
+        if (uiMessages.length > 0) {
+          setChatMessages(uiMessages);
+          chatSessionIdRef.current = storedSessionId;
+          setChatSessionId(storedSessionId);
+        }
+      } catch {
+        // Session expired or deleted on server — start fresh
+        clearPatientSession(visit.patient_id);
+      }
+    }
+
     // Fetch pre-visit brief asynchronously after patient load
+    if (token !== selectVisitTokenRef.current) return;
     setBriefLoading(true);
     getVisitBrief(visit.id)
-      .then((data) => setVisitBrief(data.brief))
+      .then((data) => {
+        if (token !== selectVisitTokenRef.current) return;
+        setVisitBrief(data.brief);
+      })
       .catch(() => setVisitBrief(""))
       .finally(() => setBriefLoading(false));
   }, []);
@@ -290,6 +317,19 @@ export function useDoctorWorkspace() {
     cancelStreamRef.current?.();
     cancelStreamRef.current = null;
   }
+
+  const handleResetChat = useCallback(() => {
+    cancelStreamRef.current?.();
+    cancelStreamRef.current = null;
+    setChatMessages([]);
+    setChatSessionId(null);
+    chatSessionIdRef.current = null;
+    setChatInput("");
+    clearChatLoadingState();
+    if (selectedPatient) {
+      clearPatientSession(selectedPatient.id);
+    }
+  }, [selectedPatient]);
 
   function handleStreamEvent(event: StreamEvent, messageId: string) {
     if (event.type === "chunk" || event.type === "content") {
@@ -540,6 +580,7 @@ export function useDoctorWorkspace() {
     chatSessionId,
     messagesEndRef,
     handleChatSubmit,
+    handleResetChat,
     // DDx
     ddxDiagnoses,
     ddxLoading,
