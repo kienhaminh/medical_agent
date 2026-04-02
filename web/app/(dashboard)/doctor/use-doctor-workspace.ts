@@ -10,6 +10,7 @@ import {
   transferVisit,
   sendChatMessage,
   streamMessageUpdates,
+  getSessionMessages,
   getVisitBrief,
   getDifferentialDiagnosis,
   getShiftHandoff,
@@ -18,11 +19,41 @@ import {
   type Patient,
   type StreamEvent,
   type DiagnosisItem,
+  type ChatMessage as ApiChatMessage,
 } from "@/lib/api";
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+
+const DOCTOR_SESSION_KEY = "medinexus_doctor_session";
+
+function saveSession(sessionId: number): void {
+  localStorage.setItem(DOCTOR_SESSION_KEY, JSON.stringify({ session_id: sessionId }));
+}
+
+function loadSession(): { session_id: number } | null {
+  try {
+    const raw = localStorage.getItem(DOCTOR_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapApiMessageToUi(msg: ApiChatMessage): Message {
+  return {
+    id: msg.id.toString(),
+    role: msg.role === "user" ? MessageRole.USER : MessageRole.ASSISTANT,
+    content: msg.content,
+    timestamp: new Date(msg.created_at),
+    status: msg.status,
+    toolCalls: msg.tool_calls ? JSON.parse(msg.tool_calls) : [],
+    reasoning: msg.reasoning ?? "",
+    logs: msg.logs ? JSON.parse(msg.logs) : [],
+    patientReferences: msg.patient_references ? JSON.parse(msg.patient_references) : [],
+  };
+}
 
 export interface Message {
   id: string;
@@ -117,6 +148,48 @@ export function useDoctorWorkspace() {
     const interval = setInterval(fetchQueue, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchQueue]);
+
+  // Restore session from localStorage and load chat history
+  useEffect(() => {
+    const stored = loadSession();
+    if (!stored) return;
+
+    chatSessionIdRef.current = stored.session_id;
+    setChatSessionId(stored.session_id);
+
+    getSessionMessages(stored.session_id)
+      .then((messages) => {
+        const uiMessages = messages
+          .filter((m) => m.content && m.content.trim())
+          .map(mapApiMessageToUi);
+        if (uiMessages.length > 0) {
+          setChatMessages(uiMessages);
+        }
+
+        // Reconnect to any message that was still processing when the page was refreshed
+        const pending = messages.find(
+          (m) => m.status === "pending" || m.status === "streaming"
+        );
+        if (pending) {
+          setChatLoading(true);
+          setCurrentActivity("thinking");
+          setActivityDetails("Reconnecting...");
+          const cancel = streamMessageUpdates(
+            pending.id,
+            (event: StreamEvent) => handleStreamEvent(event, pending.id.toString()),
+            () => clearChatLoadingState()
+          );
+          cancelStreamRef.current = cancel;
+        }
+      })
+      .catch(() => {
+        // Session may no longer exist — silently clear it
+        localStorage.removeItem(DOCTOR_SESSION_KEY);
+        chatSessionIdRef.current = null;
+        setChatSessionId(null);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load patient when visit selected
   const selectVisit = useCallback(async (visit: VisitListItem) => {
@@ -225,6 +298,7 @@ export function useDoctorWorkspace() {
     setChatLoading(false);
     setCurrentActivity(null);
     setActivityDetails("");
+    cancelStreamRef.current?.();
     cancelStreamRef.current = null;
   }
 
@@ -289,16 +363,16 @@ export function useDoctorWorkspace() {
     e.preventDefault();
     if (!chatInput.trim() || chatLoading) return;
 
+    const userInput = chatInput.trim();
+    setChatInput("");
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: MessageRole.USER,
-      content: chatInput.trim(),
+      content: userInput,
       timestamp: new Date(),
     };
-
     setChatMessages((prev) => [...prev, userMessage]);
-    const userInput = chatInput.trim();
-    setChatInput("");
     setChatLoading(true);
     setCurrentActivity("thinking");
     setActivityDetails("Submitting your request...");
@@ -310,10 +384,11 @@ export function useDoctorWorkspace() {
         session_id: chatSessionIdRef.current,
       });
 
-      if (!chatSessionIdRef.current && response.session_id) {
+      if (!chatSessionIdRef.current) {
         chatSessionIdRef.current = response.session_id;
         setChatSessionId(response.session_id);
       }
+      saveSession(response.session_id);
 
       const assistantMessage: Message = {
         id: response.message_id.toString(),
@@ -325,16 +400,14 @@ export function useDoctorWorkspace() {
         reasoning: "",
         logs: [],
       };
-
       setChatMessages((prev) => [...prev, assistantMessage]);
 
-      const cancelStream = streamMessageUpdates(
+      const cancel = streamMessageUpdates(
         response.message_id,
-        (event: StreamEvent) =>
-          handleStreamEvent(event, response.message_id.toString()),
+        (event: StreamEvent) => handleStreamEvent(event, response.message_id.toString()),
         () => clearChatLoadingState()
       );
-      cancelStreamRef.current = cancelStream;
+      cancelStreamRef.current = cancel;
     } catch {
       toast.error("Failed to send message");
       clearChatLoadingState();
@@ -375,7 +448,6 @@ export function useDoctorWorkspace() {
       content: prompt,
       timestamp: new Date(),
     };
-
     setChatMessages((prev) => [...prev, userMessage]);
     setChatLoading(true);
     setCurrentActivity("thinking");
@@ -388,10 +460,11 @@ export function useDoctorWorkspace() {
         session_id: chatSessionIdRef.current,
       });
 
-      if (!chatSessionIdRef.current && response.session_id) {
+      if (!chatSessionIdRef.current) {
         chatSessionIdRef.current = response.session_id;
         setChatSessionId(response.session_id);
       }
+      saveSession(response.session_id);
 
       const assistantMessage: Message = {
         id: response.message_id.toString(),
@@ -403,16 +476,14 @@ export function useDoctorWorkspace() {
         reasoning: "",
         logs: [],
       };
-
       setChatMessages((prev) => [...prev, assistantMessage]);
 
-      const cancelStream = streamMessageUpdates(
+      const cancel = streamMessageUpdates(
         response.message_id,
-        (event: StreamEvent) =>
-          handleStreamEvent(event, response.message_id.toString()),
+        (event: StreamEvent) => handleStreamEvent(event, response.message_id.toString()),
         () => clearChatLoadingState()
       );
-      cancelStreamRef.current = cancelStream;
+      cancelStreamRef.current = cancel;
     } catch {
       toast.error("Failed to draft SOAP note");
       clearChatLoadingState();
