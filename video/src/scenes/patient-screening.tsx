@@ -1,4 +1,4 @@
-import { useCurrentFrame, spring, useVideoConfig, interpolate } from "remotion";
+import { useCurrentFrame, spring, useVideoConfig, interpolate, staticFile } from "remotion";
 import { colors, fonts, glows, radius } from "../styles/theme";
 import { FloatingScreen } from "../components/floating-screen";
 import { DotMatrixBg } from "../components/dot-matrix-bg";
@@ -53,12 +53,12 @@ const IntakeChatContent: React.FC = () => {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div
+          <img
+            src={staticFile("favicon.ico")}
             style={{
               width: 28,
               height: 28,
               borderRadius: 7,
-              background: "linear-gradient(to right, #00d9ff, #00b8a9)",
             }}
           />
           <span

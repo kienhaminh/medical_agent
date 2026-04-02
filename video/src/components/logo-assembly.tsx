@@ -1,4 +1,4 @@
-import { useCurrentFrame, spring, useVideoConfig, interpolate } from "remotion";
+import { useCurrentFrame, spring, useVideoConfig, interpolate, staticFile } from "remotion";
 import { colors, fonts, gradients, glows } from "../styles/theme";
 
 interface LogoAssemblyProps {
@@ -76,15 +76,15 @@ export const LogoAssembly: React.FC<LogoAssemblyProps> = ({
       })}
 
       {/* Logo icon */}
-      <div
+      <img
+        src={staticFile("favicon.ico")}
         style={{
           width: 80,
           height: 80,
           borderRadius: 20,
-          background: gradients.cyanToTeal,
           opacity: logoOpacity,
           transform: `scale(${interpolate(logoOpacity, [0, 1], [0.8, 1])})`,
-          boxShadow: glowOpacity > 0.1 ? glows.cyan : "none",
+          filter: glowOpacity > 0.1 ? `drop-shadow(0 0 20px rgba(0,217,255,0.3))` : "none",
         }}
       />
 

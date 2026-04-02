@@ -1,4 +1,4 @@
-import { useCurrentFrame, spring, useVideoConfig, interpolate } from "remotion";
+import { useCurrentFrame, spring, useVideoConfig, interpolate, staticFile } from "remotion";
 import { colors, fonts, glows, radius } from "../styles/theme";
 import { FloatingScreen } from "../components/floating-screen";
 import { FadeSlide } from "../components/fade-slide";
@@ -497,7 +497,7 @@ export const RoutingAndSupport: React.FC = () => {
             </div>
             <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 20, height: 20, borderRadius: 5, background: "linear-gradient(to right, #00d9ff, #00b8a9)" }} />
+                <img src={staticFile("favicon.ico")} style={{ width: 20, height: 20, borderRadius: 5 }} />
                 <span style={{ fontFamily: fonts.display, fontSize: 10, fontWeight: 700, color: colors.cyan }}>INTAKE</span>
               </div>
               <div style={{ padding: 8, borderRadius: 8, border: "1px solid rgba(16,185,129,0.3)", backgroundColor: "rgba(16,185,129,0.05)" }}>
