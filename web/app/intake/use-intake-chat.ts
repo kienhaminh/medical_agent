@@ -259,10 +259,7 @@ export function useIntakeChat() {
     if (activeForm) {
       const schema = activeForm.schema;
       const sections = schema.sections ?? [];
-      const fields = schema.fields ?? [];
-      const fieldCount = sections.length > 0
-        ? sections.reduce((sum, s) => sum + s.fields.length, 0)
-        : fields.length;
+      const fieldCount = sections.reduce((sum, s) => sum + s.fields.length, 0);
 
       // Build a human-readable answer summary for question/yes_no forms.
       let answer: string | undefined;

@@ -15,8 +15,6 @@ export interface ActiveForm {
     message?: string;
     // Dynamic forms provide sections directly from the backend.
     sections?: Array<{ label: string; fields: FormFieldDef[] }>;
-    // Legacy forms provide a flat fields array.
-    fields?: FormFieldDef[];
     // Question form type
     choices?: string[];
     allow_multiple?: boolean;
@@ -34,60 +32,29 @@ interface Section {
   fields: FormFieldDef[];
 }
 
-/** Legacy fallback: maps the first field in each section to a label. */
-const SECTION_LABELS: Record<string, string> = {
-  first_name: "Personal Info",
-  phone: "Contact",
-  chief_complaint: "Visit Details",
-  insurance_provider: "Insurance",
-  emergency_contact_name: "Emergency Contact",
-};
-
-/** Build sections from backend-provided sections or legacy flat fields. */
+/** Build sections from backend-provided schema. */
 function buildSections(schema: ActiveForm["schema"]): Section[] {
-  // Prefer backend-provided sections (dynamic forms).
-  if (schema.sections && schema.sections.length > 0) {
-    return schema.sections.map((s) => ({
-      label: s.label,
-      fields: s.fields.map((f) => ({
-        ...f,
-        // Normalize: backend sends "field_type", agent may send "type".
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        field_type: f.field_type || (f as any).type || "text",
-      })),
-    }));
-  }
-
-  // Legacy fallback: flat fields with SECTION_LABELS map.
-  const fields = schema.fields ?? [];
-  const sections: Section[] = [];
-  let current: Section = { label: "", fields: [] };
-
-  for (const field of fields) {
-    const label = SECTION_LABELS[field.name];
-    if (label) {
-      if (current.fields.length > 0) sections.push(current);
-      current = { label, fields: [field] };
-    } else {
-      current.fields.push(field);
-    }
-  }
-  if (current.fields.length > 0) sections.push(current);
-  return sections;
+  if (!schema.sections || schema.sections.length === 0) return [];
+  return schema.sections.map((s) => ({
+    label: s.label,
+    fields: s.fields.map((f) => ({
+      ...f,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      field_type: f.field_type || (f as any).type || "text",
+    })),
+  }));
 }
 
 /** Flatten all fields from all sections into a single array. */
 function flattenFields(schema: ActiveForm["schema"]): FormFieldDef[] {
-  if (schema.sections && schema.sections.length > 0) {
-    return schema.sections.flatMap((s) =>
-      s.fields.map((f) => ({
-        ...f,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        field_type: f.field_type || (f as any).type || "text",
-      }))
-    );
-  }
-  return schema.fields ?? [];
+  if (!schema.sections || schema.sections.length === 0) return [];
+  return schema.sections.flatMap((s) =>
+    s.fields.map((f) => ({
+      ...f,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      field_type: f.field_type || (f as any).type || "text",
+    }))
+  );
 }
 
 export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBarProps) {
