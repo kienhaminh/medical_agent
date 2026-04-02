@@ -45,11 +45,9 @@ def test_height_cm_not_in_unknown_fields():
 
 def test_intake_submission_nullable_columns():
     """email and dropped fields must be Optional on the model."""
-    import inspect
     from src.models.intake_submission import IntakeSubmission
+    from typing import get_args
     hints = IntakeSubmission.__annotations__
-    from typing import get_args, get_origin, Union
-    import types
 
     nullable_fields = [
         "email", "address", "insurance_provider", "policy_id",
