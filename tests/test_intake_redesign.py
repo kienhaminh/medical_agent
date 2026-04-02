@@ -18,3 +18,18 @@ def test_chat_request_mode_defaults_to_none():
     from src.api.models import ChatRequest
     req = ChatRequest(message="hello")
     assert req.mode is None
+
+
+def test_phone_is_in_patient_identity_fields():
+    from src.forms.field_classification import PATIENT_IDENTITY_FIELDS
+    assert "phone" in PATIENT_IDENTITY_FIELDS
+
+
+def test_height_cm_is_safe_field():
+    from src.forms.field_classification import SAFE_FIELDS
+    assert "height_cm" in SAFE_FIELDS
+
+
+def test_weight_kg_is_safe_field():
+    from src.forms.field_classification import SAFE_FIELDS
+    assert "weight_kg" in SAFE_FIELDS

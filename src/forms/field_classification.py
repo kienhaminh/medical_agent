@@ -37,7 +37,11 @@ SAFE_FIELDS: set[str] = {
     "has_allergies",
     "allergy_details",
     "confirmed",
+    # Vitals — numeric measurements, not PII
+    "height_cm",
+    "weight_kg",
 }
 
 # Subset of PII_FIELDS that triggers patient lookup/creation when ALL are present.
-PATIENT_IDENTITY_FIELDS: set[str] = {"first_name", "last_name", "dob", "gender"}
+# Must match exactly what the identity step of the intake form collects.
+PATIENT_IDENTITY_FIELDS: set[str] = {"first_name", "last_name", "dob", "gender", "phone"}
