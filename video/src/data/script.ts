@@ -8,17 +8,21 @@ export const SCENE_CALLOUTS = {
   closing: "THE FUTURE OF PATIENT CARE",
 } as const;
 
-export const INTAKE_MESSAGES = {
-  userMessage: "I'm experiencing chest pain",
-  aiMessage:
-    "I'm sorry to hear that. Let me help you get checked in right away. Can you tell me when the pain started and how severe it is on a scale of 1-10?",
-} as const;
+export const INTAKE_MESSAGES = [
+  { role: "assistant" as const, text: "Welcome to Medi-Nexus! I'm your intake assistant. Are you a new or returning patient?" },
+  { role: "user" as const, text: "I'm new here. I'm experiencing chest pain." },
+  { role: "assistant" as const, text: "I'm sorry to hear that. Let me get you checked in right away. Please fill out this quick form:" },
+] as const;
 
 export const INTAKE_FORM = {
+  title: "Patient Check-In",
+  step: "Step 1 of 2",
   fields: [
-    { label: "Full Name", value: "Sarah Chen" },
-    { label: "Date of Birth", value: "03/15/1985" },
-    { label: "Symptoms", value: "Chest pain, shortness of breath" },
+    { label: "Full Name", value: "Sarah Chen", type: "text" as const },
+    { label: "Date of Birth", value: "03/15/1985", type: "text" as const },
+    { label: "Phone Number", value: "(415) 555-0192", type: "text" as const },
+    { label: "Insurance Provider", value: "Blue Cross Blue Shield", type: "text" as const },
+    { label: "Describe Your Symptoms", value: "Chest pain, shortness of breath", type: "textarea" as const },
   ],
 } as const;
 

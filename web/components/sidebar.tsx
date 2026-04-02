@@ -9,7 +9,6 @@ import {
   BarChart3,
   Monitor,
   LogOut,
-  Stethoscope,
   UserRound,
   BriefcaseMedical,
   type LucideIcon,
@@ -33,20 +32,14 @@ const navigationGroups: NavGroup[] = [
   {
     label: "Workspace",
     items: [
-      { name: "Clinical Workstation", href: "/doctor", icon: BriefcaseMedical, roles: ["doctor", "admin"] },
-      { name: "Officer Portal", href: "/officer", icon: UserRound, roles: ["officer", "admin"] },
+      { name: "Clinical Workstation", href: "/doctor", icon: BriefcaseMedical, roles: ["doctor"] },
+      { name: "Admin Portal", href: "/admin", icon: UserRound, roles: ["admin"] },
     ],
   },
   {
     label: "Metrics",
     items: [
-      { name: "Operations", href: "/operations", icon: Monitor, roles: ["officer", "admin"] },
-    ],
-  },
-  {
-    label: "Fulfillment",
-    items: [
-      { name: "Orders Queue", href: "/nurse", icon: Stethoscope, roles: ["nurse", "admin"] },
+      { name: "Operations", href: "/operations", icon: Monitor, roles: ["admin"] },
     ],
   },
   {

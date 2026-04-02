@@ -4,20 +4,17 @@ import { useState, useCallback, useEffect } from "react";
 import {
   User,
   Sparkles,
-  ClipboardList,
   FileEdit,
   Brain,
-  Zap,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CollapsiblePanel } from "./collapsible-panel";
 import { PatientCardPanel } from "./patient-card-panel";
 import { PreVisitBriefCard } from "./pre-visit-brief-card";
-import { OrdersPanel } from "./orders-panel";
 import { ClinicalNotesEditor } from "./clinical-notes-editor";
 import { DdxPanel } from "./ddx-panel";
 import { QuickActionsBar } from "./quick-actions-bar";
-import type { PatientDetail, Order, DiagnosisItem, VisitListItem, DepartmentInfo } from "@/lib/api";
+import type { PatientDetail, DiagnosisItem, VisitListItem, DepartmentInfo } from "@/lib/api";
 
 const STORAGE_KEY = "medinexus_panel_state";
 
@@ -29,12 +26,6 @@ interface ClinicalWorkspaceProps {
   // Pre-visit brief
   visitBrief: string;
   briefLoading: boolean;
-
-  // Orders
-  orders: Order[];
-  ordersLoading: boolean;
-  onCreateOrder: (type: "lab" | "imaging", name: string, notes?: string) => Promise<void>;
-  onRefreshOrders: () => void;
 
   // Clinical notes
   clinicalNotes: string;
@@ -92,9 +83,6 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
   }, []);
 
   const hasPatient = !!props.patient;
-  const ordersBadge = props.orders.length > 0
-    ? `${props.orders.filter((o) => o.status === "pending").length} pending · ${props.orders.filter((o) => o.status === "completed").length} complete`
-    : undefined;
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0">
@@ -128,24 +116,6 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
             <PreVisitBriefCard brief={props.visitBrief} loading={props.briefLoading} />
           </CollapsiblePanel>
         )}
-
-        {/* Orders */}
-        <CollapsiblePanel
-          id="orders"
-          title="Orders"
-          icon={ClipboardList}
-          badge={ordersBadge}
-          collapsed={collapsed.has("orders")}
-          onToggle={() => toggle("orders")}
-        >
-          <OrdersPanel
-            orders={props.orders}
-            onCreateOrder={props.onCreateOrder}
-            onRefresh={props.onRefreshOrders}
-            disabled={!hasPatient}
-            loading={props.ordersLoading}
-          />
-        </CollapsiblePanel>
 
         {/* Clinical Notes */}
         <CollapsiblePanel

@@ -14,7 +14,7 @@ export const ScanLineOverlay: React.FC = () => {
           left: `${leftPercent}%`,
           width: "100%",
           height: 2,
-          background: "linear-gradient(90deg, transparent, rgba(0,217,255,0.7), transparent)",
+          background: "linear-gradient(90deg, transparent, rgba(8,145,178,0.2), transparent)",
         }}
       />
     </div>

@@ -21,9 +21,6 @@ def make_state(**overrides) -> AgentState:
         "patient_profile": {},
         "steps_taken": 0,
         "final_report": None,
-        "next_agents": [],
-        "is_medical": False,
-        "target_specialist": None,
     }
     base.update(overrides)
     return base
@@ -44,9 +41,6 @@ class TestAgentStateInitialization:
             "patient_profile",
             "steps_taken",
             "final_report",
-            "next_agents",
-            "is_medical",
-            "target_specialist",
         }
         assert required_keys == set(state.keys())
 
@@ -65,18 +59,6 @@ class TestAgentStateInitialization:
     def test_final_report_default_is_none(self):
         state = make_state()
         assert state["final_report"] is None
-
-    def test_next_agents_default_is_empty_list(self):
-        state = make_state()
-        assert state["next_agents"] == []
-
-    def test_is_medical_default_is_false(self):
-        state = make_state()
-        assert state["is_medical"] is False
-
-    def test_target_specialist_default_is_none(self):
-        state = make_state()
-        assert state["target_specialist"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -110,22 +92,6 @@ class TestAgentStateFieldTypes:
     def test_final_report_accepts_none(self):
         state = make_state(final_report=None)
         assert state["final_report"] is None
-
-    def test_next_agents_accepts_list_of_strings(self):
-        state = make_state(next_agents=["specialist", "records"])
-        assert state["next_agents"] == ["specialist", "records"]
-
-    def test_is_medical_accepts_bool_true(self):
-        state = make_state(is_medical=True)
-        assert state["is_medical"] is True
-
-    def test_target_specialist_accepts_string(self):
-        state = make_state(target_specialist="cardiologist")
-        assert state["target_specialist"] == "cardiologist"
-
-    def test_target_specialist_accepts_none(self):
-        state = make_state(target_specialist=None)
-        assert state["target_specialist"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -199,8 +165,3 @@ class TestAgentStateMutability:
         state = make_state(steps_taken=3)
         state["steps_taken"] += 1
         assert state["steps_taken"] == 4
-
-    def test_is_medical_can_be_toggled(self):
-        state = make_state(is_medical=False)
-        state["is_medical"] = True
-        assert state["is_medical"] is True

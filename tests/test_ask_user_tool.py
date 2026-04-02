@@ -16,7 +16,7 @@ def reset_registry():
 @pytest.mark.asyncio
 async def test_ask_user_returns_confirm_result():
     """ask_user blocks until resolved, then returns the stored result."""
-    from src.tools.builtin.ask_user_tool import ask_user
+    from src.tools.ask_user_tool import ask_user
 
     session_id = 99
     side_queue = asyncio.Queue()
@@ -39,7 +39,7 @@ async def test_ask_user_returns_confirm_result():
 @pytest.mark.asyncio
 async def test_ask_user_puts_form_request_on_queue():
     """ask_user must push a form_request event to the session queue."""
-    from src.tools.builtin.ask_user_tool import ask_user
+    from src.tools.ask_user_tool import ask_user
 
     session_id = 100
     side_queue = asyncio.Queue()
@@ -63,7 +63,7 @@ async def test_ask_user_puts_form_request_on_queue():
 @pytest.mark.asyncio
 async def test_ask_user_unknown_template_returns_error():
     """ask_user returns error for unknown template."""
-    from src.tools.builtin.ask_user_tool import ask_user
+    from src.tools.ask_user_tool import ask_user
 
     current_session_id_var.set(None)
     result = await ask_user("nonexistent_template")

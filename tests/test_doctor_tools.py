@@ -60,7 +60,7 @@ def _make_mock_session(patient=None, visit=None, records=None):
 
 def test_pre_visit_brief_returns_patient_info():
     """pre_visit_brief tool returns a string containing patient name and chief complaint."""
-    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief
+    from src.tools.pre_visit_brief_tool import pre_visit_brief
 
     mock_patient = MagicMock()
     mock_patient.id = 1
@@ -82,7 +82,7 @@ def test_pre_visit_brief_returns_patient_info():
         records=[],
     )
 
-    with patch("src.tools.builtin.pre_visit_brief_tool.SessionLocal", mock_session_cls):
+    with patch("src.tools.pre_visit_brief_tool.SessionLocal", mock_session_cls):
         result = pre_visit_brief(patient_id=1, visit_id=1)
 
     assert isinstance(result, str)
@@ -92,11 +92,11 @@ def test_pre_visit_brief_returns_patient_info():
 
 def test_pre_visit_brief_missing_patient():
     """Returns an error string when the patient does not exist."""
-    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief
+    from src.tools.pre_visit_brief_tool import pre_visit_brief
 
     mock_session_cls, _ = _make_mock_session(patient=None)
 
-    with patch("src.tools.builtin.pre_visit_brief_tool.SessionLocal", mock_session_cls):
+    with patch("src.tools.pre_visit_brief_tool.SessionLocal", mock_session_cls):
         result = pre_visit_brief(patient_id=999, visit_id=1)
 
     assert "Error" in result
@@ -105,7 +105,7 @@ def test_pre_visit_brief_missing_patient():
 
 def test_pre_visit_brief_missing_visit():
     """Returns an error string when the visit does not exist."""
-    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief
+    from src.tools.pre_visit_brief_tool import pre_visit_brief
 
     mock_patient = MagicMock()
     mock_patient.id = 1
@@ -113,7 +113,7 @@ def test_pre_visit_brief_missing_visit():
 
     mock_session_cls, _ = _make_mock_session(patient=mock_patient, visit=None)
 
-    with patch("src.tools.builtin.pre_visit_brief_tool.SessionLocal", mock_session_cls):
+    with patch("src.tools.pre_visit_brief_tool.SessionLocal", mock_session_cls):
         result = pre_visit_brief(patient_id=1, visit_id=999)
 
     assert "Error" in result
@@ -123,7 +123,7 @@ def test_pre_visit_brief_missing_visit():
 def test_pre_visit_brief_includes_recent_records():
     """Brief includes recent medical record entries."""
     from datetime import datetime
-    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief
+    from src.tools.pre_visit_brief_tool import pre_visit_brief
 
     mock_patient = MagicMock()
     mock_patient.id = 1
@@ -150,7 +150,7 @@ def test_pre_visit_brief_includes_recent_records():
         records=[mock_record],
     )
 
-    with patch("src.tools.builtin.pre_visit_brief_tool.SessionLocal", mock_session_cls):
+    with patch("src.tools.pre_visit_brief_tool.SessionLocal", mock_session_cls):
         result = pre_visit_brief(patient_id=1, visit_id=2)
 
     assert "Alice Brown" in result
@@ -160,7 +160,7 @@ def test_pre_visit_brief_includes_recent_records():
 
 def test_pre_visit_brief_no_records_message():
     """Brief notes 'No records on file' when patient has no medical history."""
-    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief
+    from src.tools.pre_visit_brief_tool import pre_visit_brief
 
     mock_patient = MagicMock()
     mock_patient.id = 3
@@ -182,7 +182,7 @@ def test_pre_visit_brief_no_records_message():
         records=[],
     )
 
-    with patch("src.tools.builtin.pre_visit_brief_tool.SessionLocal", mock_session_cls):
+    with patch("src.tools.pre_visit_brief_tool.SessionLocal", mock_session_cls):
         result = pre_visit_brief(patient_id=3, visit_id=3)
 
     assert "No records on file" in result
@@ -195,7 +195,7 @@ def test_pre_visit_brief_no_records_message():
 def test_ddx_tool_returns_json_with_diagnoses():
     """DDx tool returns valid JSON string with diagnoses list."""
     import json
-    from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis
+    from src.tools.differential_diagnosis_tool import generate_differential_diagnosis
 
     mock_response_content = json.dumps({
         "diagnoses": [
@@ -210,7 +210,7 @@ def test_ddx_tool_returns_json_with_diagnoses():
     })
 
     # Mock the LLM call inside the tool
-    with patch("src.tools.builtin.differential_diagnosis_tool._call_llm", return_value=mock_response_content):
+    with patch("src.tools.differential_diagnosis_tool._call_llm", return_value=mock_response_content):
         result = generate_differential_diagnosis(
             patient_id=1,
             chief_complaint="Chest pain radiating to left arm",
@@ -226,7 +226,7 @@ def test_ddx_tool_returns_json_with_diagnoses():
 def test_create_order_tool_returns_confirmation():
     """create_order tool persists order and returns confirmation."""
     from unittest.mock import MagicMock
-    from src.tools.builtin.create_order_tool import create_order
+    from src.tools.create_order_tool import create_order
 
     # Build a mock visit that passes validation
     mock_visit = MagicMock()
@@ -251,7 +251,7 @@ def test_create_order_tool_returns_confirmation():
     mock_session_cls.return_value.__enter__ = MagicMock(return_value=mock_db)
     mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-    with patch("src.tools.builtin.create_order_tool.SessionLocal", mock_session_cls):
+    with patch("src.tools.create_order_tool.SessionLocal", mock_session_cls):
         result = create_order(
             patient_id=7,
             visit_id=42,

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogIn, AlertCircle, Stethoscope, Shield, Settings } from "lucide-react";
+import { LogIn, AlertCircle, Stethoscope, Settings } from "lucide-react";
 
 export default function LoginPage() {
   const { login, loading: authLoading } = useAuth();
@@ -138,7 +138,7 @@ export default function LoginPage() {
             <p className="text-xs text-muted-foreground text-center mb-3">
               Quick access (development)
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => quickLogin("doctor", "doctor123")}
                 disabled={isSubmitting}
@@ -146,14 +146,6 @@ export default function LoginPage() {
               >
                 <Stethoscope className="w-5 h-5" />
                 Doctor
-              </button>
-              <button
-                onClick={() => quickLogin("officer", "officer123")}
-                disabled={isSubmitting}
-                className="flex flex-col items-center gap-1.5 rounded-lg border border-border px-3 py-3 text-xs transition-all hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400 disabled:opacity-50"
-              >
-                <Shield className="w-5 h-5" />
-                Officer
               </button>
               <button
                 onClick={() => quickLogin("admin", "admin123")}

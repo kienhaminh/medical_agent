@@ -43,7 +43,7 @@ export const LogoReveal: React.FC = () => {
                 fontWeight: 400,
                 letterSpacing: "0.2em",
                 color: colors.cyan,
-                textShadow: "0 0 20px rgba(0,217,255,0.4)",
+                textShadow: "none",
               }}
             />
           </div>

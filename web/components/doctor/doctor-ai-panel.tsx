@@ -1,16 +1,14 @@
 "use client";
 
 import React, { RefObject, useEffect, useRef, useState } from "react";
-import { Sparkles, GripVertical, Lightbulb, MessageSquare, UserRoundSearch } from "lucide-react";
+import { Sparkles, GripVertical, Lightbulb, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AiInsightsMode } from "./ai-insights-mode";
 import { AiChatMode } from "./ai-chat-mode";
-import { AiConsultMode } from "./ai-consult-mode";
 import type { AgentActivity, Message } from "@/types/agent-ui";
-import type { AgentInfo } from "@/lib/api";
 import type { WSEvent } from "@/lib/ws-events";
 
-type AiMode = "insights" | "chat" | "consult";
+type AiMode = "insights" | "chat";
 
 interface DoctorAiPanelProps {
   // Chat props
@@ -23,13 +21,8 @@ interface DoctorAiPanelProps {
   handleSendMessage: (e: React.FormEvent) => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
 
-  // Consult props
-  specialists: AgentInfo[];
-  consultSpecialist: (specialist: AgentInfo, question: string) => Promise<string>;
-
   // Insights props
   wsEvents: WSEvent[];
-  onPlaceOrder?: (type: "lab" | "imaging", name: string) => void;
 
   // Panel props
   patientName?: string;
@@ -42,7 +35,6 @@ interface DoctorAiPanelProps {
 const MODE_TABS: { key: AiMode; label: string; icon: typeof Lightbulb }[] = [
   { key: "insights", label: "Insights", icon: Lightbulb },
   { key: "chat", label: "Chat", icon: MessageSquare },
-  { key: "consult", label: "Consult", icon: UserRoundSearch },
 ];
 
 export function DoctorAiPanel({
@@ -54,10 +46,7 @@ export function DoctorAiPanel({
   activityDetails,
   handleSendMessage,
   messagesEndRef,
-  specialists,
-  consultSpecialist,
   wsEvents,
-  onPlaceOrder,
   patientName,
   width,
   setWidth,
@@ -174,8 +163,6 @@ export function DoctorAiPanel({
       <div className="relative z-10 flex-1 min-h-0 flex flex-col">
         {activeMode === "insights" && (
           <AiInsightsMode
-            wsEvents={wsEvents}
-            onPlaceOrder={onPlaceOrder}
             onAskAi={handleAskAi}
           />
         )}
@@ -190,14 +177,6 @@ export function DoctorAiPanel({
             activityDetails={activityDetails}
             handleSendMessage={handleSendMessage}
             messagesEndRef={messagesEndRef}
-          />
-        )}
-
-        {activeMode === "consult" && (
-          <AiConsultMode
-            specialists={specialists}
-            onConsult={consultSpecialist}
-            disabled={!patientName}
           />
         )}
       </div>

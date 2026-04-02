@@ -45,7 +45,6 @@ class ToolsConfig:
 class SkillsConfig:
     """Skills configuration."""
 
-    db_only: bool = False  # If true, only load from database
     core_dir: str = "src/skills"
     custom_dir: str = "./custom_skills"
     external_dir: str = "./external_skills"
@@ -177,7 +176,6 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
         ),
         tools=ToolsConfig(enabled=tools_cfg.get("enabled", ["calculator", "file_ops", "datetime"])),
         skills=SkillsConfig(
-            db_only=os.getenv("SKILLS_DB_ONLY", str(skills_cfg.get("db_only", False))).lower() == "true",
             core_dir=skills_cfg.get("core_dir", "src/skills"),
             custom_dir=skills_cfg.get("custom_dir", "./custom_skills"),
             external_dir=skills_cfg.get("external_dir", "./external_skills"),

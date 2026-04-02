@@ -9,11 +9,6 @@ from pydantic import BaseModel
 class WSEventType(str, Enum):
     """All WebSocket event types emitted by the system."""
 
-    # Order lifecycle
-    ORDER_CREATED = "order.created"
-    ORDER_CLAIMED = "order.claimed"
-    ORDER_COMPLETED = "order.completed"
-
     # Visit lifecycle
     VISIT_CREATED = "visit.created"
     VISIT_ROUTED = "visit.routed"
@@ -45,9 +40,6 @@ class WSEvent(BaseModel):
 # Notification routing — which UI layers each event triggers
 # bell = header notification dropdown, inline = Zone A/B live updates, toast = urgent popup
 NOTIFICATION_ROUTING: dict[WSEventType, dict[str, bool]] = {
-    WSEventType.ORDER_CREATED:    {"bell": True,  "inline": True,  "toast": False},
-    WSEventType.ORDER_CLAIMED:    {"bell": True,  "inline": True,  "toast": False},
-    WSEventType.ORDER_COMPLETED:  {"bell": True,  "inline": True,  "toast": False},
     WSEventType.VISIT_CREATED:    {"bell": True,  "inline": True,  "toast": False},
     WSEventType.VISIT_ROUTED:     {"bell": True,  "inline": True,  "toast": False},
     WSEventType.VISIT_CHECKED_IN: {"bell": True,  "inline": True,  "toast": False},

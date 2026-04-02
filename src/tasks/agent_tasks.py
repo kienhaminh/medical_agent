@@ -2,26 +2,26 @@
 import asyncio
 import json
 from datetime import datetime, UTC
-from typing import Optional, List, Dict
+from typing import Optional
 
 
 from . import celery_app
 from src.models import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
 from src.config.settings import load_config
 from ..api.dependencies import get_or_create_agent
+from ..agent.stream_processor import StreamProcessor
 import logging
 from sqlalchemy import select
-import src.tools.builtin  # Register builtin tools
+import src.tools  # Register tools
 import src.skills.builtin  # Register skill search tools
 import redis.asyncio as redis
 import os
-from src.agent.agent_registry import get_agent_config
 
 # Load configuration
 config = load_config()
 
 logger = logging.getLogger(__name__)
-logger.info(f"Loaded builtin tools from {src.tools.builtin.__name__}")
+logger.info(f"Loaded tools from {src.tools.__name__}")
 
 
 
@@ -83,17 +83,8 @@ async def _process_message_async(
     # Initialize Redis
     redis_client = redis.from_url(config.redis_url)
 
-    # Initialize accumulators
-    full_response = ""
-    tool_calls_buffer: List[Dict] = []
-    logs_buffer: List[Dict] = []
-    reasoning_content = ""
-    all_patient_references = []
-    total_usage = {
-        "prompt_tokens": 0,
-        "completion_tokens": 0,
-        "total_tokens": 0
-    }
+    processor = StreamProcessor()
+    channel = f"chat:message:{message_id}"
 
     # Persistence control
     last_save_time = datetime.utcnow()
@@ -120,16 +111,8 @@ async def _process_message_async(
             message.streaming_started_at = datetime.utcnow()
             message.last_updated_at = datetime.utcnow()
             await db.commit()
-            
-            # Publish start event
-            channel = f"chat:message:{message_id}"
-            start_event = {"type": "status", "status": "streaming"}
-            logger.info(f"Publishing start event to {channel}: {start_event}")
-            await redis_client.publish(
-                channel,
-                json.dumps(start_event)
-            )
-            logger.info(f"Start event published to {channel}")
+
+            await redis_client.publish(channel, json.dumps({"type": "status", "status": "streaming"}))
 
             # 2. Build context message with patient/record info
             context_message = user_message
@@ -167,226 +150,112 @@ async def _process_message_async(
             result = await db.execute(stmt)
             existing_messages = result.scalars().all()
 
-            # Exclude the current assistant message and any messages without content
             for msg in existing_messages:
                 if msg.id != message_id and msg.content and msg.content.strip():
-                    chat_history.append({
-                        "role": msg.role,
-                        "content": msg.content
-                    })
+                    chat_history.append({"role": msg.role, "content": msg.content})
 
-            # 4. Resolve optional specialist system prompt override
-            agent_config = get_agent_config(agent_role) if agent_role else None
-            agent_system_prompt = agent_config["system_prompt"] if agent_config else None
-
-            # 5. Get agent and process message
+            # 4. Get agent and process message
             user_agent = get_or_create_agent(user_id)
             stream = await user_agent.process_message(
                 user_message=context_message.strip(),
                 stream=True,
                 chat_history=chat_history,
-                system_prompt_override=agent_system_prompt,
             )
 
-            # 5. Process streaming events with incremental persistence
-            async for event in stream:
+            # 5. Process streaming events via shared processor
+            async for event in processor.process(stream):
                 chunk_count += 1
-
-                if isinstance(event, dict):
-                    # Handle different event types
-                    if event["type"] == "content":
-                        full_response += event['content']
-
-                    elif event["type"] == "tool_call":
-                        tool_calls_buffer.append(event)
-
-                    elif event["type"] == "tool_result":
-                        # Update tool calls buffer with result
-                        for tc in tool_calls_buffer:
-                            if tc.get("id") == event.get("id"):
-                                tc["result"] = event.get("result")
-
-                        # Append tool results to logs
-                        logs_buffer.append({
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "type": "tool_result",
-                            "content": event
-                        })
-
-                    elif event["type"] == "reasoning":
-                        reasoning_content += event['content']
-
-                    elif event["type"] == "log":
-                        logs_buffer.append({
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "type": "log",
-                            "content": event['content']
-                        })
-
-                    elif event["type"] == "patient_references":
-                        all_patient_references = event['patient_references']
-
-                    elif event["type"] == "usage":
-                        logger.info("✅✅✅ USAGE EVENT RECEIVED IN AGENT_TASKS: %s", event)
-                        usage = event.get('usage', {})
-                        # Handle different usage formats
-                        if isinstance(usage, dict):
-                            # Standard format: prompt_tokens, completion_tokens, total_tokens
-                            total_usage["prompt_tokens"] += usage.get("prompt_tokens", usage.get("input_tokens", 0))
-                            total_usage["completion_tokens"] += usage.get("completion_tokens", usage.get("output_tokens", 0))
-                            total_usage["total_tokens"] += usage.get("total_tokens", 0)
-                            logger.info("✅ Updated total_usage: %s", total_usage)
-
-                else:
-                    # Fallback for string chunks
-                    full_response = event
-                    # We don't publish full response updates here to avoid excessive traffic
-                    # But if it's a chunk, we should publish it. 
-                    # Assuming event is a chunk if it's a string and we are streaming.
-                    # However, LangGraph might yield full state. 
-                    # Let's assume for now we only publish structured events or if we can diff.
-                    pass
 
                 # Publish event to Redis
                 if isinstance(event, dict):
-                    channel = f"chat:message:{message_id}"
-                    event_json = json.dumps(event)
-                    logger.info(f"Publishing event to {channel}: {event['type']} - {event_json[:100]}...")
-                    await redis_client.publish(channel, event_json)
-                    logger.info(f"Event published successfully")
+                    await redis_client.publish(channel, json.dumps(event))
 
-                # 6. Incremental persistence logic
+                # Incremental persistence
                 time_since_last_save = (datetime.utcnow() - last_save_time).total_seconds()
-                should_save = (
-                    time_since_last_save >= SAVE_INTERVAL_SECONDS or
-                    chunk_count >= SAVE_CHUNK_THRESHOLD
-                )
-
-                if should_save:
+                if time_since_last_save >= SAVE_INTERVAL_SECONDS or chunk_count >= SAVE_CHUNK_THRESHOLD:
+                    r = processor.result
                     await _update_message_content(
                         db=db,
                         message_id=message_id,
-                        content=full_response,
-                        tool_calls=tool_calls_buffer,
-                        reasoning=reasoning_content,
-                        logs=logs_buffer,
-                        patient_references=all_patient_references,
-                        token_usage=total_usage if total_usage["total_tokens"] > 0 else None,
+                        result=r,
                     )
                     last_save_time = datetime.utcnow()
                     chunk_count = 0
 
-            # 7. Final save with completed status
+            # 6. Final save with completed status
+            r = processor.result
             result = await db.execute(
                 select(ChatMessage).where(ChatMessage.id == message_id)
             )
             message = result.scalar_one_or_none()
             if message:
-                message.content = full_response
-                message.tool_calls = json.dumps(tool_calls_buffer) if tool_calls_buffer else None
-                message.reasoning = reasoning_content if reasoning_content else None
-                message.logs = json.dumps(logs_buffer) if logs_buffer else None
-                message.patient_references = json.dumps(all_patient_references) if all_patient_references else None
-                message.token_usage = json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None
+                message.content = r.content
+                message.tool_calls = r.tool_calls_json()
+                message.reasoning = r.reasoning if r.reasoning else None
+                message.logs = r.logs_json()
+                message.token_usage = r.usage_json()
                 message.status = "completed"
                 message.completed_at = datetime.utcnow()
                 message.last_updated_at = datetime.utcnow()
                 await db.commit()
-                
-            # Publish done event
-            done_event = {"type": "done"}
-            logger.info(f"Publishing done event to chat:message:{message_id}: {done_event}")
-            await redis_client.publish(
-                f"chat:message:{message_id}",
-                json.dumps(done_event)
-            )
-            logger.info(f"Done event published")
+
+            await redis_client.publish(channel, json.dumps({"type": "done"}))
 
             return {
                 "message_id": message_id,
                 "status": "completed",
-                "content_length": len(full_response),
-                "tool_calls_count": len(tool_calls_buffer),
-                "logs_count": len(logs_buffer),
+                "content_length": len(r.content),
+                "tool_calls_count": len(r.tool_calls),
+                "logs_count": len(r.logs),
             }
 
     except asyncio.CancelledError:
-        # Task was cancelled - mark for saving
         save_interrupted = True
-        await redis_client.publish(
-            f"chat:message:{message_id}",
-            json.dumps({"type": "error", "message": "Task was cancelled"})
-        )
-        return {
-            "message_id": message_id,
-            "status": "interrupted",
-            "content_length": len(full_response),
-        }
+        await redis_client.publish(channel, json.dumps({"type": "error", "message": "Task was cancelled"}))
+        return {"message_id": message_id, "status": "interrupted", "content_length": len(processor.result.content)}
 
     except Exception as e:
-        # Error occurred - mark for saving
         save_error = e
-        await redis_client.publish(
-            f"chat:message:{message_id}",
-            json.dumps({"type": "error", "message": str(e)})
-        )
+        await redis_client.publish(channel, json.dumps({"type": "error", "message": str(e)}))
         raise
 
     finally:
         await redis_client.aclose()
-        # Save error/interrupted state outside of main db context
         if save_interrupted or save_error:
             try:
+                r = processor.result
                 async with AsyncSessionLocal() as error_db:
                     result = await error_db.execute(
                         select(ChatMessage).where(ChatMessage.id == message_id)
                     )
                     message = result.scalar_one_or_none()
                     if message:
-                        message.content = full_response
-                        message.tool_calls = json.dumps(tool_calls_buffer) if tool_calls_buffer else None
-                        message.reasoning = reasoning_content if reasoning_content else None
-                        message.logs = json.dumps(logs_buffer) if logs_buffer else None
-                        message.patient_references = json.dumps(all_patient_references) if all_patient_references else None
-                        message.token_usage = json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None
-
-                        if save_interrupted:
-                            message.status = "interrupted"
-                            message.error_message = "Task was cancelled"
-                        elif save_error:
-                            message.status = "error"
-                            message.error_message = str(save_error)
-
+                        message.content = r.content
+                        message.tool_calls = r.tool_calls_json()
+                        message.reasoning = r.reasoning if r.reasoning else None
+                        message.logs = r.logs_json()
+                        message.token_usage = r.usage_json()
+                        message.status = "interrupted" if save_interrupted else "error"
+                        message.error_message = "Task was cancelled" if save_interrupted else str(save_error)
                         message.completed_at = datetime.utcnow()
                         message.last_updated_at = datetime.utcnow()
                         await error_db.commit()
             except Exception as final_error:
-                # If even the finally block fails, log it but don't raise
                 logger.error("Failed to save error state: %s", final_error)
 
 
-async def _update_message_content(
-    db,
-    message_id: int,
-    content: str,
-    tool_calls: List[Dict],
-    reasoning: str,
-    logs: List[Dict],
-    patient_references: List,
-    token_usage: Optional[Dict] = None,
-):
-    """Update message content incrementally."""
-    result = await db.execute(
+async def _update_message_content(db, message_id: int, result):
+    """Update message content incrementally from a StreamResult."""
+    db_result = await db.execute(
         select(ChatMessage).where(ChatMessage.id == message_id)
     )
-    message = result.scalar_one_or_none()
+    message = db_result.scalar_one_or_none()
     if message:
-        message.content = content
-        message.tool_calls = json.dumps(tool_calls) if tool_calls else None
-        message.reasoning = reasoning if reasoning else None
-        message.logs = json.dumps(logs) if logs else None
-        message.patient_references = json.dumps(patient_references) if patient_references else None
-        message.token_usage = json.dumps(token_usage) if token_usage and token_usage.get("total_tokens", 0) > 0 else None
+        message.content = result.content
+        message.tool_calls = result.tool_calls_json()
+        message.reasoning = result.reasoning if result.reasoning else None
+        message.logs = result.logs_json()
+        message.token_usage = result.usage_json()
         message.last_updated_at = datetime.utcnow()
         await db.commit()
 
@@ -518,50 +387,43 @@ Be concise but thorough. Use bullet points and clear formatting."""
             )
 
             # 6. Process streaming events with incremental persistence
-            async for event in stream:
-                if isinstance(event, dict):
-                    if event["type"] == "content":
-                        summary_content += event['content']
-                        chunk_count += 1
+            summary_processor = StreamProcessor()
+            async for event in summary_processor.process(stream):
+                if isinstance(event, dict) and event.get("type") == "content":
+                    chunk_count += 1
+                    summary_content = summary_processor.result.content
 
-                        # Cache accumulated content in Redis for resume support
-                        content_key = f"patient:health_summary:{patient_id}:content"
-                        await redis_client.set(content_key, summary_content, ex=3600)  # 1 hour expiry
+                    # Cache accumulated content in Redis for resume support
+                    content_key = f"patient:health_summary:{patient_id}:content"
+                    await redis_client.set(content_key, summary_content, ex=3600)
 
-                        # Publish content chunks
-                        await redis_client.publish(channel, json.dumps({
-                            "type": "chunk",
-                            "content": event['content']
-                        }))
+                    # Publish content chunks
+                    await redis_client.publish(channel, json.dumps({
+                        "type": "chunk",
+                        "content": event["content"],
+                    }))
 
-                        # Incremental database save
-                        time_since_last_save = (datetime.now(UTC) - last_save_time).total_seconds()
-                        should_save = (
-                            time_since_last_save >= SAVE_INTERVAL_SECONDS or
-                            chunk_count >= SAVE_CHUNK_THRESHOLD
-                        )
+                    # Incremental database save
+                    time_since_last_save = (datetime.now(UTC) - last_save_time).total_seconds()
+                    if time_since_last_save >= SAVE_INTERVAL_SECONDS or chunk_count >= SAVE_CHUNK_THRESHOLD:
+                        try:
+                            result = await db.execute(
+                                select(Patient).where(Patient.id == patient_id)
+                            )
+                            patient = result.scalar_one_or_none()
+                            if patient:
+                                patient.health_summary = summary_content
+                                patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                                await db.commit()
+                            last_save_time = datetime.now(UTC)
+                            chunk_count = 0
+                        except Exception as save_ex:
+                            logger.error(f"Incremental save failed for patient {patient_id}: {save_ex}")
 
-                        if should_save:
-                            try:
-                                # Use a fresh query to avoid stale data
-                                result = await db.execute(
-                                    select(Patient).where(Patient.id == patient_id)
-                                )
-                                patient = result.scalar_one_or_none()
-                                if patient:
-                                    patient.health_summary = summary_content
-                                    patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
-                                    await db.commit()
-                                    logger.info(f"Incremental save for patient {patient_id}: {len(summary_content)} chars")
-                                last_save_time = datetime.now(UTC)
-                                chunk_count = 0
-                            except Exception as save_ex:
-                                logger.error(f"Incremental save failed for patient {patient_id}: {save_ex}")
-                                # Continue streaming even if save fails
+                elif isinstance(event, dict) and event.get("type") in ("tool_call", "tool_result", "log"):
+                    await redis_client.publish(channel, json.dumps(event))
 
-                    # Forward other events (tool_calls, logs, etc.) if needed
-                    elif event["type"] in ["tool_call", "tool_result", "log"]:
-                        await redis_client.publish(channel, json.dumps(event))
+            summary_content = summary_processor.result.content
 
         # 7. Final save with completed status - use fresh DB session
         logger.info(f"Stream completed for patient {patient_id}, performing final save...")

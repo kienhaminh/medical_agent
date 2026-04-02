@@ -44,6 +44,9 @@ class IntakeSubmission(Base):
     emergency_contact_relationship: Mapped[str] = mapped_column(String(50))
     emergency_contact_phone: Mapped[str] = mapped_column(String(30))
 
+    # JSON blob for dynamic fields that don't map to fixed columns above.
+    extra_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # No back_populates on Patient — intake submissions are write-only from

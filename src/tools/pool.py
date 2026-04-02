@@ -74,8 +74,12 @@ class ToolPool:
             implementation_type: Type of implementation (code, config, api, composite)
             config: Optional configuration dict for config-based tools
         """
-        # Get description from function docstring
-        description = func.__doc__ or ""
+        # Get description — BaseTool exposes .description; plain functions use __doc__
+        description = (
+            getattr(func, "description", None)
+            or getattr(func, "__doc__", None)
+            or ""
+        )
         
         self._tools[name] = ToolInfo(
             name=name,
@@ -341,17 +345,15 @@ class ToolPool:
     
     def register_from_registry(self, registry) -> None:
         """Import tools from existing ToolRegistry.
-        
-        This allows backward compatibility with the existing
-        ToolRegistry singleton while migrating to the new pool.
-        
+
+        Supports both plain callables and LangChain BaseTool instances
+        (ToolRegistry now stores BaseTool objects).
+
         Args:
             registry: ToolRegistry instance to import from
         """
-        from ..tools.registry import ToolRegistry
-        
-        if isinstance(registry, ToolRegistry):
-            tools = registry.get_all_tools()
-            for tool in tools:
-                name = getattr(tool, '__name__', str(tool))
-                self.register(name, tool, skill_name="builtin")
+        tools = registry.list_tools()
+        for tool in tools:
+            # BaseTool has .name; plain functions have .__name__
+            name = getattr(tool, "name", getattr(tool, "__name__", str(tool)))
+            self.register(name, tool, skill_name="builtin")

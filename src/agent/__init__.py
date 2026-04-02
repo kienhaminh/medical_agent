@@ -1,5 +1,5 @@
 """Agent module."""
 
-from .langgraph_agent import LangGraphAgent
+from .definition import LangGraphAgent
 
 __all__ = ["LangGraphAgent"]

@@ -65,7 +65,7 @@ export const FeatureCallout: React.FC<FeatureCalloutProps> = ({
           fontWeight: 600,
           letterSpacing: "0.15em",
           color: colors.cyan,
-          textShadow: "0 0 20px rgba(0,217,255,0.5), 0 0 40px rgba(0,217,255,0.2)",
+          textShadow: "none",
           textTransform: "uppercase",
         }}
       >

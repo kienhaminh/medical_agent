@@ -1,46 +1,22 @@
+"""API dependencies — single shared agent instance."""
+
 import logging
-import os
-import yaml
-from typing import Dict, Optional
-from pathlib import Path
-from ..agent.langgraph_agent import LangGraphAgent
+from ..agent.definition import LangGraphAgent
 from ..llm.kimi import KimiProvider
 from ..llm.openai_provider import OpenAIProvider
 from ..config.settings import load_config
-from ..memory import Mem0MemoryManager
 from ..tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
-# Load memory configuration
-def load_memory_config() -> Optional[Dict]:
-    """Load memory configuration from YAML file."""
-    config_path = Path(__file__).parent.parent.parent / "config" / "memory.yaml"
-    if config_path.exists():
-        with open(config_path, "r") as f:
-            return yaml.safe_load(f)
-    return None
-
-# Initialize memory manager
-memory_manager = None
-memory_config = load_memory_config()
-
-if memory_config and memory_config.get("memory", {}).get("enabled", False):
-    try:
-        long_term_config = memory_config["memory"]["long_term"]["mem0"]
-        memory_manager = Mem0MemoryManager(config=long_term_config)
-        logger.info("Memory manager initialized successfully")
-    except Exception as e:
-        logger.warning("Failed to initialize memory manager: %s", e)
-
-# Initialize ToolRegistry (Singleton)
+# Initialize ToolRegistry (singleton)
 tool_registry = ToolRegistry()
 
-# Initialize LLM provider based on config
+# Initialize LLM provider
 config = load_config()
 
 if config.provider == "openai":
-    provider_name = "OpenAI (LangGraph)"
+    provider_name = "OpenAI"
     llm_provider = OpenAIProvider(
         api_key=config.openai_api_key,
         model=config.model,
@@ -48,7 +24,7 @@ if config.provider == "openai":
         streaming=True,
     )
 else:
-    provider_name = "Moonshot Kimi (LangGraph)"
+    provider_name = "Moonshot Kimi"
     llm_provider = KimiProvider(
         api_key=config.kimi_api_key,
         model=config.model,
@@ -56,24 +32,16 @@ else:
         streaming=True,
     )
 
-# User-specific agents
-user_agents: Dict = {}
+# Single shared agent — stateless, no per-user config
+_agent: LangGraphAgent = LangGraphAgent(llm_with_tools=llm_provider.llm)
+logger.info("Global agent initialized (%s)", provider_name)
 
-def get_or_create_agent(user_id: str):
-    """Get or create agent for user."""
-    if user_id not in user_agents:
-        # Use default system prompt from agent_config.py
-        # This prompt includes delegation instructions for sub-agents
-        # DO NOT override with environment variable as it breaks delegation
 
-        # Create LangGraph agent
-        user_agents[user_id] = LangGraphAgent(
-            llm_with_tools=llm_provider.llm,  # Pass the LangChain LLM
-            memory_manager=memory_manager,
-            user_id=user_id,
-            fast_llm=llm_provider.fast_llm,  # Pass the fast LLM for routing/classification
-            subagent_timeout=120.0,  # Increased timeout for k2-thinking model (was 30s)
-            # system_prompt defaults to get_default_system_prompt() in LangGraphAgent.__init__
-        )
+def get_agent() -> LangGraphAgent:
+    """Return the global agent instance."""
+    return _agent
 
-    return user_agents[user_id]
+
+def get_or_create_agent(user_id: str = None) -> LangGraphAgent:
+    """Compatibility shim — user_id is ignored, returns the global agent."""
+    return _agent

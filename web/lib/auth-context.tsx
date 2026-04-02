@@ -32,9 +32,7 @@ const ADMIN_ONLY_ROUTES = ["/agent/usage", "/agent/settings"];
 /** Role-based route access. Each role lists the route prefixes it can access. */
 const ROLE_ROUTES: Record<string, string[]> = {
   doctor: ["/doctor", "/patient", "/agent"],
-  officer: ["/officer", "/operations", "/patient"],
-  admin: ["/doctor", "/officer", "/patient", "/agent", "/operations", "/design-system", "/nurse"],
-  nurse: ["/nurse"],
+  admin: ["/admin", "/patient", "/agent", "/operations", "/design-system"],
 };
 
 export function canAccessRoute(role: string | undefined, pathname: string): boolean {
@@ -50,12 +48,8 @@ export function getDefaultRoute(role: string): string {
   switch (role) {
     case "doctor":
       return "/doctor";
-    case "officer":
-      return "/officer";
     case "admin":
-      return "/officer";
-    case "nurse":
-      return "/nurse";
+      return "/agent";
     default:
       return "/login";
   }

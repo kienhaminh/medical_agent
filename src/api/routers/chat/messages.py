@@ -20,8 +20,9 @@ from ...models import (
 from ...dependencies import get_or_create_agent
 from ....tasks.agent_tasks import process_agent_message
 from src.tools.form_request_registry import form_registry, current_session_id_var
-from src.forms.vault import save_intake
-from src.agent.agent_registry import get_agent_config
+from src.forms.vault import save_intake, identify_patient
+from src.forms.field_classification import PII_FIELDS, SAFE_FIELDS, PATIENT_IDENTITY_FIELDS
+from src.agent.stream_processor import StreamProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -44,23 +45,118 @@ async def submit_form_response(session_id: int, body: FormResponseRequest):
     """
     template = form_registry.get_form_template(body.form_id)
     if template is None:
-        raise HTTPException(status_code=404, detail="Form not found or expired")
+        # Form expired from in-memory registry (e.g. server restart).
+        # Fall back to template sent by frontend so data is not lost.
+        template = body.template
+        if template is None:
+            raise HTTPException(status_code=404, detail="Form not found or expired")
+        logger.warning(
+            "form_id=%s expired from registry; using fallback template=%s",
+            body.form_id, template,
+        )
 
-    if template == "patient_intake":
+    if template == "identify_patient":
+        # Step 1: Look up or create patient from name + DOB
+        try:
+            form_registry.accumulate_answers(session_id, body.answers)
+            patient_id, is_new = await identify_patient(body.answers)
+            if is_new:
+                result = f"patient_not_found. Created new patient_id={patient_id}. This is their first visit — collect contact, insurance, and emergency contact details next."
+            else:
+                result = f"patient_found. patient_id={patient_id}. This is a returning patient — skip to visit details."
+        except Exception as e:
+            logger.error("identify_patient failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to identify patient")
+
+    elif template == "new_patient_details":
+        # Step 2 (new patients): Accumulate contact/insurance/emergency info
+        form_registry.accumulate_answers(session_id, body.answers)
+        result = "details_collected. Proceed to collect visit details."
+
+    elif template == "visit_details":
+        # Step 3: Accumulate visit info, then flush everything to IntakeSubmission
+        form_registry.accumulate_answers(session_id, body.answers)
+        all_answers = form_registry.get_accumulated_answers(session_id)
+        try:
+            patient_id, intake_id = await save_intake(all_answers)
+            form_registry.clear_accumulated_answers(session_id)
+            result = f"intake_completed. patient_id={patient_id}, intake_id={intake_id}"
+        except Exception as e:
+            logger.error("save_intake failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to save intake data")
+
+    elif template == "patient_intake":
+        # Legacy single-form flow
         try:
             patient_id, intake_id = await save_intake(body.answers)
             result = f"intake_completed. patient_id={patient_id}, intake_id={intake_id}"
         except Exception as e:
             logger.error("Vault save failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to save intake data")
+
     elif template == "confirm_visit":
         confirmed = body.answers.get("confirmed", "false").lower()
         result = "confirmed" if confirmed in ("true", "yes", "1") else "declined"
+
+    elif template == "_dynamic_input":
+        result = await _process_dynamic_input(session_id, body.answers)
+
+    elif template == "_dynamic_question":
+        # Choices are agent-defined strings — return as-is, no PII concerns.
+        choice = body.answers.get("choice", "")
+        choices = body.answers.get("choices", "")
+        result = choices if choices else choice
+
     else:
         raise HTTPException(status_code=400, detail=f"Unknown template: {template}")
 
     form_registry.resolve_form(body.form_id, result)
     return {"status": "ok"}
+
+
+async def _process_dynamic_input(session_id: int, answers: dict[str, str]) -> str:
+    """Process a dynamically generated form submission.
+
+    Classifies fields as PII or safe, stores PII in the vault,
+    and returns opaque IDs + safe field values to the agent.
+    """
+    result_parts: list[str] = []
+
+    # Check if all patient identity fields are present → lookup/create patient.
+    has_identity = PATIENT_IDENTITY_FIELDS.issubset(answers.keys())
+    patient_id: int | None = None
+
+    if has_identity:
+        try:
+            patient_id, is_new = await identify_patient(answers)
+            result_parts.append(f"patient_id={patient_id}")
+            result_parts.append(f"is_new={'true' if is_new else 'false'}")
+        except Exception as e:
+            logger.error("identify_patient failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to identify patient")
+
+    # If we have PII fields, persist to IntakeSubmission via vault.
+    pii_answers = {k: v for k, v in answers.items() if k in PII_FIELDS}
+    if pii_answers and has_identity:
+        try:
+            pid, intake_id = await save_intake(answers, patient_id=patient_id)
+            result_parts.append(f"intake_id={intake_id}")
+        except Exception as e:
+            logger.error("save_intake failed: %s", e, exc_info=True)
+            raise HTTPException(status_code=500, detail="Failed to save intake data")
+
+    # Return safe field values directly.
+    safe_answers = {k: v for k, v in answers.items() if k in SAFE_FIELDS}
+    for k, v in safe_answers.items():
+        result_parts.append(f"{k}={v}")
+
+    # Note any unknown fields collected (values NOT returned).
+    unknown = {k for k in answers if k not in PII_FIELDS and k not in SAFE_FIELDS}
+    if unknown:
+        result_parts.append(f"additional_fields_collected={','.join(sorted(unknown))}")
+
+    prefix = "form_completed"
+    return f"{prefix}. {', '.join(result_parts)}" if result_parts else "form_completed."
 
 
 @router.post("/api/chat")
@@ -147,24 +243,20 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                         "content": msg.content
                     })
 
-        # Load session agent's system prompt if linked
-        agent_config = get_agent_config(session.agent_role) if session.agent_role else None
-        agent_system_prompt = agent_config["system_prompt"] if agent_config else None
-
         # If streaming is requested
         if request.stream:
             async def generate():
-                full_response = ""
-                all_patient_references = []
-                total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-                tool_calls_buffer = []
-                logs_buffer = []
+                processor = StreamProcessor()
 
                 # --- form side-channel setup ---
                 form_event_queue: asyncio.Queue = asyncio.Queue()
                 form_registry.register_session_queue(session.id, form_event_queue)
                 current_session_id_var.set(session.id)
                 # --------------------------------
+
+                # Emit session_id early so the frontend has it before any
+                # mid-stream events (e.g. form_request) that depend on it.
+                yield f"data: {json.dumps({'session_id': session.id})}\n\n"
 
                 try:
                     # Drain the agent stream into a queue so we can race it
@@ -178,7 +270,6 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                             chat_history=chat_history,
                             patient_id=patient.id if patient else None,
                             patient_name=patient.name if patient else None,
-                            system_prompt_override=agent_system_prompt,
                         )
                         async for evt in stream:
                             await agent_event_queue.put(evt)
@@ -186,91 +277,65 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
                     agent_task = asyncio.create_task(drain_agent())
 
-                    while True:
-                        get_agent = asyncio.create_task(agent_event_queue.get())
-                        get_form = asyncio.create_task(form_event_queue.get())
+                    # Merge agent + form queues into a single async generator
+                    # so StreamProcessor can consume it.
+                    async def merged_events():
+                        while True:
+                            get_agent = asyncio.create_task(agent_event_queue.get())
+                            get_form = asyncio.create_task(form_event_queue.get())
 
-                        done_set, pending_set = await asyncio.wait(
-                            {get_agent, get_form},
-                            return_when=asyncio.FIRST_COMPLETED,
-                        )
+                            done_set, pending_set = await asyncio.wait(
+                                {get_agent, get_form},
+                                return_when=asyncio.FIRST_COMPLETED,
+                            )
+                            for t in pending_set:
+                                t.cancel()
+                                try:
+                                    await t
+                                except asyncio.CancelledError:
+                                    pass
 
-                        for t in pending_set:
-                            t.cancel()
-                            try:
-                                await t
-                            except asyncio.CancelledError:
-                                pass
+                            for completed_task in done_set:
+                                event = completed_task.result()
+                                if event is None:
+                                    return  # agent done
+                                yield event
 
-                        # Process ALL completed tasks — done_set may contain more than
-                        # one when both queues are ready in the same event loop turn.
-                        agent_done = False
-                        for completed_task in done_set:
-                            event = completed_task.result()
+                    # SSE event name mapping
+                    SSE_KEYS = {
+                        "content": "chunk",
+                        "tool_call": "tool_call",
+                        "tool_result": "tool_result",
+                        "reasoning": "reasoning",
+                        "log": "log",
+                        "usage": "usage",
+                    }
 
-                            if event is None:
-                                agent_done = True
-                                continue
+                    async for event in processor.process(merged_events()):
+                        if isinstance(event, dict) and event.get("type") == "form_request":
+                            yield f"data: {json.dumps({'form_request': event['payload']})}\n\n"
+                            continue
 
-                            # Form side-channel event — emit and continue
-                            if isinstance(event, dict) and event.get("type") == "form_request":
-                                yield f"data: {json.dumps({'form_request': event['payload']})}\n\n"
-                                continue
+                        if isinstance(event, dict):
+                            etype = event.get("type")
+                            sse_key = SSE_KEYS.get(etype)
+                            if sse_key:
+                                # content → {"chunk": "text"}, others → {"tool_call": {...}}
+                                payload = event["content"] if etype in ("content", "reasoning", "log") else event
+                                yield f"data: {json.dumps({sse_key: payload})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'chunk': event})}\n\n"
 
-                            # Regular agent events (unchanged logic)
-                            if isinstance(event, dict):
-                                if event["type"] == "content":
-                                    chunk_content = event["content"]
-                                    full_response += chunk_content
-                                    yield f"data: {json.dumps({'chunk': chunk_content})}\n\n"
-                                elif event["type"] == "tool_call":
-                                    tool_calls_buffer.append(event)
-                                    yield f"data: {json.dumps({'tool_call': event})}\n\n"
-                                elif event["type"] == "tool_result":
-                                    for tc in tool_calls_buffer:
-                                        if tc.get("id") == event.get("id"):
-                                            tc["result"] = event.get("result")
-                                    logs_buffer.append({
-                                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                                        "type": "tool_result",
-                                        "content": event,
-                                    })
-                                    yield f"data: {json.dumps({'tool_result': event})}\n\n"
-                                elif event["type"] == "reasoning":
-                                    yield f"data: {json.dumps({'reasoning': event['content']})}\n\n"
-                                elif event["type"] == "log":
-                                    logs_buffer.append({
-                                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                                        "type": "log",
-                                        "content": event["content"],
-                                    })
-                                    yield f"data: {json.dumps({'log': event['content']})}\n\n"
-                                elif event["type"] == "patient_references":
-                                    all_patient_references = event["patient_references"]
-                                    yield f"data: {json.dumps({'patient_references': event['patient_references']})}\n\n"
-                                elif event["type"] == "usage":
-                                    usage = event["usage"]
-                                    total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
-                                    total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
-                                    total_usage["total_tokens"] += usage.get("total_tokens", 0)
-                                    yield f"data: {json.dumps({'usage': event['usage']})}\n\n"
-                            else:
-                                full_response = event
-                                yield f"data: {json.dumps({'chunk': event})}\n\n"
-
-                        if agent_done:
-                            break
-
-                    if full_response or tool_calls_buffer:
+                    r = processor.result
+                    if r.content or r.tool_calls:
                         async with AsyncSessionLocal() as local_db:
                             assistant_msg = ChatMessage(
                                 session_id=session.id,
                                 role="assistant",
-                                content=full_response,
-                                tool_calls=json.dumps(tool_calls_buffer) if tool_calls_buffer else None,
-                                logs=json.dumps(logs_buffer) if logs_buffer else None,
-                                patient_references=json.dumps(all_patient_references) if all_patient_references else None,
-                                token_usage=json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None,
+                                content=r.content,
+                                tool_calls=r.tool_calls_json(),
+                                logs=r.logs_json(),
+                                token_usage=r.usage_json(),
                             )
                             local_db.add(assistant_msg)
                             await local_db.commit()
@@ -279,15 +344,15 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                     yield f"data: {json.dumps({'done': True})}\n\n"
 
                 except Exception as e:
+                    r = processor.result
                     async with AsyncSessionLocal() as local_db:
                         assistant_msg = ChatMessage(
                             session_id=session.id,
                             role="assistant",
-                            content=full_response,
+                            content=r.content,
                             status="error",
                             error_message=str(e),
-                            patient_references=json.dumps(all_patient_references) if all_patient_references else None,
-                            token_usage=json.dumps(total_usage) if total_usage["total_tokens"] > 0 else None,
+                            token_usage=r.usage_json(),
                         )
                         local_db.add(assistant_msg)
                         await local_db.commit()
@@ -310,7 +375,6 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                 chat_history=chat_history,
                 patient_id=patient.id if patient else None,
                 patient_name=patient.name if patient else None,
-                system_prompt_override=agent_system_prompt,
             )
 
             # 3. Save Assistant Message

@@ -1,5 +1,5 @@
 """Hospital-level KPI endpoints."""
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -47,13 +47,13 @@ async def get_hospital_stats(db: AsyncSession = Depends(get_db)):
     )
     created_times = active_visits_result.scalars().all()
     if created_times:
-        now = datetime.now(timezone.utc)
-        total_minutes = sum((now - (ct.replace(tzinfo=timezone.utc) if ct.tzinfo is None else ct)).total_seconds() / 60 for ct in created_times)
+        now = datetime.utcnow()
+        total_minutes = sum((now - ct).total_seconds() / 60 for ct in created_times)
         avg_wait = round(total_minutes / len(created_times), 1)
     else:
         avg_wait = 0.0
 
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     discharged_result = await db.execute(
         select(func.count(Visit.id))
         .where(Visit.status == VisitStatus.COMPLETED.value)
@@ -110,9 +110,9 @@ async def get_extended_hospital_stats(db: AsyncSession = Depends(get_db)):
     )
     created_times = active_visits_result.scalars().all()
     if created_times:
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         total_minutes = sum(
-            (now - (ct.replace(tzinfo=timezone.utc) if ct.tzinfo is None else ct)).total_seconds() / 60
+            (now - ct).total_seconds() / 60
             for ct in created_times
         )
         avg_wait = round(total_minutes / len(created_times), 1)
@@ -120,7 +120,7 @@ async def get_extended_hospital_stats(db: AsyncSession = Depends(get_db)):
         avg_wait = 0.0
 
     # Discharged today
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     discharged_result = await db.execute(
         select(func.count(Visit.id))
         .where(Visit.status == VisitStatus.COMPLETED.value)

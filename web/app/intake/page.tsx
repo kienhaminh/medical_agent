@@ -4,16 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, RotateCcw, CheckCircle2, MapPin, Clock } from "lucide-react";
+import { Loader2, Send, RotateCcw, CheckCircle2, MapPin, Clock, FileCheck } from "lucide-react";
 import { AnswerContent } from "@/components/agent/answer-content";
-import { useIntakeChat } from "./use-intake-chat";
+import { useIntakeChat, type FormSubmissionInfo } from "./use-intake-chat";
 import { FormInputBar } from "@/components/reception/form-input-bar";
 
 const SUGGESTIONS = [
-  "I'd like to check in for a visit",
-  "I'm experiencing chest pain",
+  "Hi, I'd like to check in",
+  "I have my patient ID",
+  "I'm a new patient",
   "I need to see a doctor today",
-  "This is my first time here",
 ];
 
 const DEPT_LABELS: Record<string, string> = {
@@ -33,6 +33,45 @@ const DEPT_LABELS: Record<string, string> = {
   urology: "Urology",
 };
 
+function FormSubmittedCard({ info }: { info: FormSubmissionInfo }) {
+  if (info.formType === "question" || info.formType === "yes_no") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[70%] rounded-2xl rounded-br-sm border border-emerald-500/25 bg-emerald-500/8 px-4 py-3 space-y-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="text-sm font-medium text-emerald-300">
+              {info.answer || "Submitted"}
+            </span>
+          </div>
+          {info.title && (
+            <p className="text-xs text-muted-foreground/60 pl-6">{info.title}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Multi-field form
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[70%] rounded-2xl rounded-br-sm border border-emerald-500/25 bg-emerald-500/8 px-4 py-3 space-y-1">
+        <div className="flex items-center gap-2">
+          <FileCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-sm font-medium text-emerald-300">
+            {info.title}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground/60 pl-6">
+          {info.sectionCount > 0
+            ? `${info.sectionCount} sections · ${info.fieldCount} fields submitted`
+            : `${info.fieldCount} fields submitted`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function PatientIntakePage() {
   const {
     messages,
@@ -45,6 +84,7 @@ export default function PatientIntakePage() {
     triageStatus,
     activeForm,
     sessionId,
+    activity,
     handleFormSubmitted,
   } = useIntakeChat();
 
@@ -106,7 +146,7 @@ export default function PatientIntakePage() {
         </div>
       </header>
 
-      {/* Chat area */}
+      {/* Main content — always show chat, form replaces input bar */}
       <div className="relative z-10 flex-1 flex flex-col min-h-0 max-w-3xl mx-auto w-full px-4">
         <div className="flex-1 overflow-y-auto py-4">
           <div className="space-y-4">
@@ -119,9 +159,9 @@ export default function PatientIntakePage() {
                   </span>
                 </div>
                 <p className="text-muted-foreground text-sm max-w-sm">
-                  Welcome! I&apos;m the reception assistant. I&apos;ll help you
-                  get checked in by collecting some information and directing
-                  you to the right department.
+                  Welcome! I&apos;m the reception assistant. Just let me know
+                  if you&apos;ve been here before or if this is your first
+                  visit, and I&apos;ll get you checked in.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-sm mt-2">
                   {SUGGESTIONS.map((suggestion) => (
@@ -137,7 +177,15 @@ export default function PatientIntakePage() {
               </div>
             )}
 
-            {messages.map((msg) => (
+            {messages.map((msg) => {
+              // Form submission confirmation card
+              if (msg.formSubmission) {
+                return (
+                  <FormSubmittedCard key={msg.id} info={msg.formSubmission} />
+                );
+              }
+
+              return (
               <div
                 key={msg.id}
                 className={`flex ${
@@ -161,14 +209,31 @@ export default function PatientIntakePage() {
                         }
                       />
                     ) : (
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-cyan-500" />
+                        {activity && (
+                          <span className="text-xs text-muted-foreground animate-pulse">
+                            {activity}...
+                          </span>
+                        )}
+                      </div>
                     )
                   ) : (
                     msg.content
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
+
+            {/* Inline form — renders inside conversation, full width centered */}
+            {activeForm && sessionId && (
+              <FormInputBar
+                activeForm={activeForm}
+                sessionId={sessionId}
+                onSubmitted={handleFormSubmitted}
+              />
+            )}
 
             {/* Triage Status Card */}
             {triageStatus && !isLoading && (
@@ -208,14 +273,8 @@ export default function PatientIntakePage() {
           </div>
         </div>
 
-        {/* Input — swapped out for FormInputBar when agent requests a form */}
-        {activeForm && sessionId ? (
-          <FormInputBar
-            activeForm={activeForm}
-            sessionId={sessionId}
-            onSubmitted={handleFormSubmitted}
-          />
-        ) : (
+        {/* Bottom bar — hidden when form is active (form is inline above) */}
+        {!activeForm && (
           <form
             onSubmit={sendMessage}
             className="py-4 border-t border-border/50 flex gap-2"

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 
 /** Routes that render their own full-width workstation layout */
-const FULL_WIDTH_ROUTES = ["/doctor", "/nurse"];
+const FULL_WIDTH_ROUTES = ["/doctor"];
 
 export default function DashboardLayout({
   children,

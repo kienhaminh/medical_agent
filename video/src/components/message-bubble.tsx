@@ -8,6 +8,8 @@ interface MessageBubbleProps {
   startFrame: number;
   typewriter?: boolean;
   charsPerFrame?: number;
+  /** Font size override (default 16) */
+  fontSize?: number;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -16,6 +18,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   startFrame,
   typewriter = false,
   charsPerFrame = 2,
+  fontSize = 16,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -29,6 +32,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const slideX = isUser ? (1 - slideProgress) * 50 : (slideProgress - 1) * 50;
 
+  // Scale padding relative to font size
+  const padV = Math.round(fontSize * 0.55);
+  const padH = Math.round(fontSize * 0.9);
+
   return (
     <div
       style={{
@@ -40,18 +47,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     >
       <div
         style={{
-          maxWidth: "80%",
-          padding: "10px 16px",
+          maxWidth: "75%",
+          padding: `${padV}px ${padH}px`,
           borderRadius: radius["2xl"],
           borderBottomRightRadius: isUser ? 4 : radius["2xl"],
           borderBottomLeftRadius: isUser ? radius["2xl"] : 4,
           backgroundColor: isUser
-            ? "rgba(0,217,255,0.15)"
-            : "rgba(255,255,255,0.06)",
+            ? "rgba(8,145,178,0.08)"
+            : "#f1f3f5",
           color: colors.foreground,
-          fontSize: 14,
+          fontSize,
           fontFamily: fonts.body,
-          lineHeight: 1.6,
+          lineHeight: 1.5,
         }}
       >
         {typewriter ? (

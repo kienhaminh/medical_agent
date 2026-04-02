@@ -99,14 +99,14 @@ export const IntakeChat: React.FC = () => {
         {/* User message */}
         <MessageBubble
           role="user"
-          text={INTAKE_MESSAGES.userMessage}
+          text={INTAKE_MESSAGES[1].text}
           startFrame={5}
         />
 
         {/* AI response with typewriter */}
         <MessageBubble
           role="assistant"
-          text={INTAKE_MESSAGES.aiMessage}
+          text={INTAKE_MESSAGES[2].text}
           startFrame={20}
           typewriter
           charsPerFrame={2}

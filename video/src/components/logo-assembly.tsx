@@ -84,7 +84,7 @@ export const LogoAssembly: React.FC<LogoAssemblyProps> = ({
           borderRadius: 20,
           opacity: logoOpacity,
           transform: `scale(${interpolate(logoOpacity, [0, 1], [0.8, 1])})`,
-          filter: glowOpacity > 0.1 ? `drop-shadow(0 0 20px rgba(0,217,255,0.3))` : "none",
+          filter: glowOpacity > 0.1 ? `drop-shadow(0 4px 12px rgba(8,145,178,0.15))` : "none",
         }}
       />
 

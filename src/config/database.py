@@ -20,13 +20,7 @@ from src.models import (
     ImageGroup,
     ChatSession,
     ChatMessage,
-    CustomTool,
-    Skill,
-    SkillTool,
 )
-
-# For backwards compatibility - Tool was renamed to CustomTool
-Tool = CustomTool
 
 __all__ = [
     "Base",
@@ -45,8 +39,4 @@ __all__ = [
     "ImageGroup",
     "ChatSession",
     "ChatMessage",
-    "CustomTool",
-    "Tool",
-    "Skill",
-    "SkillTool",
 ]

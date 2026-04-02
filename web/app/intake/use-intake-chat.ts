@@ -41,10 +41,21 @@ function clearStoredSession(): void {
   localStorage.removeItem(INTAKE_SESSION_KEY);
 }
 
+export interface FormSubmissionInfo {
+  title: string;
+  formType: "multi_field" | "yes_no" | "question";
+  sectionCount: number;
+  fieldCount: number;
+  /** For question forms: the selected answer(s). */
+  answer?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Present when this message represents a form submission confirmation. */
+  formSubmission?: FormSubmissionInfo;
 }
 
 export interface TriageStatus {
@@ -53,6 +64,22 @@ export interface TriageStatus {
   visitId?: string;
 }
 
+/** Human-readable labels for tool names shown during the ReAct loop. */
+const TOOL_LABELS: Record<string, string> = {
+  ask_user: "Preparing form",
+  ask_user_input: "Preparing form",
+  ask_user_question: "Asking question",
+  query_patient_basic_info: "Looking up patient",
+  triage_patient: "Triaging patient",
+  search_patient: "Searching patient records",
+  find_patient: "Looking up patient records",
+  create_patient: "Creating patient record",
+  create_visit: "Creating visit record",
+  complete_triage: "Completing triage",
+  get_patient: "Looking up patient",
+  update_patient: "Updating patient record",
+};
+
 export function useIntakeChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -60,6 +87,8 @@ export function useIntakeChat() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [triageStatus, setTriageStatus] = useState<TriageStatus | null>(null);
   const [activeForm, setActiveForm] = useState<ActiveForm | null>(null);
+  /** Human-readable activity label shown while the agent works (e.g. "Searching patient records"). */
+  const [activity, setActivity] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,6 +181,8 @@ export function useIntakeChat() {
               const parsed = JSON.parse(line.slice(6));
 
               if (parsed.chunk) {
+                // Content is arriving — clear activity indicator
+                if (activity) setActivity(null);
                 accumulated += parsed.chunk;
                 setMessages((prev) =>
                   prev.map((msg) =>
@@ -162,6 +193,20 @@ export function useIntakeChat() {
                 );
               }
 
+              // Tool call started — show activity indicator
+              if (parsed.tool_call) {
+                const toolName: string =
+                  parsed.tool_call.tool ?? parsed.tool_call.name ?? "";
+                setActivity(
+                  TOOL_LABELS[toolName] ?? `Running ${toolName.replace(/_/g, " ")}`,
+                );
+              }
+
+              // Tool result received — switch to "analyzing" until next chunk or done
+              if (parsed.tool_result) {
+                setActivity("Analyzing results");
+              }
+
               if (parsed.session_id && !sessionId) {
                 setSessionId(parsed.session_id);
                 writeStoredSession(parsed.session_id);
@@ -170,6 +215,21 @@ export function useIntakeChat() {
               // Show the form — hide the input bar
               if (parsed.form_request) {
                 setActiveForm(parsed.form_request as ActiveForm);
+                setActivity(null);
+
+                // Replace the empty assistant bubble with the form's prompt message
+                const formMsg =
+                  parsed.form_request.schema?.message ||
+                  parsed.form_request.schema?.title ||
+                  "Please fill out the form below.";
+                accumulated = formMsg;
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantId
+                      ? { ...msg, content: formMsg }
+                      : msg
+                  )
+                );
               }
 
               // Detect triage completion from tool results
@@ -204,10 +264,41 @@ export function useIntakeChat() {
       );
     } finally {
       setIsLoading(false);
+      setActivity(null);
     }
   };
 
-  const handleFormSubmitted = () => {
+  const handleFormSubmitted = (answers?: Record<string, string>) => {
+    if (activeForm) {
+      const schema = activeForm.schema;
+      const sections = schema.sections ?? [];
+      const fields = schema.fields ?? [];
+      const fieldCount = sections.length > 0
+        ? sections.reduce((sum, s) => sum + s.fields.length, 0)
+        : fields.length;
+
+      // Build a human-readable answer summary for question/yes_no forms.
+      let answer: string | undefined;
+      if (schema.form_type === "question" && answers) {
+        answer = answers.choices || answers.choice || undefined;
+      } else if (schema.form_type === "yes_no" && answers) {
+        answer = answers.confirmed === "true" ? "Confirmed" : "Cancelled";
+      }
+
+      const submissionMsg: ChatMessage = {
+        id: `form-${Date.now()}`,
+        role: "user",
+        content: "",
+        formSubmission: {
+          title: schema.title || "Form",
+          formType: schema.form_type,
+          sectionCount: sections.length,
+          fieldCount,
+          answer,
+        },
+      };
+      setMessages((prev) => [...prev, submissionMsg]);
+    }
     setActiveForm(null);
   };
 
@@ -231,6 +322,7 @@ export function useIntakeChat() {
     triageStatus,
     activeForm,
     sessionId,
+    activity,
     handleFormSubmitted,
   };
 }

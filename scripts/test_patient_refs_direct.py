@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 async def test_agent():
-    from src.agent.langgraph_agent import LangGraphAgent
+    from src.agent.definition import LangGraphAgent
     from src.llm.google_llm import get_google_llm
 
     print("="*60)

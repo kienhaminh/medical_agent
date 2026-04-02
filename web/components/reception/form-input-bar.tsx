@@ -1,48 +1,111 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Loader2, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormFieldInput, type FormFieldDef } from "./form-fields";
+import { cn } from "@/lib/utils";
 
 export interface ActiveForm {
   id: string;
   template: string;
   schema: {
     title: string;
-    form_type: "multi_field" | "yes_no";
+    form_type: "multi_field" | "yes_no" | "question";
     message?: string;
-    fields: FormFieldDef[];
+    // Dynamic forms provide sections directly from the backend.
+    sections?: Array<{ label: string; fields: FormFieldDef[] }>;
+    // Legacy forms provide a flat fields array.
+    fields?: FormFieldDef[];
+    // Question form type
+    choices?: string[];
+    allow_multiple?: boolean;
   };
 }
 
 interface FormInputBarProps {
   activeForm: ActiveForm;
   sessionId: number;
-  onSubmitted: () => void;
+  onSubmitted: (answers?: Record<string, string>) => void;
 }
 
+interface Section {
+  label: string;
+  fields: FormFieldDef[];
+}
+
+/** Legacy fallback: maps the first field in each section to a label. */
 const SECTION_LABELS: Record<string, string> = {
   first_name: "Personal Info",
   phone: "Contact",
-  chief_complaint: "Visit",
+  chief_complaint: "Visit Details",
   insurance_provider: "Insurance",
   emergency_contact_name: "Emergency Contact",
 };
 
-function getSectionLabel(fieldName: string): string | undefined {
-  return SECTION_LABELS[fieldName];
+/** Build sections from backend-provided sections or legacy flat fields. */
+function buildSections(schema: ActiveForm["schema"]): Section[] {
+  // Prefer backend-provided sections (dynamic forms).
+  if (schema.sections && schema.sections.length > 0) {
+    return schema.sections.map((s) => ({
+      label: s.label,
+      fields: s.fields.map((f) => ({
+        ...f,
+        // Normalize: backend sends "field_type", agent may send "type".
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        field_type: f.field_type || (f as any).type || "text",
+      })),
+    }));
+  }
+
+  // Legacy fallback: flat fields with SECTION_LABELS map.
+  const fields = schema.fields ?? [];
+  const sections: Section[] = [];
+  let current: Section = { label: "", fields: [] };
+
+  for (const field of fields) {
+    const label = SECTION_LABELS[field.name];
+    if (label) {
+      if (current.fields.length > 0) sections.push(current);
+      current = { label, fields: [field] };
+    } else {
+      current.fields.push(field);
+    }
+  }
+  if (current.fields.length > 0) sections.push(current);
+  return sections;
+}
+
+/** Flatten all fields from all sections into a single array. */
+function flattenFields(schema: ActiveForm["schema"]): FormFieldDef[] {
+  if (schema.sections && schema.sections.length > 0) {
+    return schema.sections.flatMap((s) =>
+      s.fields.map((f) => ({
+        ...f,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        field_type: f.field_type || (f as any).type || "text",
+      }))
+    );
+  }
+  return schema.fields ?? [];
 }
 
 export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBarProps) {
   const { schema } = activeForm;
 
+  const allFields = useMemo(() => flattenFields(schema), [schema]);
+
   const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(schema.fields.map((f) => [f.name, ""]))
+    Object.fromEntries(allFields.map((f) => [f.name, ""]))
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState(0);
+  const [selectedChoices, setSelectedChoices] = useState<Set<string>>(new Set());
+
+  const sections = useMemo(() => buildSections(schema), [schema]);
+  const currentSection = sections[step];
+  const isLastStep = step === sections.length - 1;
 
   const handleChange = (name: string, value: string) => {
     setValues((prev) => ({ ...prev, [name]: value }));
@@ -51,9 +114,10 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
     }
   };
 
-  const validate = (): boolean => {
+  const validateStep = (): boolean => {
+    if (!currentSection) return true;
     const newErrors: Record<string, string> = {};
-    for (const field of schema.fields) {
+    for (const field of currentSection.fields) {
       if (field.required && !values[field.name]?.trim()) {
         newErrors[field.name] = "Required";
       }
@@ -62,23 +126,23 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
     return Object.keys(newErrors).length === 0;
   };
 
-  const submit = async (confirmed?: boolean) => {
-    if (schema.form_type === "multi_field" && !validate()) return;
+  const handleNext = () => {
+    if (!validateStep()) return;
+    setStep((s) => Math.min(s + 1, sections.length - 1));
+  };
 
+  const handleBack = () => setStep((s) => Math.max(s - 1, 0));
+
+  const submitForm = async (answers: Record<string, string>) => {
     setSubmitting(true);
-    const answers =
-      schema.form_type === "yes_no"
-        ? { confirmed: String(confirmed ?? false) }
-        : values;
-
     try {
       const resp = await fetch(`/api/chat/${sessionId}/form-response`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ form_id: activeForm.id, answers }),
+        body: JSON.stringify({ form_id: activeForm.id, answers, template: activeForm.template }),
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      onSubmitted();
+      onSubmitted(answers);
     } catch (err) {
       console.error("Form submission failed:", err);
     } finally {
@@ -86,88 +150,209 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
     }
   };
 
-  if (schema.form_type === "yes_no") {
+  // --- Question form (single/multiple choice) ---
+  if (schema.form_type === "question") {
+    const choices = schema.choices ?? [];
+    const allowMultiple = schema.allow_multiple ?? false;
+
+    const handleChoiceClick = (choice: string) => {
+      if (allowMultiple) {
+        setSelectedChoices((prev) => {
+          const next = new Set(prev);
+          if (next.has(choice)) next.delete(choice);
+          else next.add(choice);
+          return next;
+        });
+      } else {
+        // Single choice — submit immediately.
+        submitForm({ choice });
+      }
+    };
+
+    const handleMultiSubmit = () => {
+      if (selectedChoices.size === 0) return;
+      submitForm({ choices: Array.from(selectedChoices).join(", ") });
+    };
+
     return (
-      <div className="border-t border-border/50 bg-card/40 backdrop-blur-sm px-4 py-4">
-        <p className="text-sm text-foreground/80 mb-3">{schema.message}</p>
-        <div className="flex gap-2">
+      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3">
+        {schema.message && (
+          <p className="text-sm text-foreground/80">{schema.message}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {choices.map((choice) => {
+            const isSelected = selectedChoices.has(choice);
+            return (
+              <Button
+                key={choice}
+                onClick={() => handleChoiceClick(choice)}
+                disabled={submitting}
+                variant={isSelected ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "h-8 px-3 text-xs transition-all",
+                  isSelected
+                    ? "bg-gradient-to-r from-cyan-500 to-teal-500 text-white border-transparent"
+                    : "border-border/50 hover:border-cyan-500/40"
+                )}
+              >
+                {allowMultiple && isSelected && (
+                  <Check className="w-3 h-3 mr-1" />
+                )}
+                {submitting && !allowMultiple ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  choice
+                )}
+              </Button>
+            );
+          })}
+        </div>
+        {allowMultiple && (
           <Button
-            onClick={() => submit(true)}
-            disabled={submitting}
-            className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-9"
+            onClick={handleMultiSubmit}
+            disabled={submitting || selectedChoices.size === 0}
+            size="sm"
+            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 text-xs"
           >
             {submitting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Submitting...</>
             ) : (
-              <><CheckCircle2 className="w-4 h-4 mr-1.5" />Confirm</>
+              `Submit (${selectedChoices.size} selected)`
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // --- Legacy yes/no form ---
+  if (schema.form_type === "yes_no") {
+    return (
+      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-foreground/80 flex-1">{schema.message}</p>
+          <Button
+            onClick={() => submitForm({ confirmed: "true" })}
+            disabled={submitting}
+            size="sm"
+            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 px-3"
+          >
+            {submitting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              "Confirm"
             )}
           </Button>
           <Button
-            onClick={() => submit(false)}
+            onClick={() => submitForm({ confirmed: "false" })}
             disabled={submitting}
             variant="outline"
-            className="flex-1 h-9 border-border/50"
+            size="sm"
+            className="h-8 px-3 border-border/50"
           >
-            <XCircle className="w-4 h-4 mr-1.5" />Cancel
+            Cancel
           </Button>
         </div>
       </div>
     );
   }
 
-  // multi_field form
+  // --- Multi-step inline form card ---
   return (
-    <div className="border-t border-border/50 bg-card/40 backdrop-blur-sm">
-      <div className="px-4 pt-3 pb-1">
-        <h3 className="text-xs font-semibold text-cyan-400 tracking-wider uppercase">
-          {schema.title}
-        </h3>
+    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3">
+      {/* Form title */}
+      {schema.title && (
+        <h3 className="text-sm font-semibold text-cyan-400">{schema.title}</h3>
+      )}
+
+      {/* Progress + section label */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 flex-1">
+          {sections.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1 flex-1 rounded-full transition-colors ${
+                i < step
+                  ? "bg-cyan-500"
+                  : i === step
+                    ? "bg-cyan-500/60"
+                    : "bg-border/40"
+              }`}
+            />
+          ))}
+        </div>
+        <span className="text-xs text-cyan-400 font-semibold tracking-wider uppercase whitespace-nowrap">
+          {currentSection?.label || schema.title}
+        </span>
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+          {step + 1}/{sections.length}
+        </span>
       </div>
 
-      <ScrollArea className="max-h-72 px-4 pb-2">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pb-1">
-          {schema.fields.map((field) => {
-            const sectionLabel = getSectionLabel(field.name);
-            return (
-              <div
-                key={field.name}
-                className={
-                  field.field_type === "textarea" ||
-                  field.name === "address" ||
-                  field.name === "chief_complaint"
-                    ? "col-span-2"
-                    : "col-span-1"
-                }
-              >
-                {sectionLabel && (
-                  <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5 mt-1 font-medium">
-                    {sectionLabel}
-                  </p>
-                )}
-                <FormFieldInput
-                  field={field}
-                  value={values[field.name] ?? ""}
-                  onChange={handleChange}
-                  error={errors[field.name]}
-                />
-              </div>
-            );
-          })}
+      {/* Fields — compact grid */}
+      {currentSection && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+          {currentSection.fields.map((field) => (
+            <div
+              key={field.name}
+              className={
+                field.field_type === "textarea"
+                  ? "col-span-2"
+                  : "col-span-1"
+              }
+            >
+              <FormFieldInput
+                field={field}
+                value={values[field.name] ?? ""}
+                onChange={handleChange}
+                error={errors[field.name]}
+              />
+            </div>
+          ))}
         </div>
-      </ScrollArea>
+      )}
 
-      <div className="px-4 py-3 border-t border-border/40">
-        <Button
-          onClick={() => submit()}
-          disabled={submitting}
-          className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-9 text-sm"
-        >
-          {submitting ? (
-            <><Loader2 className="w-4 h-4 animate-spin mr-2" />Submitting...</>
-          ) : (
-            "Submit Check-In"
-          )}
-        </Button>
+      {/* Navigation */}
+      <div className="flex gap-2">
+        {step > 0 && (
+          <Button
+            onClick={handleBack}
+            variant="outline"
+            size="sm"
+            className="h-8 px-3 border-border/50"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+            Back
+          </Button>
+        )}
+
+        {isLastStep ? (
+          <Button
+            onClick={() => {
+              if (!validateStep()) return;
+              submitForm(values);
+            }}
+            disabled={submitting}
+            size="sm"
+            className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 text-xs"
+          >
+            {submitting ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Submitting...</>
+            ) : (
+              "Submit"
+            )}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleNext}
+            size="sm"
+            className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 text-xs"
+          >
+            Next
+            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </Button>
+        )}
       </div>
     </div>
   );

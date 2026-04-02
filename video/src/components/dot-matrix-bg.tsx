@@ -42,7 +42,7 @@ export const DotMatrixBg: React.FC<DotMatrixBgProps> = ({
           right: 0,
           width: "50%",
           height: "50%",
-          background: "linear-gradient(to bottom left, rgba(0,217,255,0.08), transparent)",
+          background: "linear-gradient(to bottom left, rgba(8,145,178,0.04), transparent)",
         }}
       />
       <div
@@ -52,7 +52,7 @@ export const DotMatrixBg: React.FC<DotMatrixBgProps> = ({
           left: 0,
           width: "50%",
           height: "50%",
-          background: "linear-gradient(to top right, rgba(0,184,169,0.08), transparent)",
+          background: "linear-gradient(to top right, rgba(13,148,136,0.04), transparent)",
         }}
       />
     </div>

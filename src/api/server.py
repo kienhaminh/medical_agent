@@ -20,7 +20,7 @@ from ..models.department import Department
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads
-import src.tools.builtin  # Register builtin tools
+import src.tools  # Register tools
 import src.skills.builtin  # Register skill search tools
 
 # Import and discover skills on startup
@@ -31,7 +31,7 @@ import os
 from ..config.settings import load_config
 config = load_config()
 
-# Plugin directory configuration (only used when db_only=false)
+# Skill directories for filesystem discovery
 SKILL_DIRS = {
     "core": os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills"),
     "custom": config.skills.custom_dir,
@@ -39,48 +39,20 @@ SKILL_DIRS = {
 }
 
 async def discover_skills_on_startup():
-    """Discover and register all skills on startup.
-    
-    Mode 1 - DB Only (recommended for production):
-    - Only load skills from database
-    - All skills managed via UI/API
-    
-    Mode 2 - Hybrid (development):
-    - Load from filesystem (core/custom/external)
-    - Also load from database
-    """
+    """Discover and register all skills from filesystem on startup."""
     registry = SkillRegistry()
     total = 0
-    
-    # Check if DB-only mode is enabled
-    db_only = config.skills.db_only
-    
-    if db_only:
-        logger.info("Running in DB-ONLY mode (filesystem discovery disabled)")
-        logger.info("Set skills.db_only=false in config to enable filesystem discovery")
-    else:
-        # 1. Discover filesystem skills (core, custom, external)
-        logger.info("Running in HYBRID mode (filesystem + database)")
-        for source_type, skills_dir in SKILL_DIRS.items():
-            if os.path.exists(skills_dir):
-                try:
-                    count = registry.discover_skills([skills_dir])
-                    logger.info("Discovered %d %s skills from %s", count, source_type, skills_dir)
-                    total += count
-                except Exception as e:
-                    logger.warning("Failed to discover %s skills: %s", source_type, e)
 
-    # 2. Load skills from database (always do this)
-    try:
-        db_count = await registry.load_from_database()
-        logger.info("Loaded %d skills from database", db_count)
-        total += db_count
-    except Exception as e:
-        logger.warning("Failed to load skills from database: %s", e)
+    for source_type, skills_dir in SKILL_DIRS.items():
+        if os.path.exists(skills_dir):
+            try:
+                count = registry.discover_skills([skills_dir])
+                logger.info("Discovered %d %s skills from %s", count, source_type, skills_dir)
+                total += count
+            except Exception as e:
+                logger.warning("Failed to discover %s skills: %s", source_type, e)
 
     logger.info("Total skills registered: %d", total)
-    if total == 0:
-        logger.warning("No skills loaded! Run: python -m scripts.migrate_skills_to_db")
     return total
 
 @asynccontextmanager
@@ -108,8 +80,6 @@ async def lifespan(app: FastAPI):
         if (user_count.scalar() or 0) == 0:
             default_users = [
                 User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="internal_medicine"),
-                User(username="nurse", password_hash=hash_password("nurse123"), name="Nurse James Park", role="nurse", department="emergency"),
-                User(username="officer", password_hash=hash_password("officer123"), name="Admin Maria Lopez", role="officer"),
                 User(username="admin", password_hash=hash_password("admin123"), name="System Admin", role="admin"),
             ]
             for user in default_users:

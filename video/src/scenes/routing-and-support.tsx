@@ -69,7 +69,7 @@ const DoctorWorkspaceContent: React.FC = () => {
               fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.1em",
-              backgroundImage: "linear-gradient(to right, #00d9ff, #00b8a9)",
+              backgroundImage: "linear-gradient(to right, #0891b2, #0d9488)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}
@@ -144,8 +144,8 @@ const DoctorWorkspaceContent: React.FC = () => {
                 style={{
                   padding: "6px 10px",
                   borderRadius: radius.md,
-                  border: `1px solid ${"selected" in patient && patient.selected ? "rgba(0,217,255,0.3)" : "transparent"}`,
-                  backgroundColor: "selected" in patient && patient.selected ? "rgba(0,217,255,0.1)" : "transparent",
+                  border: `1px solid ${"selected" in patient && patient.selected ? "rgba(8,145,178,0.25)" : "transparent"}`,
+                  backgroundColor: "selected" in patient && patient.selected ? "rgba(8,145,178,0.06)" : "transparent",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 1 }}>
@@ -188,7 +188,7 @@ const DoctorWorkspaceContent: React.FC = () => {
               style={{
                 padding: 12,
                 borderRadius: radius.lg,
-                border: "1px solid rgba(0,217,255,0.2)",
+                border: "1px solid rgba(8,145,178,0.2)",
                 backgroundColor: colors.card,
                 boxShadow: frame > 35 ? glows.cyan : "none",
                 display: "flex",
@@ -203,7 +203,7 @@ const DoctorWorkspaceContent: React.FC = () => {
                     style={{
                       padding: "1px 6px",
                       borderRadius: 999,
-                      backgroundColor: "rgba(245,158,11,0.15)",
+                      backgroundColor: "rgba(217,119,6,0.1)",
                       color: colors.amber,
                       fontSize: 9,
                       fontWeight: 600,
@@ -258,7 +258,7 @@ const DoctorWorkspaceContent: React.FC = () => {
                               fontSize: 9,
                               padding: "1px 6px",
                               borderRadius: 999,
-                              backgroundColor: order.type === "Lab" ? "rgba(99,102,241,0.15)" : "rgba(0,184,169,0.15)",
+                              backgroundColor: order.type === "Lab" ? "rgba(99,102,241,0.08)" : "rgba(13,148,136,0.08)",
                               color: order.type === "Lab" ? colors.purple : colors.teal,
                               fontWeight: 500,
                             }}
@@ -278,7 +278,7 @@ const DoctorWorkspaceContent: React.FC = () => {
               <div style={{ padding: 12, borderRadius: radius.lg, border: `1px solid ${colors.border}`, backgroundColor: colors.card, height: "100%" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <span style={{ fontFamily: fonts.display, fontSize: 11, fontWeight: 600, color: colors.foreground }}>Clinical Notes</span>
-                  <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, backgroundColor: "rgba(99,102,241,0.15)", color: colors.purple, marginLeft: "auto" }}>AI Draft</span>
+                  <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, backgroundColor: "rgba(99,102,241,0.08)", color: colors.purple, marginLeft: "auto" }}>AI Draft</span>
                 </div>
                 <div style={{ fontSize: 11, color: colors.foreground, fontFamily: fonts.mono, lineHeight: 1.6, whiteSpace: "pre-wrap", padding: 10, borderRadius: radius.md, backgroundColor: colors.muted, minHeight: 120 }}>
                   <Typewriter text={SOAP_NOTE} startFrame={100} charsPerFrame={2} />
@@ -316,7 +316,7 @@ const DoctorWorkspaceContent: React.FC = () => {
                     padding: "8px 12px",
                     borderRadius: radius["2xl"],
                     borderBottomRightRadius: 4,
-                    backgroundColor: "rgba(0,217,255,0.15)",
+                    backgroundColor: "rgba(8,145,178,0.08)",
                     color: colors.foreground,
                     fontSize: 11,
                     fontFamily: fonts.body,
@@ -366,7 +366,7 @@ const DoctorWorkspaceContent: React.FC = () => {
                         fontSize: 8,
                         padding: "1px 5px",
                         borderRadius: 999,
-                        backgroundColor: isCompleted ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
+                        backgroundColor: isCompleted ? "rgba(5,150,105,0.08)" : "rgba(217,119,6,0.08)",
                         color: isCompleted ? colors.green : colors.amber,
                         fontWeight: 500,
                       }}
@@ -386,7 +386,7 @@ const DoctorWorkspaceContent: React.FC = () => {
                     padding: "8px 12px",
                     borderRadius: radius["2xl"],
                     borderBottomLeftRadius: 4,
-                    backgroundColor: "rgba(255,255,255,0.06)",
+                    backgroundColor: "#f1f3f5",
                     color: colors.foreground,
                     fontSize: 11,
                     fontFamily: fonts.body,
@@ -407,12 +407,12 @@ const DoctorWorkspaceContent: React.FC = () => {
                     style={{
                       padding: "6px 14px",
                       borderRadius: radius.md,
-                      background: "linear-gradient(to right, #00d9ff, #00b8a9)",
+                      background: "linear-gradient(to right, #0891b2, #0d9488)",
                       color: colors.white,
                       fontSize: 11,
                       fontWeight: 600,
                       fontFamily: fonts.body,
-                      boxShadow: `0 0 ${20 * buttonGlowOpacity}px rgba(0,217,255,${0.3 * buttonGlowOpacity})`,
+                      boxShadow: `0 2px ${8 * buttonGlowOpacity}px rgba(8,145,178,${0.15 * buttonGlowOpacity})`,
                     }}
                   >
                     Place Order
@@ -476,15 +476,15 @@ export const RoutingAndSupport: React.FC = () => {
               width: 500,
               borderRadius: 12,
               overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 15px 40px rgba(0,0,0,0.4)",
+              border: `1px solid ${colors.border}`,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.06)",
               backgroundColor: colors.card,
             }}
           >
             <div
               style={{
                 height: 28,
-                backgroundColor: "rgba(255,255,255,0.03)",
+                backgroundColor: "#f5f6f8",
                 display: "flex",
                 alignItems: "center",
                 padding: "0 10px",
@@ -500,8 +500,8 @@ export const RoutingAndSupport: React.FC = () => {
                 <img src={staticFile("favicon.ico")} style={{ width: 20, height: 20, borderRadius: 5 }} />
                 <span style={{ fontFamily: fonts.display, fontSize: 10, fontWeight: 700, color: colors.cyan }}>INTAKE</span>
               </div>
-              <div style={{ padding: 8, borderRadius: 8, border: "1px solid rgba(16,185,129,0.3)", backgroundColor: "rgba(16,185,129,0.05)" }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: "#34d399" }}>Directed to: Cardiology</span>
+              <div style={{ padding: 8, borderRadius: 8, border: "1px solid rgba(5,150,105,0.2)", backgroundColor: "rgba(5,150,105,0.04)" }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#059669" }}>Directed to: Cardiology</span>
               </div>
             </div>
           </div>

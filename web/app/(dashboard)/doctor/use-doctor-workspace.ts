@@ -12,17 +12,12 @@ import {
   streamMessageUpdates,
   getVisitBrief,
   getDifferentialDiagnosis,
-  listAgents,
-  listOrders,
-  createOrder,
   getShiftHandoff,
   type VisitListItem,
   type PatientDetail,
   type Patient,
   type StreamEvent,
   type DiagnosisItem,
-  type AgentInfo,
-  type Order,
 } from "@/lib/api";
 import type { AgentActivity, ToolCall, LogItem, PatientReference } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
@@ -41,7 +36,7 @@ export interface Message {
   patientReferences?: PatientReference[];
 }
 
-export type DoctorTab = "queue" | "patient" | "notes" | "orders";
+export type DoctorTab = "queue" | "patient" | "notes";
 
 const POLL_INTERVAL = 30_000;
 
@@ -90,13 +85,6 @@ export function useDoctorWorkspace() {
   const [ddxDiagnoses, setDdxDiagnoses] = useState<DiagnosisItem[]>([]);
   const [ddxLoading, setDdxLoading] = useState(false);
 
-  // Specialist agents — filtered to roles ending in "_consultant"
-  const [specialists, setSpecialists] = useState<AgentInfo[]>([]);
-
-  // Orders state
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-
   // SOAP draft state
   const [draftingNote, setDraftingNote] = useState(false);
 
@@ -130,15 +118,6 @@ export function useDoctorWorkspace() {
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
-  // Load specialist agents once on mount
-  useEffect(() => {
-    listAgents()
-      .then((agents) =>
-        setSpecialists(agents.filter((a) => a.role.endsWith("_consultant")))
-      )
-      .catch(() => {});
-  }, []);
-
   // Load patient when visit selected
   const selectVisit = useCallback(async (visit: VisitListItem) => {
     setSelectedVisit(visit);
@@ -167,13 +146,6 @@ export function useDoctorWorkspace() {
       .then((data) => setVisitBrief(data.brief))
       .catch(() => setVisitBrief(""))
       .finally(() => setBriefLoading(false));
-    // Fetch orders for this visit
-    setOrders([]);
-    setOrdersLoading(true);
-    listOrders(visit.id)
-      .then(setOrders)
-      .catch(() => {})
-      .finally(() => setOrdersLoading(false));
   }, []);
 
   // Patient search
@@ -449,94 +421,6 @@ export function useDoctorWorkspace() {
     }
   }, [selectedPatient, selectedVisit]);
 
-  /**
-   * Send a one-shot question to a specialist agent and stream the full reply.
-   * The specialist's name is embedded in the message so the Doctor AI routes
-   * the request to the correct sub-agent on the backend.
-   */
-  const consultSpecialist = async (
-    specialist: AgentInfo,
-    question: string
-  ): Promise<string> => {
-    // Build message with specialist context and optional patient context
-    const messageText = selectedPatient
-      ? `[Consult request for ${specialist.name}] ${question}\n\nPatient context: ${selectedPatient.name} (ID: ${selectedPatient.id})`
-      : `[Consult request for ${specialist.name}] ${question}`;
-
-    const chatResp = await sendChatMessage({
-      message: messageText,
-      patient_id: selectedPatient?.id,
-      session_id: undefined,
-      agent_role: specialist.role,
-    });
-
-    // Stream the response and accumulate the full text
-    return new Promise<string>((resolve, reject) => {
-      let fullContent = "";
-      const cleanup = streamMessageUpdates(
-        chatResp.message_id,
-        (event) => {
-          if (event.type === "chunk" || event.type === "content") {
-            fullContent += event.content;
-          } else if (event.type === "status" && event.content !== undefined) {
-            // Final status update may carry the complete content; preserve accumulated content if status event is empty
-            fullContent = event.content || fullContent;
-          } else if (event.type === "done") {
-            cleanup();
-            resolve(fullContent || "(No response)");
-          } else if (event.type === "error") {
-            cleanup();
-            reject(new Error(event.message));
-          }
-        },
-        (err) => {
-          cleanup();
-          reject(err);
-        }
-      );
-    });
-  };
-
-  // Place a new lab or imaging order for the selected visit
-  const handleCreateOrder = async (
-    type: "lab" | "imaging",
-    name: string,
-    notes?: string
-  ) => {
-    if (!selectedVisit) return;
-    try {
-      const order = await createOrder(selectedVisit.id, {
-        order_type: type,
-        order_name: name,
-        notes,
-        ordered_by: user?.name ?? user?.username ?? "Unknown",
-      });
-      setOrders((prev) => [order, ...prev]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create order");
-    }
-  };
-
-  // Re-fetch orders for the currently selected visit (used by refresh button + focus listener)
-  const refreshOrders = useCallback(async () => {
-    if (!selectedVisit) return;
-    setOrdersLoading(true);
-    try {
-      const updated = await listOrders(selectedVisit.id);
-      setOrders(updated);
-    } catch {
-      // silently ignore
-    } finally {
-      setOrdersLoading(false);
-    }
-  }, [selectedVisit]);
-
-  // Refresh orders when the window regains focus (nurse may have completed orders)
-  useEffect(() => {
-    window.addEventListener("focus", refreshOrders);
-    return () => window.removeEventListener("focus", refreshOrders);
-  }, [refreshOrders]);
-
   // Open shift handoff modal and fetch the AI-generated handoff document
   const openShiftHandoff = async () => {
     setHandoffOpen(true);
@@ -599,14 +483,6 @@ export function useDoctorWorkspace() {
     // SOAP draft
     draftSoapNote,
     draftingNote,
-    // Specialist consult
-    specialists,
-    consultSpecialist,
-    // Orders
-    orders,
-    ordersLoading,
-    handleCreateOrder,
-    refreshOrders,
     // AI Panel
     aiWidth,
     setAiWidth,

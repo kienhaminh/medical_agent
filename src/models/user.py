@@ -12,9 +12,7 @@ from .base import Base
 class UserRole(str, enum.Enum):
     """User roles for access control."""
     DOCTOR = "doctor"
-    OFFICER = "officer"
     ADMIN = "admin"
-    NURSE = "nurse"
 
 
 class User(Base):

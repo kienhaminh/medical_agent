@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models import get_db, Visit, Patient, ChatSession
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
 from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse
-from src.tools.builtin.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
-from src.tools.builtin.shift_handoff_tool import generate_shift_handoff as _handoff_fn
+from src.tools.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
+from src.tools.shift_handoff_tool import generate_shift_handoff as _handoff_fn
 from src.models.department import Department
 from src.api.ws.event_bus import event_bus
 from src.api.ws.events import WSEventType
@@ -145,7 +145,7 @@ async def get_shift_handoff(
 @router.get("/api/visits/{visit_id}/brief")
 async def get_visit_brief(visit_id: int, db: AsyncSession = Depends(get_db)):
     """Return a pre-visit patient brief assembled from DB data."""
-    from src.tools.builtin.pre_visit_brief_tool import pre_visit_brief as _pre_visit_brief_fn
+    from src.tools.pre_visit_brief_tool import pre_visit_brief as _pre_visit_brief_fn
     result = await db.execute(select(Visit).where(Visit.id == visit_id))
     visit = result.scalar_one_or_none()
     if not visit:

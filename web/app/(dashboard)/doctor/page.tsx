@@ -85,10 +85,6 @@ export default function DoctorPage() {
           selectedVisit={workspace.selectedVisit}
           visitBrief={workspace.visitBrief}
           briefLoading={workspace.briefLoading}
-          orders={workspace.orders}
-          ordersLoading={workspace.ordersLoading}
-          onCreateOrder={workspace.handleCreateOrder}
-          onRefreshOrders={workspace.refreshOrders}
           clinicalNotes={workspace.clinicalNotes}
           onNotesChange={workspace.handleNotesChange}
           notesSaving={workspace.notesSaving}
@@ -115,10 +111,7 @@ export default function DoctorPage() {
           activityDetails={workspace.activityDetails}
           handleSendMessage={workspace.handleChatSubmit}
           messagesEndRef={workspace.messagesEndRef}
-          specialists={workspace.specialists}
-          consultSpecialist={workspace.consultSpecialist}
           wsEvents={wsEvents}
-          onPlaceOrder={(type, name) => workspace.handleCreateOrder(type, name)}
           patientName={workspace.selectedPatient?.name}
           width={workspace.aiWidth}
           setWidth={workspace.setAiWidth}

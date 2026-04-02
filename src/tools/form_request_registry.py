@@ -49,6 +49,12 @@ class FormRequestRegistry:
     # form_id -> template name
     _form_templates: dict[str, str]
 
+    # form_id -> list of field names (for dynamic forms)
+    _form_field_names: dict[str, list[str]]
+
+    # session_id -> accumulated form answers across steps
+    _session_answers: dict[int, dict[str, str]]
+
     def __new__(cls) -> "FormRequestRegistry":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -56,6 +62,8 @@ class FormRequestRegistry:
             cls._instance._form_events = {}
             cls._instance._form_results = {}
             cls._instance._form_templates = {}
+            cls._instance._form_field_names = {}
+            cls._instance._session_answers = {}
         return cls._instance
 
     # --- session queue API ---
@@ -73,9 +81,17 @@ class FormRequestRegistry:
 
     # --- form event API ---
 
-    def register_form(self, form_id: str, event: asyncio.Event, template: str) -> None:
+    def register_form(
+        self,
+        form_id: str,
+        event: asyncio.Event,
+        template: str,
+        field_names: list[str] | None = None,
+    ) -> None:
         self._form_events[form_id] = event
         self._form_templates[form_id] = template
+        if field_names is not None:
+            self._form_field_names[form_id] = field_names
 
     def resolve_form(self, form_id: str, result: str) -> None:
         """Store result and fire the event so the waiting tool can return."""
@@ -92,10 +108,28 @@ class FormRequestRegistry:
     def get_form_template(self, form_id: str) -> Optional[str]:
         return self._form_templates.get(form_id)
 
+    def get_form_field_names(self, form_id: str) -> list[str] | None:
+        return self._form_field_names.get(form_id)
+
     def cleanup_form(self, form_id: str) -> None:
         self._form_events.pop(form_id, None)
         self._form_results.pop(form_id, None)
         self._form_templates.pop(form_id, None)
+        self._form_field_names.pop(form_id, None)
+
+    # --- session answer accumulator ---
+
+    def accumulate_answers(self, session_id: int, answers: dict[str, str]) -> None:
+        """Merge form answers into the session's accumulated state."""
+        if session_id not in self._session_answers:
+            self._session_answers[session_id] = {}
+        self._session_answers[session_id].update(answers)
+
+    def get_accumulated_answers(self, session_id: int) -> dict[str, str]:
+        return dict(self._session_answers.get(session_id, {}))
+
+    def clear_accumulated_answers(self, session_id: int) -> None:
+        self._session_answers.pop(session_id, None)
 
     def reset(self) -> None:
         """Clear all state. For tests only."""
@@ -103,6 +137,8 @@ class FormRequestRegistry:
         self._form_events.clear()
         self._form_results.clear()
         self._form_templates.clear()
+        self._form_field_names.clear()
+        self._session_answers.clear()
 
 
 # Module-level singleton

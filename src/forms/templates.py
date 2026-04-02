@@ -45,22 +45,28 @@ class FormTemplate:
 
 
 TEMPLATES: dict[str, FormTemplate] = {
-    "patient_intake": FormTemplate(
-        title="Patient Check-In",
+    # Step 1: Identify the patient (always shown first)
+    "identify_patient": FormTemplate(
+        title="Let's Get Started",
         form_type="multi_field",
+        message="We just need a few details to look you up.",
         fields=[
-            # Personal info
             FormField("first_name", "First Name", "text", placeholder="Jane"),
             FormField("last_name", "Last Name", "text", placeholder="Doe"),
             FormField("dob", "Date of Birth", "date"),
             FormField("gender", "Gender", "select", options=["male", "female", "other"]),
+        ],
+    ),
+    # Step 2 (new patients only): Contact, insurance, emergency contact
+    "new_patient_details": FormTemplate(
+        title="Your Details",
+        form_type="multi_field",
+        message="Since this is your first visit, we need a bit more information.",
+        fields=[
             # Contact
             FormField("phone", "Phone Number", "text", placeholder="+1 555 000 0000"),
             FormField("email", "Email Address", "text", placeholder="jane@example.com"),
             FormField("address", "Home Address", "textarea", placeholder="123 Main St, City, State"),
-            # Visit
-            FormField("chief_complaint", "Reason for Visit", "text", placeholder="e.g. chest pain, follow-up"),
-            FormField("symptoms", "Symptoms (optional)", "textarea", required=False, placeholder="Describe any symptoms..."),
             # Insurance
             FormField("insurance_provider", "Insurance Provider", "text", placeholder="e.g. Blue Cross"),
             FormField("policy_id", "Policy / Member ID", "text"),
@@ -75,9 +81,46 @@ TEMPLATES: dict[str, FormTemplate] = {
             FormField("emergency_contact_phone", "Emergency Contact Phone", "text"),
         ],
     ),
+    # Step 3: Visit details (always shown)
+    "visit_details": FormTemplate(
+        title="Today's Visit",
+        form_type="multi_field",
+        message="Tell us what brings you in today.",
+        fields=[
+            FormField("chief_complaint", "Reason for Visit", "text", placeholder="e.g. chest pain, follow-up"),
+            FormField("symptoms", "Describe Your Symptoms", "textarea", required=False, placeholder="When did it start? How severe is it?"),
+        ],
+    ),
+    # Confirmation before creating the visit
     "confirm_visit": FormTemplate(
         title="Confirm Check-In",
         form_type="yes_no",
         message="Are you ready to proceed with your visit today?",
+    ),
+    # Legacy template — kept for backwards compatibility with existing sessions
+    "patient_intake": FormTemplate(
+        title="Patient Check-In",
+        form_type="multi_field",
+        fields=[
+            FormField("first_name", "First Name", "text", placeholder="Jane"),
+            FormField("last_name", "Last Name", "text", placeholder="Doe"),
+            FormField("dob", "Date of Birth", "date"),
+            FormField("gender", "Gender", "select", options=["male", "female", "other"]),
+            FormField("phone", "Phone Number", "text", placeholder="+1 555 000 0000"),
+            FormField("email", "Email Address", "text", placeholder="jane@example.com"),
+            FormField("address", "Home Address", "textarea", placeholder="123 Main St, City, State"),
+            FormField("chief_complaint", "Reason for Visit", "text", placeholder="e.g. chest pain, follow-up"),
+            FormField("symptoms", "Symptoms (optional)", "textarea", required=False, placeholder="Describe any symptoms..."),
+            FormField("insurance_provider", "Insurance Provider", "text", placeholder="e.g. Blue Cross"),
+            FormField("policy_id", "Policy / Member ID", "text"),
+            FormField("emergency_contact_name", "Emergency Contact Name", "text"),
+            FormField(
+                "emergency_contact_relationship",
+                "Relationship",
+                "select",
+                options=["spouse", "parent", "sibling", "friend", "other"],
+            ),
+            FormField("emergency_contact_phone", "Emergency Contact Phone", "text"),
+        ],
     ),
 }
