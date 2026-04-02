@@ -56,16 +56,14 @@ class LangGraphAgent:
         chat_history: list = None,
         patient_id: int = None,
         patient_name: str = None,
-        system_prompt_override: str = None,
     ) -> Union[str, AsyncGenerator[dict, None]]:
         """Process user message through the agent."""
         logger.info("Processing message (patient_id=%s)", patient_id)
 
         messages = []
 
-        active_prompt = system_prompt_override or self.system_prompt
-        if active_prompt:
-            messages.append(SystemMessage(content=active_prompt))
+        if self.system_prompt:
+            messages.append(SystemMessage(content=self.system_prompt))
 
         if chat_history:
             history_messages = []
