@@ -17,7 +17,7 @@ from ...models import (
     ChatRequest, ChatResponse, ChatTaskResponse, TaskStatusResponse,
     FormResponseRequest,
 )
-from ...dependencies import get_or_create_agent
+from ...dependencies import get_or_create_agent, get_intake_agent
 from ....tasks.agent_tasks import process_agent_message
 from src.tools.form_request_registry import form_registry, current_session_id_var
 from src.forms.vault import save_intake, identify_patient
@@ -198,7 +198,6 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
         # Select agent based on mode
         if request.mode == "intake":
-            from ...dependencies import get_intake_agent
             user_agent = get_intake_agent()
         else:
             user_agent = get_or_create_agent(request.user_id)
