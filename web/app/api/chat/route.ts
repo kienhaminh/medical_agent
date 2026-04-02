@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, stream, session_id, patient_id, record_id, user_id } = await request.json();
+    const { message, stream, session_id, patient_id, record_id, user_id, mode } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       if (patient_id) body.patient_id = patient_id;
       if (record_id) body.record_id = record_id;
       if (user_id) body.user_id = user_id;
+      if (mode) body.mode = mode;
 
       const response = await fetch(`${pythonBackendUrl}/api/chat`, {
         method: "POST",
