@@ -34,9 +34,9 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-[#8b949e] font-mono text-sm">
+      <div className="flex items-center justify-center h-full text-muted-foreground font-mono text-sm">
         <div className="flex items-center gap-3">
-          <div className="h-4 w-4 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
+          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
           Loading admin dashboard...
         </div>
       </div>
@@ -54,7 +54,7 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col h-full">
       {/* KPI bar */}
-      <div className="border-b border-white/[0.06] shrink-0">
+      <div className="border-b border-border shrink-0">
         <AdminKpiBar stats={stats} lastUpdated={lastUpdated} />
       </div>
 
@@ -66,17 +66,17 @@ export default function AdminPage() {
         }
         className="flex-1 flex flex-col min-h-0"
       >
-        <div className="border-b border-white/[0.06] px-4 shrink-0">
+        <div className="border-b border-border px-4 shrink-0">
           <TabsList className="bg-transparent h-9 gap-1">
             <TabsTrigger
               value="overview"
-              className="text-xs font-mono data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00d9ff] text-[#8b949e] px-3 py-1.5 rounded-md"
+              className="text-xs font-mono data-[state=active]:bg-accent data-[state=active]:text-primary text-muted-foreground px-3 py-1.5 rounded-md"
             >
               Overview
             </TabsTrigger>
             <TabsTrigger
               value="patient-flow"
-              className="text-xs font-mono data-[state=active]:bg-white/[0.06] data-[state=active]:text-[#00d9ff] text-[#8b949e] px-3 py-1.5 rounded-md"
+              className="text-xs font-mono data-[state=active]:bg-accent data-[state=active]:text-primary text-muted-foreground px-3 py-1.5 rounded-md"
             >
               Patient Flow
             </TabsTrigger>
@@ -110,14 +110,14 @@ export default function AdminPage() {
           className="flex-1 overflow-y-auto p-4 space-y-6 mt-0"
         >
           <div>
-            <h3 className="text-xs font-mono text-[#8b949e] uppercase tracking-wider mb-3">
+            <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
               Visit Pipeline
             </h3>
             <VisitPipelineKanban visitsByStatus={visitsByStatus} />
           </div>
 
           <div>
-            <h3 className="text-xs font-mono text-[#8b949e] uppercase tracking-wider mb-3">
+            <h3 className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
               Patient Locations
             </h3>
             <PatientLocationTracker

@@ -47,8 +47,8 @@ export function ErrorTrackingTab({ errorLogs, stats }: ErrorTrackingTabProps) {
 
         <Card className="record-card">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-xl bg-cyan-500/10">
-              <Activity className="w-6 h-6 text-cyan-500" />
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Activity className="w-6 h-6 text-primary" />
             </div>
             <div>
               <p className="text-2xl font-bold">{successRate}%</p>
@@ -71,7 +71,7 @@ export function ErrorTrackingTab({ errorLogs, stats }: ErrorTrackingTabProps) {
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="secondary"
-                    className={error.level === "error" ? "bg-red-500/10 text-red-500" : "bg-cyan-500/10 text-cyan-500"}
+                    className={error.level === "error" ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary"}
                   >
                     {error.level.toUpperCase()}
                   </Badge>

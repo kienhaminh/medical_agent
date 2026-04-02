@@ -48,10 +48,10 @@ function EcgLine() {
       />
       <defs>
         <linearGradient id="ecgGradChat" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%"   stopColor="#06b6d4" stopOpacity="0" />
-          <stop offset="30%"  stopColor="#06b6d4" />
-          <stop offset="70%"  stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+          <stop offset="0%"   stopColor="hsl(var(--primary))" stopOpacity="0" />
+          <stop offset="30%"  stopColor="hsl(var(--primary))" />
+          <stop offset="70%"  stopColor="hsl(var(--primary))" />
+          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
         </linearGradient>
       </defs>
     </svg>
@@ -60,17 +60,17 @@ function EcgLine() {
 
 function ThinkingIndicator({ activity }: { activity?: AgentActivity | null }) {
   return (
-    <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-cyan-500/20 bg-cyan-500/5 w-fit">
+    <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-primary/20 bg-primary/5 w-fit">
       <style>{`
         @keyframes blink { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
       `}</style>
       <div className="flex gap-1">
         {[0, 1, 2].map((i) => (
-          <span key={i} className="block w-1 h-1 rounded-full bg-cyan-400"
+          <span key={i} className="block w-1 h-1 rounded-full bg-primary"
             style={{ animation: `blink 1.2s ease-in-out ${i * 0.2}s infinite` }} />
         ))}
       </div>
-      <span className="text-[11px] text-cyan-400 font-mono">{activity ?? "Processing..."}</span>
+      <span className="text-[11px] text-primary font-mono">{activity ?? "Processing..."}</span>
     </div>
   );
 }
@@ -110,11 +110,11 @@ export function AiChatMode({
           {isEmpty && (
             <div className="flex flex-col items-center justify-center min-h-[280px] gap-5 select-none">
               <div className="flex flex-col items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                  <Sparkles className="w-4.5 h-4.5 text-cyan-500" />
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Sparkles className="w-4.5 h-4.5 text-primary" />
                 </div>
                 <EcgLine />
-                <p className="text-[10px] font-mono text-cyan-500/50 tracking-[0.25em] uppercase mt-1">
+                <p className="text-[10px] font-mono text-primary/50 tracking-[0.25em] uppercase mt-1">
                   System Ready
                 </p>
               </div>
@@ -131,10 +131,10 @@ export function AiChatMode({
                   <button
                     key={label}
                     onClick={() => injectPrompt(text)}
-                    className="group flex flex-col items-start gap-1.5 rounded-lg border border-border/50 bg-white/[0.02] px-3 py-2.5 text-left
-                               transition-all hover:border-cyan-500/30 hover:bg-cyan-500/5"
+                    className="group flex flex-col items-start gap-1.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5 text-left
+                               transition-all hover:border-primary/30 hover:bg-primary/5"
                   >
-                    <Icon className="w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-cyan-400 transition-colors" />
+                    <Icon className="w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-primary transition-colors" />
                     <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
                       {label}
                     </span>
@@ -186,8 +186,8 @@ export function AiChatMode({
           <div
             className="relative rounded-xl border transition-all duration-200"
             style={{
-              borderColor: focused ? "rgba(6,182,212,0.45)" : "hsl(var(--border)/0.7)",
-              boxShadow: focused ? "0 0 0 3px rgba(6,182,212,0.07), 0 0 16px rgba(6,182,212,0.05)" : "none",
+              borderColor: focused ? "hsl(var(--primary)/0.45)" : "hsl(var(--border)/0.7)",
+              boxShadow: focused ? "0 0 0 3px hsl(var(--primary)/0.07), 0 0 16px hsl(var(--primary)/0.05)" : "none",
               background: "hsl(var(--card)/0.5)",
             }}
           >
@@ -217,9 +217,9 @@ export function AiChatMode({
                 className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed"
                 style={{
                   background: input.trim() && !isLoading
-                    ? "linear-gradient(135deg, #06b6d4, #14b8a6)"
+                    ? "hsl(var(--primary))"
                     : "hsl(var(--muted))",
-                  boxShadow: input.trim() && !isLoading ? "0 2px 10px rgba(6,182,212,0.3)" : "none",
+                  boxShadow: input.trim() && !isLoading ? "0 2px 10px hsl(var(--primary)/0.3)" : "none",
                 }}
               >
                 <Send className="w-3.5 h-3.5 text-white" />

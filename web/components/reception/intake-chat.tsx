@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Send } from "lucide-react";
 import type { Visit } from "@/lib/api";
+import { FormInputBar, type ActiveForm } from "@/components/reception/form-input-bar";
+import { createSseParser } from "@/lib/sse";
 
 interface ChatMessage {
   id: string;
@@ -23,6 +25,7 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeForm, setActiveForm] = useState<ActiveForm | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,29 +66,36 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
       if (!reader) throw new Error("Response body is not readable");
 
       let accumulated = "";
+      const processSseChunk = createSseParser((parsed) => {
+        if (typeof parsed.chunk === "string") {
+          accumulated += parsed.chunk;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId ? { ...msg, content: accumulated } : msg
+            )
+          );
+        }
+
+        if (parsed.form_request && typeof parsed.form_request === "object") {
+          const formRequest = parsed.form_request as ActiveForm;
+          setActiveForm(formRequest);
+          const formMsg =
+            formRequest.schema?.message ||
+            formRequest.schema?.title ||
+            "Please fill out the form below.";
+          accumulated = formMsg;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId ? { ...msg, content: formMsg } : msg
+            )
+          );
+        }
+      });
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
-          if (line.startsWith("data: ")) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              if (parsed.chunk) {
-                accumulated += parsed.chunk;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantId ? { ...msg, content: accumulated } : msg
-                  )
-                );
-              }
-              if (parsed.done) break;
-            } catch {
-              // Ignore parse errors for malformed SSE lines
-            }
-          }
-        }
+        processSseChunk(decoder.decode(value, { stream: true }));
       }
     } catch {
       setMessages((prev) =>
@@ -102,7 +112,7 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
 
   return (
     <Card className="flex flex-col h-full border-border/50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-border/50 bg-cyan-500/5">
+      <div className="px-4 py-3 border-b border-border/50 bg-primary/5">
         <div className="font-semibold text-sm">Reception Agent</div>
         <div className="text-xs text-muted-foreground">Intake for {visit.visit_id}</div>
       </div>
@@ -121,7 +131,7 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
               <div
                 className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
                   msg.role === "user"
-                    ? "bg-cyan-500/15 text-foreground"
+                    ? "bg-primary/15 text-foreground"
                     : "bg-muted/50 text-foreground"
                 }`}
               >
@@ -134,21 +144,31 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-      <form onSubmit={sendMessage} className="p-3 border-t border-border/50 flex gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Describe your symptoms..."
-          disabled={isLoading}
-        />
-        <Button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          size="icon"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
-      </form>
+      {activeForm && visit.intake_session_id ? (
+        <div className="p-3 border-t border-border/50">
+          <FormInputBar
+            activeForm={activeForm}
+            sessionId={visit.intake_session_id}
+            onSubmitted={() => setActiveForm(null)}
+          />
+        </div>
+      ) : (
+        <form onSubmit={sendMessage} className="p-3 border-t border-border/50 flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Describe your symptoms..."
+            disabled={isLoading}
+          />
+          <Button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            size="icon"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </form>
+      )}
     </Card>
   );
 }

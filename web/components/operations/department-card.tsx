@@ -46,8 +46,8 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
       onClick={onClick}
       className={`w-full text-left rounded-xl border px-4 py-3 transition-all hover:brightness-110 focus:outline-none ${isCritical ? "animate-pulse" : ""}`}
       style={{
-        background: isClosed ? "rgba(255,255,255,0.02)" : `${statusColor}08`,
-        borderColor: isClosed ? "rgba(255,255,255,0.08)" : `${statusColor}40`,
+        background: isClosed ? "var(--muted)" : `${statusColor}08`,
+        borderColor: isClosed ? "var(--border)" : `${statusColor}40`,
         boxShadow: isCritical ? `0 0 20px ${statusColor}30` : "none",
         opacity: isClosed ? 0.55 : 1,
       }}
@@ -56,7 +56,7 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
       <div className="flex items-center justify-between gap-2 mb-3">
         <span
           className="text-sm font-bold font-mono truncate"
-          style={{ color: isClosed ? "#8b949e" : statusColor }}
+          style={{ color: isClosed ? "var(--muted-foreground)" : statusColor }}
         >
           {dept.label}
         </span>
@@ -84,7 +84,7 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
           <circle
             cx="22" cy="22" r="20"
             fill="none"
-            stroke={isClosed ? "rgba(255,255,255,0.06)" : `${statusColor}20`}
+            stroke={isClosed ? "var(--border)" : `${statusColor}20`}
             strokeWidth="3"
           />
           {dept.capacity > 0 && (
@@ -111,11 +111,11 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
         </svg>
 
         <div className="min-w-0">
-          <div className="text-xs font-mono text-[#8b949e]">
+          <div className="text-xs font-mono text-muted-foreground">
             {dept.current_patient_count}/{dept.capacity} slots
           </div>
           {dept.queue_length > 0 && (
-            <div className="text-[10px] font-mono text-[#f59e0b] mt-0.5">
+            <div className="text-[10px] font-mono text-amber-500 mt-0.5">
               {dept.queue_length} in queue
             </div>
           )}
@@ -125,17 +125,17 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
       {/* Patient list */}
       {visible.length > 0 && (
         <>
-          <hr className="border-0 border-t border-white/[0.06] my-2" />
+          <hr className="border-0 border-t border-border my-2" />
           <div className="space-y-1.5">
             {visible.map((v) => {
               const waitColor = getWaitTimeColor(v.created_at);
               return (
-                <div key={v.visit_id} className="rounded-md px-2 py-1.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div className="text-[11px] font-bold font-mono text-[#c9d1d9] truncate">
+                <div key={v.visit_id} className="rounded-md px-2 py-1.5 bg-muted/30 border border-border">
+                  <div className="text-[11px] font-bold font-mono text-foreground truncate">
                     {v.patient_name}
                   </div>
                   {v.chief_complaint && (
-                    <div className="text-[10px] font-mono text-[#8b949e] truncate mt-0.5">
+                    <div className="text-[10px] font-mono text-muted-foreground truncate mt-0.5">
                       {v.chief_complaint}
                     </div>
                   )}
@@ -144,7 +144,7 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
                       {formatTimeAgo(v.created_at)}
                     </span>
                     {v.queue_position != null && (
-                      <span className="text-[10px] font-mono text-[#8b949e]">
+                      <span className="text-[10px] font-mono text-muted-foreground">
                         #{v.queue_position}
                       </span>
                     )}
@@ -153,7 +153,7 @@ export function DepartmentCard({ dept, visits, onClick }: DepartmentCardProps) {
               );
             })}
             {overflow > 0 && (
-              <div className="text-[10px] font-mono text-[#8b949e] text-center pt-1">
+              <div className="text-[10px] font-mono text-muted-foreground text-center pt-1">
                 +{overflow} more
               </div>
             )}

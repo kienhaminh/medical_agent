@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import { getSessionMessages } from "@/lib/api";
+import type { ActiveForm } from "@/components/reception/form-input-bar";
+import { createSseParser } from "@/lib/sse";
 import { toast } from "sonner";
 import { MessageRole } from "@/types/enums";
-import type { Message, AgentActivity } from "@/types/agent-ui";
+import type { Message, AgentActivity, LogItem } from "@/types/agent-ui";
 
 export function usePatientChat(sessionId: string | null, patientId: number | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -13,6 +15,7 @@ export function usePatientChat(sessionId: string | null, patientId: number | nul
   const [currentActivity, setCurrentActivity] = useState<AgentActivity | null>(null);
   const [activityDetails, setActivityDetails] = useState<string>("");
   const [loadingSession, setLoadingSession] = useState(!!sessionId);
+  const [activeForm, setActiveForm] = useState<ActiveForm | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(sessionId);
@@ -126,136 +129,147 @@ export function usePatientChat(sessionId: string | null, patientId: number | nul
         isProcessing = false;
       };
 
+      const processSseChunk = createSseParser((parsed) => {
+        if (parsed.error) throw new Error(String(parsed.error));
+
+        if (
+          typeof parsed.iteration === "number" &&
+          typeof parsed.phase === "string"
+        ) {
+          if (parsed.phase === "thinking") {
+            setCurrentActivity("thinking");
+            setActivityDetails(`Step ${parsed.iteration}: Planning next actions`);
+          } else if (parsed.phase === "acting") {
+            setCurrentActivity("tool_calling");
+            const toolCount = typeof parsed.tool_count === "number" ? parsed.tool_count : 0;
+            setActivityDetails(
+              `Step ${parsed.iteration}: Running ${toolCount} tool${toolCount > 1 ? "s" : ""}`
+            );
+          } else if (parsed.phase === "observing") {
+            setCurrentActivity("analyzing");
+            setActivityDetails(`Step ${parsed.iteration}: Reviewing results`);
+          } else if (parsed.phase === "answering") {
+            setCurrentActivity("thinking");
+            setActivityDetails(`Step ${parsed.iteration}: Preparing answer`);
+          }
+        }
+
+        if (typeof parsed.chunk === "string") {
+          const words = parsed.chunk.match(/(\S+|\s+)/g) || [];
+          wordBuffer.push(...words);
+          setCurrentActivity(null);
+          void displayWords();
+        }
+
+        if (parsed.tool_call && typeof parsed.tool_call === "object") {
+          const toolCallData = parsed.tool_call as {
+            id: string;
+            tool: string;
+            args: Record<string, unknown>;
+          };
+          setCurrentActivity("tool_calling");
+          setActivityDetails(`Using ${toolCallData.tool}`);
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === assistantMessageId) {
+                const existingTools = msg.toolCalls || [];
+                if (!existingTools.find((t) => t.id === toolCallData.id)) {
+                  return {
+                    ...msg,
+                    toolCalls: [
+                      ...existingTools,
+                      {
+                        id: toolCallData.id,
+                        tool: toolCallData.tool,
+                        args: toolCallData.args,
+                      },
+                    ],
+                  };
+                }
+              }
+              return msg;
+            })
+          );
+        }
+
+        if (parsed.tool_result && typeof parsed.tool_result === "object") {
+          const toolResultData = parsed.tool_result as { id: string; result: string };
+          setCurrentActivity("analyzing");
+          setActivityDetails("Processing results");
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === assistantMessageId && msg.toolCalls) {
+                return {
+                  ...msg,
+                  toolCalls: msg.toolCalls.map((t) =>
+                    t.id === toolResultData.id
+                      ? { ...t, result: toolResultData.result }
+                      : t
+                  ),
+                };
+              }
+              return msg;
+            })
+          );
+        }
+
+        if (typeof parsed.reasoning === "string") {
+          setCurrentActivity("thinking");
+          setActivityDetails("Formulating response");
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, reasoning: (msg.reasoning || "") + parsed.reasoning }
+                : msg
+            )
+          );
+        }
+
+        if (parsed.log) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, logs: [...(msg.logs || []), parsed.log] as LogItem[] }
+                : msg
+            )
+          );
+        }
+
+        if (Array.isArray(parsed.patient_references)) {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, patientReferences: parsed.patient_references as Message["patientReferences"] }
+                : msg
+            )
+          );
+        }
+
+        if (parsed.form_request && typeof parsed.form_request === "object") {
+          const formRequest = parsed.form_request as ActiveForm;
+          setActiveForm(formRequest);
+          const formMsg =
+            formRequest.schema?.message ||
+            formRequest.schema?.title ||
+            "Please fill out the form below.";
+          accumulatedContent = formMsg;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: formMsg }
+                : msg
+            )
+          );
+        }
+      });
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
           await displayWords();
           break;
         }
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.error) throw new Error(parsed.error);
-
-              if (parsed.iteration) {
-                const { phase, iteration } = parsed;
-                if (phase === "thinking") {
-                  setCurrentActivity("thinking");
-                  setActivityDetails(`Step ${iteration}: Planning next actions`);
-                } else if (phase === "acting") {
-                  setCurrentActivity("tool_calling");
-                  const toolCount = parsed.tool_count || 0;
-                  setActivityDetails(
-                    `Step ${iteration}: Running ${toolCount} tool${toolCount > 1 ? "s" : ""}`
-                  );
-                } else if (phase === "observing") {
-                  setCurrentActivity("analyzing");
-                  setActivityDetails(`Step ${iteration}: Reviewing results`);
-                } else if (phase === "answering") {
-                  setCurrentActivity("thinking");
-                  setActivityDetails(`Step ${iteration}: Preparing answer`);
-                }
-              }
-
-              if (parsed.chunk) {
-                const words = parsed.chunk.match(/(\S+|\s+)/g) || [];
-                wordBuffer.push(...words);
-                setCurrentActivity(null);
-                displayWords();
-              }
-
-              if (parsed.tool_call) {
-                const toolCallData = parsed.tool_call;
-                setCurrentActivity("tool_calling");
-                setActivityDetails(`Using ${toolCallData.tool}`);
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === assistantMessageId) {
-                      const existingTools = msg.toolCalls || [];
-                      if (!existingTools.find((t) => t.id === toolCallData.id)) {
-                        return {
-                          ...msg,
-                          toolCalls: [
-                            ...existingTools,
-                            {
-                              id: toolCallData.id,
-                              tool: toolCallData.tool,
-                              args: toolCallData.args,
-                            },
-                          ],
-                        };
-                      }
-                    }
-                    return msg;
-                  })
-                );
-              }
-
-              if (parsed.tool_result) {
-                const toolResultData = parsed.tool_result;
-                setCurrentActivity("analyzing");
-                setActivityDetails("Processing results");
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id === assistantMessageId && msg.toolCalls) {
-                      return {
-                        ...msg,
-                        toolCalls: msg.toolCalls.map((t) =>
-                          t.id === toolResultData.id
-                            ? { ...t, result: toolResultData.result }
-                            : t
-                        ),
-                      };
-                    }
-                    return msg;
-                  })
-                );
-              }
-
-              if (parsed.reasoning) {
-                setCurrentActivity("thinking");
-                setActivityDetails("Formulating response");
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, reasoning: (msg.reasoning || "") + parsed.reasoning }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.log) {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, logs: [...(msg.logs || []), parsed.log] }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.patient_references) {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, patientReferences: parsed.patient_references }
-                      : msg
-                  )
-                );
-              }
-
-              if (parsed.done) break;
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
+        processSseChunk(decoder.decode(value, { stream: true }));
       }
     } catch {
       setMessages((prev) =>
@@ -285,6 +299,10 @@ export function usePatientChat(sessionId: string | null, patientId: number | nul
     await sendMessage(content);
   };
 
+  const handleFormSubmitted = () => {
+    setActiveForm(null);
+  };
+
   return {
     messages,
     input,
@@ -293,9 +311,14 @@ export function usePatientChat(sessionId: string | null, patientId: number | nul
     currentActivity,
     activityDetails,
     loadingSession,
+    activeForm,
+    handleFormSubmitted,
     messagesEndRef,
     sendMessage,
     handleSendMessage,
-    clearMessages: () => setMessages([]),
+    clearMessages: () => {
+      setMessages([]);
+      setActiveForm(null);
+    },
   };
 }

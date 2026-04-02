@@ -44,11 +44,11 @@ const ACTIVITY_CONFIG: Record<
   analyzing: {
     icon: Sparkles,
     label: "Analyzing",
-    color: "text-cyan-500",
-    bgColor: "bg-cyan-500/10",
-    borderColor: "border-cyan-500/50",
-    shadowColor: "shadow-cyan-500/25",
-    glowColor: "bg-cyan-500",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/50",
+    shadowColor: "shadow-primary/25",
+    glowColor: "bg-primary",
   },
   searching: {
     icon: Search,
@@ -62,11 +62,11 @@ const ACTIVITY_CONFIG: Record<
   processing: {
     icon: Sparkles,
     label: "Processing",
-    color: "text-teal-500",
-    bgColor: "bg-teal-500/10",
-    borderColor: "border-teal-500/50",
-    shadowColor: "shadow-teal-500/25",
-    glowColor: "bg-teal-500",
+    color: "text-primary",
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/50",
+    shadowColor: "shadow-primary/25",
+    glowColor: "bg-primary",
   },
 };
 

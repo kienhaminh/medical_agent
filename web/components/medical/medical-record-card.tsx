@@ -18,9 +18,9 @@ function getRecordIcon(record: MedicalRecord) {
     return <FileHeart className="w-5 h-5 text-purple-500" />;
   }
   if (summary.includes("routine") || summary.includes("laboratory")) {
-    return <Microscope className="w-5 h-5 text-teal-500" />;
+    return <Microscope className="w-5 h-5 text-primary" />;
   }
-  return <Stethoscope className="w-5 h-5 text-cyan-500" />;
+  return <Stethoscope className="w-5 h-5 text-primary" />;
 }
 
 function getRecordBadge(record: MedicalRecord) {
@@ -40,7 +40,7 @@ function getRecordBadge(record: MedicalRecord) {
     return (
       <Badge
         variant="secondary"
-        className="bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30"
+        className="bg-primary/10 text-primary border-primary/30"
       >
         Lab Results
       </Badge>
@@ -49,7 +49,7 @@ function getRecordBadge(record: MedicalRecord) {
   return (
     <Badge
       variant="secondary"
-      className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30"
+      className="bg-primary/10 text-primary border-primary/30"
     >
       Clinical Note
     </Badge>
@@ -69,7 +69,7 @@ export function MedicalRecordCard({ record, viewMode, onClick }: MedicalRecordCa
         <Card className="record-card group p-5 h-full">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-gradient-to-br from-cyan-500/10 to-teal-500/10 group-hover:scale-110 transition-transform">
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/10 group-hover:scale-110 transition-transform">
                 {getRecordIcon(record)}
               </div>
               <div className="flex-1 min-w-0">
@@ -81,7 +81,7 @@ export function MedicalRecordCard({ record, viewMode, onClick }: MedicalRecordCa
             </span>
           </div>
 
-          <h3 className="font-display font-semibold mb-2 group-hover:text-cyan-500 transition-colors line-clamp-2">
+          <h3 className="font-display font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2">
             {record.title || "Medical Record"}
           </h3>
 
@@ -94,13 +94,13 @@ export function MedicalRecordCard({ record, viewMode, onClick }: MedicalRecordCa
       ) : (
         <Card className="record-card group p-4 hover:scale-[1.01] transition-all">
           <div className="flex items-center gap-4">
-            <div className="p-2.5 rounded-lg bg-gradient-to-br from-cyan-500/10 to-teal-500/10 group-hover:scale-110 transition-transform flex-shrink-0">
+            <div className="p-2.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/10 group-hover:scale-110 transition-transform flex-shrink-0">
               {getRecordIcon(record)}
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-display font-semibold truncate group-hover:text-cyan-500 transition-colors">
+                <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
                   {record.title || "Medical Record"}
                 </h3>
                 {getRecordBadge(record)}

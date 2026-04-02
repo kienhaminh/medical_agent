@@ -72,7 +72,7 @@ export function DepartmentDetail({ visit, onVisitUpdated }: DepartmentDetailProp
         <Button
           onClick={handleComplete}
           disabled={isCompleting}
-          className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white"
+          className="w-full bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary/90 text-white"
         >
           <CheckCircle2 className="w-4 h-4 mr-2" />
           {isCompleting ? "Completing..." : "Complete Visit"}

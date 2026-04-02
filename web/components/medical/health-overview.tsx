@@ -30,8 +30,8 @@ export function HealthOverview({ patient }: HealthOverviewProps) {
 
         <Card className="p-4 bg-card/50 border-border/50">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-teal-500/10">
-              <Activity className="w-5 h-5 text-teal-500" />
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Activity className="w-5 h-5 text-primary" />
             </div>
             <div className="flex-1">
               <p className="text-xs text-muted-foreground">Imaging</p>

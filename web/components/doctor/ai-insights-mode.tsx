@@ -20,7 +20,7 @@ interface AiInsightsModeProps {
 }
 
 const SEVERITY_STYLES = {
-  info: "border-l-cyan-500 bg-cyan-500/5",
+  info: "border-l-primary bg-primary/5",
   warning: "border-l-amber-500 bg-amber-500/5",
   critical: "border-l-red-500 bg-red-500/5",
 };
@@ -52,8 +52,8 @@ export function AiInsightsMode({ onAskAi }: AiInsightsModeProps) {
     <div className="p-3 space-y-2">
       {insights.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[200px] gap-3 select-none">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-            <Lightbulb className="w-5 h-5 text-cyan-500/60" />
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Lightbulb className="w-5 h-5 text-primary/60" />
           </div>
           <div className="text-center space-y-1">
             <p className="text-sm text-muted-foreground/70">No active insights</p>
@@ -62,8 +62,8 @@ export function AiInsightsMode({ onAskAi }: AiInsightsModeProps) {
             </p>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-            <span className="text-[10px] text-cyan-500/60 font-mono">Watching</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <span className="text-[10px] text-primary/60 font-mono">Watching</span>
           </div>
         </div>
       ) : (
@@ -83,7 +83,7 @@ export function AiInsightsMode({ onAskAi }: AiInsightsModeProps) {
                     "h-4 w-4 shrink-0 mt-0.5",
                     insight.severity === "critical" && "text-red-500",
                     insight.severity === "warning" && "text-amber-500",
-                    insight.severity === "info" && "text-cyan-500",
+                    insight.severity === "info" && "text-primary",
                   )}
                 />
                 <div className="flex-1 min-w-0">

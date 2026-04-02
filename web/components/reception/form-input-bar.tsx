@@ -175,7 +175,7 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
     };
 
     return (
-      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3">
         {schema.message && (
           <p className="text-sm text-foreground/80">{schema.message}</p>
         )}
@@ -192,8 +192,8 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
                 className={cn(
                   "h-8 px-3 text-xs transition-all",
                   isSelected
-                    ? "bg-gradient-to-r from-cyan-500 to-teal-500 text-white border-transparent"
-                    : "border-border/50 hover:border-cyan-500/40"
+                    ? "bg-gradient-to-r from-primary to-primary text-white border-transparent"
+                    : "border-border/50 hover:border-primary/40"
                 )}
               >
                 {allowMultiple && isSelected && (
@@ -213,7 +213,7 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
             onClick={handleMultiSubmit}
             disabled={submitting || selectedChoices.size === 0}
             size="sm"
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 text-xs"
+            className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary text-white h-8 text-xs"
           >
             {submitting ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Submitting...</>
@@ -229,14 +229,14 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
   // --- Legacy yes/no form ---
   if (schema.form_type === "yes_no") {
     return (
-      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
         <div className="flex items-center gap-3">
           <p className="text-sm text-foreground/80 flex-1">{schema.message}</p>
           <Button
             onClick={() => submitForm({ confirmed: "true" })}
             disabled={submitting}
             size="sm"
-            className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 px-3"
+            className="bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary text-white h-8 px-3"
           >
             {submitting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -260,10 +260,10 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
 
   // --- Multi-step inline form card ---
   return (
-    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3">
+    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3">
       {/* Form title */}
       {schema.title && (
-        <h3 className="text-sm font-semibold text-cyan-400">{schema.title}</h3>
+        <h3 className="text-sm font-semibold text-primary">{schema.title}</h3>
       )}
 
       {/* Progress + section label */}
@@ -274,15 +274,15 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
               key={i}
               className={`h-1 flex-1 rounded-full transition-colors ${
                 i < step
-                  ? "bg-cyan-500"
+                  ? "bg-primary"
                   : i === step
-                    ? "bg-cyan-500/60"
+                    ? "bg-primary/60"
                     : "bg-border/40"
               }`}
             />
           ))}
         </div>
-        <span className="text-xs text-cyan-400 font-semibold tracking-wider uppercase whitespace-nowrap">
+        <span className="text-xs text-primary font-semibold tracking-wider uppercase whitespace-nowrap">
           {currentSection?.label || schema.title}
         </span>
         <span className="text-[10px] text-muted-foreground whitespace-nowrap">
@@ -335,7 +335,7 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
             }}
             disabled={submitting}
             size="sm"
-            className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 text-xs"
+            className="flex-1 bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary text-white h-8 text-xs"
           >
             {submitting ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Submitting...</>
@@ -347,7 +347,7 @@ export function FormInputBar({ activeForm, sessionId, onSubmitted }: FormInputBa
           <Button
             onClick={handleNext}
             size="sm"
-            className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white h-8 text-xs"
+            className="flex-1 bg-gradient-to-r from-primary to-primary hover:from-primary hover:to-primary text-white h-8 text-xs"
           >
             Next
             <ArrowRight className="w-3.5 h-3.5 ml-1" />

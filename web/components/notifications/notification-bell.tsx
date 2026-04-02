@@ -51,7 +51,7 @@ export function NotificationBell({ items, unreadCount, onMarkRead, onClear }: No
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -64,7 +64,7 @@ export function NotificationBell({ items, unreadCount, onMarkRead, onClear }: No
             {items.length > 0 && (
               <button
                 onClick={onMarkRead}
-                className="text-xs text-cyan-500 hover:text-cyan-400 transition-colors"
+                className="text-xs text-primary hover:text-primary transition-colors"
               >
                 Mark all read
               </button>
@@ -82,7 +82,7 @@ export function NotificationBell({ items, unreadCount, onMarkRead, onClear }: No
                   key={item.id}
                   className={cn(
                     "flex items-start gap-2 border-b border-border/50 px-3 py-2 transition-colors",
-                    !item.read && "bg-cyan-500/5",
+                    !item.read && "bg-primary/5",
                     "hover:bg-muted/50",
                   )}
                 >

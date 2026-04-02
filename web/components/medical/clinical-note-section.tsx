@@ -31,10 +31,10 @@ const VITAL_ICONS: Record<string, React.ReactElement> = {
   hr: <Activity className="w-4 h-4 text-pink-500" />,
   rr: <Wind className="w-4 h-4 text-blue-500" />,
   temp: <Thermometer className="w-4 h-4 text-orange-500" />,
-  spo2: <Droplets className="w-4 h-4 text-cyan-500" />,
+  spo2: <Droplets className="w-4 h-4 text-primary" />,
   weight: <Weight className="w-4 h-4 text-purple-500" />,
   height: <Ruler className="w-4 h-4 text-green-500" />,
-  bmi: <TrendingUp className="w-4 h-4 text-teal-500" />,
+  bmi: <TrendingUp className="w-4 h-4 text-primary" />,
 };
 
 export function Section({ section }: { section: ClinicalSection }) {
@@ -59,7 +59,7 @@ export function Section({ section }: { section: ClinicalSection }) {
           <ul className="space-y-2">
             {section.content.split("\n").filter(Boolean).map((item) => (
               <li key={item} className="text-sm text-foreground flex items-start gap-2">
-                <span className="text-cyan-500 mt-1">•</span>
+                <span className="text-primary mt-1">•</span>
                 <span className="flex-1">{item.replace(/^[•\-\*]\s*/, "")}</span>
               </li>
             ))}
@@ -78,12 +78,12 @@ function VitalsSection({ content }: { content: string }) {
   const vitals = parseVitals(content);
 
   return (
-    <Card className="p-5 border-2 border-cyan-500/20 bg-gradient-to-br from-cyan-500/5 to-transparent">
+    <Card className="p-5 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
       <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-lg bg-cyan-500/10">
-          <Activity className="w-5 h-5 text-cyan-500" />
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Activity className="w-5 h-5 text-primary" />
         </div>
-        <h3 className="font-display font-semibold text-lg text-cyan-600 dark:text-cyan-400">
+        <h3 className="font-display font-semibold text-lg text-primary">
           Vital Signs
         </h3>
       </div>
@@ -110,12 +110,12 @@ function LabsSection({ title, content }: { title: string; content: string }) {
   const labs = parseLabValues(content);
 
   return (
-    <Card className="p-5 border-2 border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-transparent">
+    <Card className="p-5 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
       <div className="flex items-center gap-2 mb-4">
-        <div className="p-2 rounded-lg bg-teal-500/10">
-          <Microscope className="w-5 h-5 text-teal-500" />
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Microscope className="w-5 h-5 text-primary" />
         </div>
-        <h3 className="font-display font-semibold text-lg text-teal-600 dark:text-teal-400">
+        <h3 className="font-display font-semibold text-lg text-primary">
           {title}
         </h3>
       </div>
@@ -193,9 +193,9 @@ function getSectionIcon(title: string): React.ReactElement {
 
   if (t.includes("chief complaint")) return <AlertCircle className={`${cls} text-orange-500`} />;
   if (t.includes("history") || t.includes("hpi")) return <ClipboardList className={`${cls} text-blue-500`} />;
-  if (t.includes("physical") || t.includes("examination")) return <Stethoscope className={`${cls} text-cyan-500`} />;
+  if (t.includes("physical") || t.includes("examination")) return <Stethoscope className={`${cls} text-primary`} />;
   if (t.includes("imaging") || t.includes("study")) return <Scan className={`${cls} text-purple-500`} />;
-  if (t.includes("laboratory") || t.includes("lab")) return <Microscope className={`${cls} text-teal-500`} />;
+  if (t.includes("laboratory") || t.includes("lab")) return <Microscope className={`${cls} text-primary`} />;
   if (t.includes("medication")) return <Pill className={`${cls} text-purple-500`} />;
   if (t.includes("assessment") || t.includes("plan") || t.includes("treatment")) return <FileText className={`${cls} text-green-500`} />;
   if (t.includes("follow") || t.includes("appointment")) return <Calendar className={`${cls} text-pink-500`} />;
@@ -209,9 +209,9 @@ function getSectionColor(title: string): { bg: string; text: string } {
 
   if (t.includes("chief complaint")) return { bg: "bg-orange-500/10", text: "text-orange-600 dark:text-orange-400" };
   if (t.includes("history") || t.includes("hpi")) return { bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" };
-  if (t.includes("physical") || t.includes("examination")) return { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400" };
+  if (t.includes("physical") || t.includes("examination")) return { bg: "bg-primary/10", text: "text-primary" };
   if (t.includes("imaging")) return { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400" };
-  if (t.includes("laboratory") || t.includes("lab")) return { bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400" };
+  if (t.includes("laboratory") || t.includes("lab")) return { bg: "bg-primary/10", text: "text-primary" };
   if (t.includes("medication")) return { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400" };
   if (t.includes("assessment") || t.includes("plan") || t.includes("treatment")) return { bg: "bg-green-500/10", text: "text-green-600 dark:text-green-400" };
   if (t.includes("follow")) return { bg: "bg-pink-500/10", text: "text-pink-600 dark:text-pink-400" };

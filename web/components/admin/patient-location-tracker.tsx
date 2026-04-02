@@ -27,11 +27,11 @@ type SortDir = "asc" | "desc";
 
 /** Status-to-color mapping for badges. */
 const STATUS_BADGE_COLORS: Record<string, string> = {
-  intake: "#00d9ff",
+  intake: "hsl(var(--primary))",
   auto_routed: "#a855f7",
   pending_review: "#f59e0b",
   routed: "#14b8a6",
-  in_department: "#6366f1",
+  in_department: "#6d7a8c",
 };
 
 export function PatientLocationTracker({
@@ -111,8 +111,8 @@ export function PatientLocationTracker({
         className={[
           "text-left text-[10px] font-mono uppercase tracking-wider px-3 py-2 cursor-pointer select-none transition-colors",
           isActive
-            ? "text-[#00d9ff]"
-            : "text-[#8b949e] hover:text-[#c9d1d9]",
+            ? "text-primary"
+            : "text-muted-foreground hover:text-foreground",
           className,
         ]
           .filter(Boolean)
@@ -127,7 +127,7 @@ export function PatientLocationTracker({
 
   if (activeVisits.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-[#8b949e] font-mono text-sm gap-2">
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground font-mono text-sm gap-2">
         <MapPin size={24} className="opacity-40" />
         No active patients
       </div>
@@ -135,9 +135,9 @@ export function PatientLocationTracker({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
+    <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-left">
-        <thead className="bg-white/[0.03]">
+        <thead className="bg-muted/30">
           <tr>
             <SortableHeader label="Patient" columnKey="patient_name" />
             <SortableHeader label="Visit ID" columnKey="visit_id" />
@@ -147,7 +147,7 @@ export function PatientLocationTracker({
             <SortableHeader label="Time" columnKey="time" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/[0.04]">
+        <tbody className="divide-y divide-border">
           {sorted.map((visit) => {
             const statusColor =
               STATUS_BADGE_COLORS[visit.status] ?? "#6b7280";
@@ -159,12 +159,12 @@ export function PatientLocationTracker({
             return (
               <tr
                 key={visit.visit_id}
-                className="transition-colors hover:bg-white/[0.03]"
+                className="transition-colors hover:bg-muted/30"
               >
-                <td className="px-3 py-2 text-[11px] font-bold font-mono text-[#c9d1d9] truncate max-w-[140px]">
+                <td className="px-3 py-2 text-[11px] font-bold font-mono text-foreground truncate max-w-[140px]">
                   {visit.patient_name}
                 </td>
-                <td className="px-3 py-2 text-[10px] font-mono text-[#8b949e]">
+                <td className="px-3 py-2 text-[10px] font-mono text-muted-foreground">
                   {visit.visit_id}
                 </td>
                 <td className="px-3 py-2">
@@ -180,10 +180,10 @@ export function PatientLocationTracker({
                     {visit.status}
                   </Badge>
                 </td>
-                <td className="px-3 py-2 text-[11px] font-mono text-[#8b949e]">
+                <td className="px-3 py-2 text-[11px] font-mono text-muted-foreground">
                   {dept}
                 </td>
-                <td className="px-3 py-2 text-[10px] font-mono text-[#8b949e] truncate max-w-[200px]">
+                <td className="px-3 py-2 text-[10px] font-mono text-muted-foreground truncate max-w-[200px]">
                   {visit.chief_complaint ?? "\u2014"}
                 </td>
                 <td className="px-3 py-2">

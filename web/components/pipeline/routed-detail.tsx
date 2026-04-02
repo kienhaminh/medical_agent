@@ -72,7 +72,7 @@ export function RoutedDetail({ visit, onVisitUpdated }: RoutedDetailProps) {
         <Button
           onClick={handleCheckIn}
           disabled={isChecking}
-          className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white"
+          className="w-full bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary/90 text-white"
         >
           <LogIn className="w-4 h-4 mr-2" />
           {isChecking ? "Checking in..." : "Check In to Department"}

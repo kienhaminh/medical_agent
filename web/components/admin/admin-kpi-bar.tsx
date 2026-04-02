@@ -23,7 +23,7 @@ const KPI_ITEMS = [
     key: "active_patients" as const,
     label: "Active Patients",
     icon: Activity,
-    color: "#00d9ff",
+    color: "hsl(var(--primary))",
   },
   {
     key: "occupancy_rate" as const,
@@ -36,7 +36,7 @@ const KPI_ITEMS = [
     key: "available_beds" as const,
     label: "Available Beds",
     icon: Bed,
-    color: "#10b981",
+    color: "#059669",
     /** Computed from total_beds - occupied_beds */
     derive: (stats: ExtendedHospitalStats) =>
       stats.total_beds - stats.occupied_beds,
@@ -58,7 +58,7 @@ const KPI_ITEMS = [
     key: "discharged_today" as const,
     label: "Discharged Today",
     icon: LogOut,
-    color: "#10b981",
+    color: "#059669",
   },
 ] as const;
 
@@ -109,7 +109,7 @@ export function AdminKpiBar({ stats, lastUpdated }: AdminKpiBarProps) {
             >
               {formatted}
             </span>
-            <span className="text-[10px] font-mono text-[#8b949e]">
+            <span className="text-[10px] font-mono text-muted-foreground">
               {item.label}
             </span>
           </div>
@@ -117,7 +117,7 @@ export function AdminKpiBar({ stats, lastUpdated }: AdminKpiBarProps) {
       })}
 
       {lastUpdated && (
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] font-mono text-[#8b949e] shrink-0">
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground shrink-0">
           <Wifi size={10} className="text-emerald-500" />
           {formatSyncAge(lastUpdated)}
         </div>

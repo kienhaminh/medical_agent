@@ -132,7 +132,7 @@ export function ReviewDetail({ visit, onVisitUpdated }: ReviewDetailProps) {
                 onClick={() => toggleDept(dept)}
                 className={`text-xs px-2 py-1 rounded-md border transition-colors ${
                   selectedDepts.includes(dept)
-                    ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-400"
+                    ? "border-primary/60 bg-primary/10 text-primary"
                     : "border-border/40 text-muted-foreground hover:border-border"
                 }`}
               >
@@ -154,7 +154,7 @@ export function ReviewDetail({ visit, onVisitUpdated }: ReviewDetailProps) {
         <Button
           onClick={handleApprove}
           disabled={isRouting || selectedDepts.length === 0}
-          className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white"
+          className="w-full bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary/90 text-white"
         >
           <CheckCircle className="w-4 h-4 mr-2" />
           {isRouting ? "Routing..." : "Approve Route"}

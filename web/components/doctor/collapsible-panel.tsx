@@ -18,7 +18,7 @@ interface CollapsiblePanelProps {
 export function CollapsiblePanel({
   title,
   icon: Icon,
-  iconColor = "text-cyan-500",
+  iconColor = "text-primary",
   badge,
   collapsed,
   onToggle,

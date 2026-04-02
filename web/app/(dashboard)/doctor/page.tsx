@@ -45,7 +45,7 @@ export default function DoctorPage() {
   );
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* Header */}
       <DoctorHeader
         searchQuery={workspace.searchQuery}
@@ -66,9 +66,9 @@ export default function DoctorPage() {
       />
 
       {/* 3-Zone Layout */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0 w-full">
         {/* Zone A: Patient List */}
-        <div className="w-60 shrink-0">
+        <div className="w-80 shrink-0 overflow-hidden">
           <PatientListPanel
             myPatients={myPatients}
             waitingRoom={waitingRoom}

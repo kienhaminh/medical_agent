@@ -21,7 +21,7 @@ export default function OperationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-[#8b949e] font-mono text-sm">Loading hospital data...</div>
+        <div className="text-muted-foreground font-mono text-sm">Loading hospital data...</div>
       </div>
     );
   }
@@ -37,7 +37,7 @@ export default function OperationsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* KPI bar */}
-      <div className="border-b border-white/[0.06]">
+      <div className="border-b border-border">
         <KpiBar stats={stats} lastUpdated={lastUpdated} />
       </div>
 

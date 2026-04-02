@@ -24,7 +24,7 @@ export function DepartmentGrid({ departments, departmentVisits, onDeptClick }: D
 
   if (sorted.length === 0) {
     return (
-      <div className="flex items-center justify-center py-16 text-[#8b949e] font-mono text-sm">
+      <div className="flex items-center justify-center py-16 text-muted-foreground font-mono text-sm">
         No departments configured
       </div>
     );

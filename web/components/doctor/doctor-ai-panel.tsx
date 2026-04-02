@@ -92,11 +92,11 @@ export function DoctorAiPanel({
   return (
     <div
       ref={panelRef}
-      className="relative flex flex-col h-full border-l border-border/50 overflow-hidden shrink-0"
-      style={{ width, background: "hsl(var(--card)/0.25)" }}
+      className="relative flex flex-col h-full border-l border-border/50 overflow-hidden shrink-0 bg-card/25"
+      style={{ width }}
     >
       {/* ambient glow */}
-      <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-cyan-500/6 blur-3xl z-0" />
+      <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-primary/6 blur-3xl z-0" />
 
       {/* dot-grid texture */}
       <div
@@ -112,7 +112,7 @@ export function DoctorAiPanel({
         onMouseDown={handleResizeStart}
         className="absolute -left-2 top-0 bottom-0 w-4 cursor-ew-resize flex items-center justify-center group z-50"
       >
-        <div className="w-px h-full bg-transparent group-hover:bg-cyan-500/30 transition-colors duration-200" />
+        <div className="w-px h-full bg-transparent group-hover:bg-primary/30 transition-colors duration-200" />
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 border border-border/60 rounded p-0.5 shadow-md">
           <GripVertical className="w-3 h-3 text-muted-foreground" />
         </div>
@@ -121,11 +121,11 @@ export function DoctorAiPanel({
       {/* Header */}
       <div
         className="relative z-10 shrink-0 flex items-center justify-between px-4 h-14 border-b border-border/50"
-        style={{ background: "linear-gradient(90deg, rgba(6,182,212,0.07) 0%, transparent 70%)" }}
+        style={{ background: "linear-gradient(90deg, hsl(var(--primary)/0.07) 0%, transparent 70%)" }}
       >
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="w-6 h-6 rounded-md bg-primary/15 border border-primary/25 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
           <span className="text-sm font-semibold tracking-wide">AI Assistant</span>
         </div>
@@ -149,7 +149,7 @@ export function DoctorAiPanel({
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
               activeMode === key
-                ? "text-cyan-400 border-b-2 border-cyan-500"
+                ? "text-primary border-b-2 border-primary"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

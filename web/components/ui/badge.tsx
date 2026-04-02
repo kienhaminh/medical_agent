@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  "inline-flex items-center justify-center rounded-full border px-2.5 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
   {
     variants: {
       variant: {
@@ -14,15 +14,23 @@ const badgeVariants = cva(
         secondary:
           "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         destructive:
-          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        mri: "border-transparent bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-        xray: "border-transparent bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
-        lab: "border-transparent bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300",
-        clinical: "border-transparent bg-gray-100 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300",
-        ct: "border-transparent bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
-        ultrasound: "border-transparent bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300",
+        success:
+          "border-transparent bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+        warning:
+          "border-transparent bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
+        danger:
+          "border-transparent bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400",
+        info:
+          "border-transparent bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
+        mri: "border-transparent bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
+        xray: "border-transparent bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+        lab: "border-transparent bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400",
+        clinical: "border-transparent bg-stone-100 text-stone-600 dark:bg-stone-800/40 dark:text-stone-400",
+        ct: "border-transparent bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400",
+        ultrasound: "border-transparent bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400",
       },
     },
     defaultVariants: {

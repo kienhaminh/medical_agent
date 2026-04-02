@@ -80,7 +80,7 @@ P: Continue current regimen. Fasting lipids, HbA1c, U&E in 3 months. Annual diab
             "status": VisitStatus.COMPLETED,
             "chief_complaint": "Routine diabetic review and medication adjustment",
             "urgency_level": "routine",
-            "current_department": "Endocrinology",
+            "current_department": "endocrinology",
             "assigned_doctor": "Dr. Chen",
             "clinical_notes": "Annual DM review. HbA1c improved to 7.1%. GLP-1 well tolerated. No complications.",
             "confidence": 0.95,
@@ -135,7 +135,7 @@ P: Intensify antihypertensive. Target BP <130/80. DASH diet. Reduce alcohol. Rep
             "status": VisitStatus.AUTO_ROUTED,
             "chief_complaint": "Morning headaches and elevated home BP readings",
             "urgency_level": "routine",
-            "routing_suggestion": [{"department": "Cardiology", "confidence": 0.88}],
+            "routing_suggestion": [{"department": "cardiology", "confidence": 0.88}],
             "confidence": 0.88,
         },
     },
@@ -234,11 +234,11 @@ P: Add montelukast 10mg ON. Allergen avoidance advice. Written asthma action pla
             },
         ],
         "visit": {
-            "status": VisitStatus.ROUTED,
+            "status": VisitStatus.IN_DEPARTMENT,
             "chief_complaint": "Acute wheeze and dyspnoea — asthma exacerbation",
             "urgency_level": "urgent",
-            "current_department": "Respiratory",
-            "assigned_doctor": "Dr. Okafor",
+            "current_department": "pulmonology",
+            "clinical_notes": "Moderate exacerbation. Post-nebuliser PEFR 72%. Prednisolone course started.",
             "confidence": 0.91,
         },
     },
@@ -290,8 +290,9 @@ P: Refer pulmonary rehab. Flu + pneumococcal vaccine. Long-term O2 assessment: a
             "status": VisitStatus.IN_DEPARTMENT,
             "chief_complaint": "Worsening dyspnoea, increased sputum, bilateral leg swelling",
             "urgency_level": "urgent",
-            "current_department": "Respiratory",
-            "assigned_doctor": "Dr. Santos",
+            "current_department": "pulmonology",
+            "assigned_doctor": "Dr. Sarah Chen",
+            "clinical_notes": "AECOPD with infective trigger. IV furosemide started. On NIV. Monitoring ABG.",
             "confidence": 0.93,
         },
     },
@@ -346,8 +347,8 @@ P: Strict BP control target <130/80. Metformin ceased (eGFR <30). Maximise ACE i
                 "urgency_level": "urgent",
                 "confidence": 0.62,
                 "routing_suggestion": [
-                    {"department": "Vascular Surgery", "confidence": 0.62},
-                    {"department": "Endocrinology", "confidence": 0.55},
+                    {"department": "cardiology", "confidence": 0.62},
+                    {"department": "endocrinology", "confidence": 0.55},
                 ],
             },
             {
@@ -402,7 +403,7 @@ P: Continue sertraline 100mg. CBT referral pending — expedite. Mindfulness app
             "status": VisitStatus.COMPLETED,
             "chief_complaint": "Acute palpitations, chest tightness, fear of dying",
             "urgency_level": "urgent",
-            "current_department": "Emergency",
+            "current_department": "emergency",
             "assigned_doctor": "Dr. Pham",
             "clinical_notes": "Panic attack — organic causes excluded. Discharged with GP follow-up.",
             "confidence": 0.89,
@@ -456,8 +457,9 @@ P: Next device check 12 months. Continue current heart failure regime. CRT-D upg
             "status": VisitStatus.IN_DEPARTMENT,
             "chief_complaint": "Worsening dyspnoea at rest, weight gain, bilateral oedema",
             "urgency_level": "critical",
-            "current_department": "Cardiology",
-            "assigned_doctor": "Dr. Anderson",
+            "current_department": "cardiology",
+            "assigned_doctor": "Dr. Sarah Chen",
+            "clinical_notes": "Acute decompensated HFrEF. IV furosemide infusion. Strict fluid restriction. Awaiting MitraClip referral.",
             "confidence": 0.97,
         },
     },
@@ -508,7 +510,7 @@ P: Switch to propranolol 80mg BD as alternative prophylaxis. Taper topiramate ov
             "status": VisitStatus.ROUTED,
             "chief_complaint": "Follow-up: post-cholecystectomy and migraine prophylaxis change",
             "urgency_level": "routine",
-            "current_department": "General Surgery",
+            "current_department": "gastroenterology",
             "confidence": 0.82,
         },
     },
@@ -559,9 +561,407 @@ P: Step down to nicotine patch 7mg for 4 weeks then stop. HEPA filter at home re
             "urgency_level": "routine",
             "confidence": 0.58,
             "routing_suggestion": [
-                {"department": "Thoracic Surgery", "confidence": 0.58},
-                {"department": "Respiratory", "confidence": 0.52},
+                {"department": "pulmonology", "confidence": 0.58},
+                {"department": "pulmonology", "confidence": 0.52},
             ],
+        },
+    },
+    # --- Additional patients to fill the visit pipeline ---
+    {
+        "name": "Priya Kapoor",
+        "dob": date(1992, 5, 17),
+        "gender": "female",
+        "allergies": [
+            {"allergen": "Amoxicillin", "reaction": "Maculopapular rash", "severity": "moderate", "recorded_at": date(2018, 9, 12)},
+        ],
+        "medications": [
+            {"name": "Levothyroxine", "dosage": "75mcg", "frequency": "once daily before breakfast", "prescribed_by": "Dr. Chen", "start_date": date(2021, 2, 1)},
+            {"name": "Iron bisglycinate", "dosage": "25mg elemental", "frequency": "once daily", "prescribed_by": "Dr. Chen", "start_date": date(2024, 8, 15)},
+        ],
+        "vitals": [
+            {"days_ago": 90, "systolic_bp": 108, "diastolic_bp": 68, "heart_rate": 72, "temperature": 36.5, "weight_kg": 60.0, "height_cm": 163.0},
+            {"days_ago": 30, "systolic_bp": 106, "diastolic_bp": 66, "heart_rate": 78, "temperature": 36.6, "weight_kg": 59.5},
+            {"days_ago": 0, "systolic_bp": 110, "diastolic_bp": 70, "heart_rate": 80, "temperature": 36.8, "weight_kg": 59.2},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Hypothyroid follow-up — dose titration",
+                "content": """S: Priya Kapoor, 33F, Hashimoto's thyroiditis on levothyroxine 75mcg. Reports persistent fatigue, cold intolerance, weight gain despite diet compliance. Iron supplementation started 6 months ago for ferritin 12.
+O: BP 106/66. HR 78. Weight 59.5kg. Skin: dry. Hair: thinning. TSH 6.8 (target <2.5), fT4 12.1 (low-normal). Ferritin 28 (improving). Hb 121 g/L.
+A: Suboptimal thyroid replacement — TSH still elevated. Iron deficiency improving.
+P: Increase levothyroxine to 100mcg. Recheck TSH/fT4 in 6 weeks. Continue iron.""",
+                "created_at_offset_days": 30,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.INTAKE,
+            "chief_complaint": "Fatigue, cold intolerance, requesting thyroid review",
+            "urgency_level": "routine",
+        },
+    },
+    {
+        "name": "George Hartmann",
+        "dob": date(1965, 3, 28),
+        "gender": "male",
+        "allergies": [
+            {"allergen": "Sulfa drugs", "reaction": "Stevens-Johnson syndrome", "severity": "severe", "recorded_at": date(2005, 7, 20)},
+            {"allergen": "Allopurinol", "reaction": "Severe rash", "severity": "severe", "recorded_at": date(2012, 11, 8)},
+        ],
+        "medications": [
+            {"name": "Febuxostat", "dosage": "80mg", "frequency": "once daily", "prescribed_by": "Dr. Patel", "start_date": date(2013, 1, 15)},
+            {"name": "Colchicine", "dosage": "0.5mg", "frequency": "once daily (prophylaxis)", "prescribed_by": "Dr. Patel", "start_date": date(2013, 1, 15)},
+            {"name": "Losartan", "dosage": "50mg", "frequency": "once daily", "prescribed_by": "Dr. Patel", "start_date": date(2019, 6, 1)},
+            {"name": "Metformin", "dosage": "500mg", "frequency": "twice daily", "prescribed_by": "Dr. Patel", "start_date": date(2020, 3, 10)},
+        ],
+        "vitals": [
+            {"days_ago": 60, "systolic_bp": 142, "diastolic_bp": 88, "heart_rate": 76, "temperature": 36.5, "weight_kg": 102.0, "height_cm": 175.0},
+            {"days_ago": 7, "systolic_bp": 138, "diastolic_bp": 86, "heart_rate": 78, "temperature": 37.8, "weight_kg": 101.5},
+            {"days_ago": 0, "systolic_bp": 140, "diastolic_bp": 90, "heart_rate": 82, "temperature": 37.6, "weight_kg": 101.8},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Acute gout flare — right 1st MTP",
+                "content": """S: George Hartmann, 60M. Woke with sudden onset severe pain, swelling, erythema right great toe. Unable to weight-bear. Background gout on febuxostat (allopurinol intolerant — SJS). T2DM on metformin. Reports dietary indiscretion (beer and red meat at weekend).
+O: Temp 37.6. Right 1st MTP: hot, swollen, erythematous, exquisitely tender. Serum urate 0.58 mmol/L (can be normal during flare). WCC 12.1, CRP 45.
+A: Acute gout flare — classic presentation. No joint aspiration needed given prior confirmed diagnosis.
+P: Colchicine 0.5mg TDS for 3 days then BD. Naproxen avoided (renal function). Paracetamol 1g QDS. Ice. Elevate. Dietary counselling reinforced.""",
+                "created_at_offset_days": 0,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.INTAKE,
+            "chief_complaint": "Sudden severe right toe pain and swelling — gout flare",
+            "urgency_level": "urgent",
+        },
+    },
+    {
+        "name": "Fatima Al-Rashid",
+        "dob": date(1983, 10, 25),
+        "gender": "female",
+        "allergies": [
+            {"allergen": "Ciprofloxacin", "reaction": "Tendinopathy", "severity": "moderate", "recorded_at": date(2020, 4, 12)},
+        ],
+        "medications": [
+            {"name": "Insulin pump (Humalog)", "dosage": "variable basal/bolus", "frequency": "continuous SC infusion", "prescribed_by": "Dr. Kim", "start_date": date(2019, 9, 1)},
+            {"name": "Dapagliflozin", "dosage": "5mg", "frequency": "once daily", "prescribed_by": "Dr. Kim", "start_date": date(2022, 1, 15)},
+            {"name": "Lisinopril", "dosage": "10mg", "frequency": "once daily", "prescribed_by": "Dr. Kim", "start_date": date(2020, 6, 1)},
+        ],
+        "vitals": [
+            {"days_ago": 90, "systolic_bp": 124, "diastolic_bp": 78, "heart_rate": 68, "temperature": 36.5, "weight_kg": 72.0, "height_cm": 168.0, "oxygen_saturation": 99.0},
+            {"days_ago": 30, "systolic_bp": 120, "diastolic_bp": 76, "heart_rate": 70, "temperature": 36.6, "weight_kg": 71.5},
+            {"days_ago": 0, "systolic_bp": 118, "diastolic_bp": 74, "heart_rate": 66, "temperature": 36.4, "weight_kg": 71.2},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "T1DM insulin pump review — optimisation",
+                "content": """S: Fatima Al-Rashid, 42F, T1DM since age 12. On insulin pump (Humalog) + CGM. Presenting for 6-monthly pump review. Reports 2 episodes nocturnal hypoglycaemia (CGM alert). TIR 68% (target >70%). No DKA episodes.
+O: BP 120/76. HbA1c 7.4% (prev 7.8%). CGM download: time in range 68%, time below range 8%, time above range 24%. Basal overnight rate appears too high 02:00-05:00. Fundoscopy: mild background retinopathy (stable).
+A: T1DM — improving control. Nocturnal hypos from basal over-delivery. Background retinopathy stable.
+P: Reduce overnight basal 02:00-05:00 by 15%. Target TIR >70%. Annual retinopathy screen completed. Continue dapagliflozin. Recheck HbA1c in 3 months.""",
+                "created_at_offset_days": 0,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.TRIAGED,
+            "chief_complaint": "Insulin pump review — nocturnal hypoglycaemia episodes",
+            "urgency_level": "routine",
+        },
+    },
+    {
+        "name": "Thomas Burke",
+        "dob": date(1956, 7, 4),
+        "gender": "male",
+        "allergies": [
+            {"allergen": "Cephalosporins", "reaction": "Urticaria", "severity": "moderate", "recorded_at": date(2010, 3, 22)},
+            {"allergen": "Tramadol", "reaction": "Seizures", "severity": "severe", "recorded_at": date(2017, 12, 5)},
+        ],
+        "medications": [
+            {"name": "Tamsulosin", "dosage": "0.4mg", "frequency": "once daily", "prescribed_by": "Dr. Singh", "start_date": date(2020, 1, 15)},
+            {"name": "Finasteride", "dosage": "5mg", "frequency": "once daily", "prescribed_by": "Dr. Singh", "start_date": date(2020, 1, 15)},
+            {"name": "Amlodipine", "dosage": "5mg", "frequency": "once daily", "prescribed_by": "Dr. Patel", "start_date": date(2018, 5, 10)},
+            {"name": "Paracetamol", "dosage": "1g", "frequency": "three times daily PRN", "prescribed_by": "Dr. Patel", "start_date": date(2023, 9, 1)},
+        ],
+        "vitals": [
+            {"days_ago": 60, "systolic_bp": 136, "diastolic_bp": 82, "heart_rate": 70, "temperature": 36.4, "weight_kg": 82.0, "height_cm": 178.0},
+            {"days_ago": 14, "systolic_bp": 134, "diastolic_bp": 80, "heart_rate": 72, "temperature": 36.5, "weight_kg": 81.5},
+            {"days_ago": 0, "systolic_bp": 132, "diastolic_bp": 78, "heart_rate": 68, "temperature": 36.6, "weight_kg": 81.8},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "BPH symptom review — IPSS improvement",
+                "content": """S: Thomas Burke, 69M. 6-month review of BPH on tamsulosin + finasteride. IPSS improved from 22 to 14. Nocturia reduced from 5x to 2x. No urinary retention episodes. Reports reduced libido (finasteride side effect).
+O: BP 134/80. DRE: enlarged prostate (~50g), smooth, no nodules. PSA 3.2 (stable). Post-void residual 45mL (improved from 120mL).
+A: BPH — good response to combination therapy. IPSS moderate range.
+P: Continue current regimen. Discuss libido with patient — consider PDE5 inhibitor if bothersome. Repeat PSA + IPSS in 6 months. Urology referral if symptoms plateau.""",
+                "created_at_offset_days": 14,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.AUTO_ROUTED,
+            "chief_complaint": "BPH follow-up — worsening nocturia despite medication",
+            "urgency_level": "routine",
+            "confidence": 0.85,
+            "routing_suggestion": [{"department": "urology", "confidence": 0.85}],
+        },
+    },
+    {
+        "name": "Sophie Laurent",
+        "dob": date(1997, 12, 3),
+        "gender": "female",
+        "allergies": [
+            {"allergen": "Ibuprofen", "reaction": "Gastritis", "severity": "mild", "recorded_at": date(2022, 6, 15)},
+        ],
+        "medications": [
+            {"name": "Cetirizine", "dosage": "10mg", "frequency": "once daily", "prescribed_by": "Dr. Wong", "start_date": date(2023, 4, 1)},
+            {"name": "Mometasone furoate nasal spray", "dosage": "50mcg/spray", "frequency": "2 sprays each nostril daily", "prescribed_by": "Dr. Wong", "start_date": date(2023, 4, 1)},
+        ],
+        "vitals": [
+            {"days_ago": 30, "systolic_bp": 110, "diastolic_bp": 68, "heart_rate": 70, "temperature": 36.5, "weight_kg": 58.0, "height_cm": 170.0, "oxygen_saturation": 99.0},
+            {"days_ago": 0, "systolic_bp": 108, "diastolic_bp": 66, "heart_rate": 72, "temperature": 36.6, "weight_kg": 57.8},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Allergic rhinitis — ENT referral assessment",
+                "content": """S: Sophie Laurent, 28F. Chronic nasal congestion, sneezing, rhinorrhoea for 3 years. Worse spring/autumn. On cetirizine + mometasone. Reports partial relief but still symptomatic. Post-nasal drip causing throat clearing. SNOT-22 score: 42.
+O: Anterior rhinoscopy: bilateral turbinate hypertrophy, pale mucosa, clear secretions. No polyps visible. Tympanometry: bilateral type B (middle ear effusion).
+A: Moderate-severe allergic rhinitis with eustachian tube dysfunction. Not responding to first-line treatment.
+P: Skin prick allergy testing. Add montelukast 10mg. Consider immunotherapy if allergens confirmed. Audiology referral for hearing assessment.""",
+                "created_at_offset_days": 0,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.AUTO_ROUTED,
+            "chief_complaint": "Chronic nasal congestion — not responding to medication",
+            "urgency_level": "routine",
+            "confidence": 0.92,
+            "routing_suggestion": [{"department": "ent", "confidence": 0.92}],
+        },
+    },
+    {
+        "name": "Robert Fitzgerald",
+        "dob": date(1952, 6, 14),
+        "gender": "male",
+        "allergies": [
+            {"allergen": "Statins (myalgia)", "reaction": "Severe myalgia with rhabdomyolysis risk", "severity": "severe", "recorded_at": date(2015, 8, 20)},
+            {"allergen": "ACE inhibitors", "reaction": "Persistent cough", "severity": "moderate", "recorded_at": date(2012, 4, 10)},
+        ],
+        "medications": [
+            {"name": "Ezetimibe", "dosage": "10mg", "frequency": "once daily", "prescribed_by": "Dr. Anderson", "start_date": date(2016, 1, 1)},
+            {"name": "Candesartan", "dosage": "16mg", "frequency": "once daily", "prescribed_by": "Dr. Anderson", "start_date": date(2012, 5, 15)},
+            {"name": "Aspirin", "dosage": "75mg", "frequency": "once daily", "prescribed_by": "Dr. Anderson", "start_date": date(2011, 3, 1)},
+            {"name": "GTN spray", "dosage": "400mcg/spray", "frequency": "PRN for angina", "prescribed_by": "Dr. Anderson", "start_date": date(2011, 3, 1)},
+            {"name": "Bisoprolol", "dosage": "5mg", "frequency": "once daily", "prescribed_by": "Dr. Anderson", "start_date": date(2011, 3, 1)},
+        ],
+        "vitals": [
+            {"days_ago": 90, "systolic_bp": 142, "diastolic_bp": 84, "heart_rate": 64, "temperature": 36.3, "weight_kg": 85.0, "height_cm": 176.0, "oxygen_saturation": 96.0},
+            {"days_ago": 30, "systolic_bp": 138, "diastolic_bp": 82, "heart_rate": 62, "weight_kg": 84.5},
+            {"days_ago": 1, "systolic_bp": 156, "diastolic_bp": 92, "heart_rate": 88, "temperature": 36.5, "weight_kg": 84.8, "oxygen_saturation": 95.0},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Unstable angina — ED presentation",
+                "content": """S: Robert Fitzgerald, 73M, known stable angina + 2-vessel CAD (PCI to LAD 2011). Presenting with 45-minute episode of crushing chest pain at rest, radiating to left arm. GTN spray provided partial relief after 3 doses. No prior ACS. Statin intolerant (rhabdomyolysis risk).
+O: HR 88 (sinus). BP 156/92. SpO2 95%. ECG: ST depression V4-V6, T-wave inversion lead III. Troponin T: 28 ng/L (borderline, repeat in 3 hours). CK normal.
+A: NSTEMI vs unstable angina — high risk (GRACE score 142). Known 2-vessel CAD.
+P: Aspirin 300mg loading. Fondaparinux 2.5mg SC. IV morphine for pain. Repeat troponin at 3h. Cardiology urgent — probable angiogram within 72 hours. Bed rest. Continuous monitoring.""",
+                "created_at_offset_days": 1,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.IN_DEPARTMENT,
+            "chief_complaint": "Crushing chest pain at rest — possible ACS",
+            "urgency_level": "critical",
+            "current_department": "cardiology",
+            "assigned_doctor": "Dr. Sarah Chen",
+            "clinical_notes": "NSTEMI workup. Troponin trending. Angiography scheduled within 72h.",
+            "confidence": 0.98,
+        },
+    },
+    {
+        "name": "Lily Nakamura",
+        "dob": date(2000, 4, 19),
+        "gender": "female",
+        "allergies": [],
+        "medications": [
+            {"name": "Combined OCP (Levlen ED)", "dosage": "30mcg EE / 150mcg LNG", "frequency": "once daily", "prescribed_by": "Dr. Vasquez", "start_date": date(2022, 1, 10)},
+        ],
+        "vitals": [
+            {"days_ago": 14, "systolic_bp": 112, "diastolic_bp": 70, "heart_rate": 68, "temperature": 36.6, "weight_kg": 55.0, "height_cm": 160.0, "oxygen_saturation": 99.0},
+            {"days_ago": 0, "systolic_bp": 114, "diastolic_bp": 72, "heart_rate": 74, "temperature": 36.8, "weight_kg": 54.8},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Dermatology referral — persistent acne vulgaris",
+                "content": """S: Lily Nakamura, 25F. Moderate-severe acne vulgaris for 8 years. Failed topical retinoids, benzoyl peroxide, and 6-month course of oral doxycycline. Currently on OCP (partially helpful). Scarring on cheeks causing significant psychological distress. PHQ-9: 6 (mild).
+O: Face: inflammatory papules and pustules on cheeks, chin, forehead. Comedones on nose. Ice-pick scarring bilateral cheeks. No nodules/cysts today. Back: mild comedonal acne.
+A: Moderate-severe acne vulgaris — treatment-resistant to conventional therapy. Scarring present.
+P: Refer dermatology for isotretinoin consideration. Baseline bloods: FBC, LFTs, lipids, pregnancy test. Contraception counselling (isotretinoin teratogenic). Continue OCP.""",
+                "created_at_offset_days": 0,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.TRIAGED,
+            "chief_complaint": "Treatment-resistant acne — requesting specialist referral",
+            "urgency_level": "routine",
+        },
+    },
+    {
+        "name": "Carlos Mendez",
+        "dob": date(1978, 11, 8),
+        "gender": "male",
+        "allergies": [
+            {"allergen": "Latex", "reaction": "Anaphylaxis", "severity": "severe", "recorded_at": date(2015, 2, 18)},
+        ],
+        "medications": [
+            {"name": "Pantoprazole", "dosage": "40mg", "frequency": "once daily", "prescribed_by": "Dr. Vasquez", "start_date": date(2024, 6, 1)},
+            {"name": "Sucralfate", "dosage": "1g", "frequency": "four times daily before meals", "prescribed_by": "Dr. Vasquez", "start_date": date(2024, 6, 1)},
+        ],
+        "vitals": [
+            {"days_ago": 30, "systolic_bp": 128, "diastolic_bp": 80, "heart_rate": 76, "temperature": 36.6, "weight_kg": 78.0, "height_cm": 175.0},
+            {"days_ago": 7, "systolic_bp": 130, "diastolic_bp": 82, "heart_rate": 78, "temperature": 36.5, "weight_kg": 77.2},
+            {"days_ago": 0, "systolic_bp": 126, "diastolic_bp": 78, "heart_rate": 74, "temperature": 36.7, "weight_kg": 77.5},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Gastric ulcer follow-up — repeat OGD",
+                "content": """S: Carlos Mendez, 47M. 8-week follow-up post H. pylori eradication (triple therapy completed). Initial OGD showed 1.5cm gastric antral ulcer. H. pylori CLO test positive. Completed amoxicillin + clarithromycin + PPI. Reports significant symptom improvement — epigastric pain resolved.
+O: Repeat OGD: gastric antral ulcer healing — 0.5cm residual with clean base. No malignant features. CLO test: negative (eradication confirmed). Biopsies taken — awaiting histology.
+A: Gastric ulcer — healing well post H. pylori eradication. Eradication confirmed.
+P: Continue PPI 8 more weeks. Repeat OGD in 8 weeks to confirm complete healing. Stop sucralfate when ulcer healed. Histology follow-up in 2 weeks.""",
+                "created_at_offset_days": 7,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.ROUTED,
+            "chief_complaint": "Gastric ulcer follow-up — repeat endoscopy results review",
+            "urgency_level": "routine",
+            "current_department": "gastroenterology",
+            "assigned_doctor": "Dr. Vasquez",
+            "confidence": 0.90,
+        },
+    },
+    {
+        "name": "Ingrid Johansson",
+        "dob": date(1971, 1, 15),
+        "gender": "female",
+        "allergies": [
+            {"allergen": "Methotrexate", "reaction": "Pancytopenia", "severity": "severe", "recorded_at": date(2019, 3, 5)},
+            {"allergen": "Sulfasalazine", "reaction": "Hepatotoxicity", "severity": "severe", "recorded_at": date(2016, 11, 22)},
+        ],
+        "medications": [
+            {"name": "Adalimumab (Humira)", "dosage": "40mg", "frequency": "every 2 weeks SC", "prescribed_by": "Dr. Wong", "start_date": date(2020, 2, 1)},
+            {"name": "Prednisolone", "dosage": "5mg", "frequency": "once daily", "prescribed_by": "Dr. Wong", "start_date": date(2023, 10, 15)},
+            {"name": "Calcium + Vitamin D", "dosage": "1000mg / 800IU", "frequency": "once daily", "prescribed_by": "Dr. Wong", "start_date": date(2020, 2, 1)},
+            {"name": "Folic acid", "dosage": "5mg", "frequency": "once weekly", "prescribed_by": "Dr. Wong", "start_date": date(2020, 2, 1)},
+        ],
+        "vitals": [
+            {"days_ago": 60, "systolic_bp": 126, "diastolic_bp": 78, "heart_rate": 72, "temperature": 36.5, "weight_kg": 70.0, "height_cm": 172.0},
+            {"days_ago": 14, "systolic_bp": 128, "diastolic_bp": 80, "heart_rate": 74, "temperature": 37.2, "weight_kg": 69.5},
+            {"days_ago": 0, "systolic_bp": 130, "diastolic_bp": 82, "heart_rate": 78, "temperature": 37.0, "weight_kg": 69.8},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "RA flare — biologic therapy review",
+                "content": """S: Ingrid Johansson, 55F, seropositive RA x12 years. On adalimumab (MTX intolerant — pancytopenia, sulfasalazine intolerant — hepatotoxicity). Presenting with 3-week flare: bilateral hand/wrist swelling, morning stiffness >2 hours, DAS28 5.1.
+O: Bilateral MCP and PIP swelling (2nd-4th). Bilateral wrist synovitis. ESR 48, CRP 32. RF 180, anti-CCP >300. X-ray hands: periarticular erosions MCP 2-3 bilaterally (progressive from last year).
+A: Active RA with radiographic progression despite adalimumab. DAS28 >5.1 = high disease activity.
+P: Prednisolone burst 15mg taper over 6 weeks. Consider biologic switch to rituximab or JAK inhibitor. Rheumatology MDT discussion. Hand therapy referral.""",
+                "created_at_offset_days": 0,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.PENDING_REVIEW,
+            "chief_complaint": "RA flare — biologic therapy not controlling disease",
+            "urgency_level": "urgent",
+            "confidence": 0.65,
+            "routing_suggestion": [
+                {"department": "orthopedics", "confidence": 0.65},
+                {"department": "internal_medicine", "confidence": 0.58},
+            ],
+        },
+    },
+    {
+        "name": "Ahmed Hassan",
+        "dob": date(1945, 8, 20),
+        "gender": "male",
+        "allergies": [
+            {"allergen": "Gentamicin", "reaction": "Ototoxicity", "severity": "severe", "recorded_at": date(2010, 5, 15)},
+        ],
+        "medications": [
+            {"name": "Donepezil", "dosage": "10mg", "frequency": "once daily at night", "prescribed_by": "Dr. Santos", "start_date": date(2023, 6, 1)},
+            {"name": "Memantine", "dosage": "10mg", "frequency": "twice daily", "prescribed_by": "Dr. Santos", "start_date": date(2024, 1, 15)},
+            {"name": "Amlodipine", "dosage": "5mg", "frequency": "once daily", "prescribed_by": "Dr. Santos", "start_date": date(2018, 9, 1)},
+            {"name": "Rivastigmine patch", "dosage": "9.5mg/24h", "frequency": "once daily transdermal", "prescribed_by": "Dr. Santos", "start_date": date(2023, 6, 1), "end_date": date(2023, 8, 31)},
+        ],
+        "vitals": [
+            {"days_ago": 90, "systolic_bp": 138, "diastolic_bp": 78, "heart_rate": 68, "temperature": 36.3, "weight_kg": 72.0, "height_cm": 170.0, "oxygen_saturation": 96.0},
+            {"days_ago": 30, "systolic_bp": 140, "diastolic_bp": 80, "heart_rate": 66, "weight_kg": 70.5},
+            {"days_ago": 0, "systolic_bp": 136, "diastolic_bp": 76, "heart_rate": 64, "temperature": 36.2, "weight_kg": 69.8},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Alzheimer's disease — caregiver review",
+                "content": """S: Ahmed Hassan, 80M, moderate Alzheimer's disease (MMSE 16/30, down from 18 six months ago). Accompanied by daughter (primary caregiver). Reports increased wandering at night, occasional agitation, difficulty recognising grandchildren. Caregiver burnout evident.
+O: BP 136/76. MMSE 16/30. Clock drawing test: 2/5. ADL assessment: requires assistance with bathing, dressing, medication management. Independent with eating and toileting. Gait: slow, steady.
+A: Moderate Alzheimer's — progressive decline on dual therapy. Caregiver distress.
+P: Continue donepezil + memantine. Neurology review for progression. OT home safety assessment. Respite care referral for daughter. Advance care planning discussion initiated.""",
+                "created_at_offset_days": 0,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.IN_DEPARTMENT,
+            "chief_complaint": "Memory decline, nocturnal wandering, caregiver unable to cope",
+            "urgency_level": "urgent",
+            "current_department": "neurology",
+            "confidence": 0.94,
+        },
+    },
+    {
+        "name": "Nina Volkova",
+        "dob": date(1988, 7, 30),
+        "gender": "female",
+        "allergies": [
+            {"allergen": "Tetracyclines", "reaction": "Photosensitivity", "severity": "mild", "recorded_at": date(2019, 7, 8)},
+        ],
+        "medications": [
+            {"name": "Alendronate", "dosage": "70mg", "frequency": "once weekly", "prescribed_by": "Dr. Nguyen", "start_date": date(2024, 3, 1)},
+            {"name": "Calcium + Vitamin D", "dosage": "1200mg / 800IU", "frequency": "once daily", "prescribed_by": "Dr. Nguyen", "start_date": date(2024, 3, 1)},
+            {"name": "Naproxen", "dosage": "500mg", "frequency": "twice daily PRN", "prescribed_by": "Dr. Nguyen", "start_date": date(2024, 6, 15)},
+        ],
+        "vitals": [
+            {"days_ago": 60, "systolic_bp": 118, "diastolic_bp": 72, "heart_rate": 70, "temperature": 36.5, "weight_kg": 56.0, "height_cm": 165.0},
+            {"days_ago": 7, "systolic_bp": 120, "diastolic_bp": 74, "heart_rate": 72, "temperature": 36.6, "weight_kg": 55.8},
+            {"days_ago": 0, "systolic_bp": 116, "diastolic_bp": 70, "heart_rate": 68, "temperature": 36.4, "weight_kg": 55.5},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Stress fracture — right tibial shaft",
+                "content": """S: Nina Volkova, 37F, competitive marathon runner. Presenting with 4-week progressive right shin pain, worse with running, relieved by rest. Training for upcoming marathon — increased mileage by 30% over 6 weeks. Background: early osteopenia on DEXA (T-score -1.8, alendronate started).
+O: Tenderness over right tibial shaft mid-third. No swelling. X-ray: subtle periosteal reaction. MRI: stress fracture right tibial diaphysis with bone marrow oedema.
+A: Right tibial stress fracture. Contributing factors: rapid training escalation, osteopenia, possible relative energy deficiency in sport (RED-S).
+P: Non-weight-bearing 6 weeks with moon boot. No running for 12 weeks minimum. DEXA review. Nutritional assessment — screen for RED-S. Calcium + Vitamin D continued. Gradual return to running protocol with sports medicine.""",
+                "created_at_offset_days": 7,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.COMPLETED,
+            "chief_complaint": "Right shin pain — stress fracture confirmed on MRI",
+            "urgency_level": "routine",
+            "current_department": "orthopedics",
+            "assigned_doctor": "Dr. Nguyen",
+            "clinical_notes": "Tibial stress fracture. Moon boot. No running 12 weeks. RED-S screening.",
+            "confidence": 0.96,
         },
     },
 ]
@@ -631,6 +1031,17 @@ async def _seed_patient_data(db: AsyncSession, data: dict, visit_counter: list) 
     patient = await _upsert_patient(db, data["name"], data["dob"], data["gender"])
 
     # Clear existing clinical data so re-runs stay clean
+    # Clear visits first (FK to chat_sessions), then clinical data
+    existing_visits = await db.execute(
+        select(Visit).where(Visit.patient_id == patient.id)
+    )
+    for v in existing_visits.scalars().all():
+        if v.intake_session_id:
+            session = await db.get(ChatSession, v.intake_session_id)
+            if session:
+                await db.delete(session)
+        await db.delete(v)
+
     for model_cls in (Allergy, Medication, VitalSign, MedicalRecord):
         existing = await db.execute(
             select(model_cls).where(model_cls.patient_id == patient.id)

@@ -46,7 +46,7 @@ export default function LoginPage() {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="w-8 h-8 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
@@ -54,8 +54,8 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       {/* Background effects */}
-      <div className="fixed inset-0 dot-matrix-bg opacity-30" />
-      <div className="fixed inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-teal-500/5" />
+      <div className="fixed inset-0 dot-matrix-bg opacity-15" />
+      <div className="fixed inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
 
       <div className="relative z-10 w-full max-w-md mx-4">
         {/* Logo */}
@@ -70,7 +70,7 @@ export default function LoginPage() {
               unoptimized
             />
           </div>
-          <h1 className="font-display text-2xl font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+          <h1 className="font-display text-2xl font-bold tracking-wider text-primary">
             MEDI-NEXUS
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -142,7 +142,7 @@ export default function LoginPage() {
               <button
                 onClick={() => quickLogin("doctor", "doctor123")}
                 disabled={isSubmitting}
-                className="flex flex-col items-center gap-1.5 rounded-lg border border-border px-3 py-3 text-xs transition-all hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 disabled:opacity-50"
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-border px-3 py-3 text-xs transition-all hover:bg-primary/10 hover:border-primary/30 hover:text-primary disabled:opacity-50"
               >
                 <Stethoscope className="w-5 h-5" />
                 Doctor
@@ -150,7 +150,7 @@ export default function LoginPage() {
               <button
                 onClick={() => quickLogin("admin", "admin123")}
                 disabled={isSubmitting}
-                className="flex flex-col items-center gap-1.5 rounded-lg border border-border px-3 py-3 text-xs transition-all hover:bg-purple-500/10 hover:border-purple-500/30 hover:text-purple-400 disabled:opacity-50"
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-border px-3 py-3 text-xs transition-all hover:bg-accent hover:border-foreground/15 hover:text-foreground disabled:opacity-50"
               >
                 <Settings className="w-5 h-5" />
                 Admin

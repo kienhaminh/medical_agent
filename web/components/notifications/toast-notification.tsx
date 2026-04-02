@@ -29,7 +29,7 @@ export function ToastNotification({ toasts, onDismiss }: ToastNotificationProps)
           ) : toast.severity === "warning" ? (
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
           ) : (
-            <Info className="h-4 w-4 shrink-0 mt-0.5 text-cyan-400" />
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
           )}
 
           <div className="flex-1 min-w-0">

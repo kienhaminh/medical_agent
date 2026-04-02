@@ -160,7 +160,7 @@ export function ThinkingProgress({
 
       {/* Regular reasoning content */}
       {regularContent && (
-        <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap font-mono leading-relaxed bg-muted/30 p-3 rounded-md border border-cyan-500/30">
+        <div className="text-xs text-muted-foreground/90 whitespace-pre-wrap font-mono leading-relaxed bg-muted/30 p-3 rounded-md border border-primary/30">
           {regularContent}
         </div>
       )}

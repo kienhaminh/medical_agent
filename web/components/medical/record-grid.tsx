@@ -45,7 +45,7 @@ export function RecordGrid({ records, onRecordClick }: RecordGridProps) {
             ) : (
               <div className="p-8">
                 {record.record_type === "image" ? (
-                  <FileImage className="w-16 h-16 text-cyan-500" />
+                  <FileImage className="w-16 h-16 text-primary" />
                 ) : record.record_type === "pdf" ? (
                   <FileText className="w-16 h-16 text-purple-500" />
                 ) : (

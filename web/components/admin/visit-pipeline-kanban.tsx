@@ -15,11 +15,11 @@ interface VisitPipelineKanbanProps {
 
 /** Column definitions for the Kanban pipeline. */
 const PIPELINE_COLUMNS = [
-  { status: "intake", label: "Intake", color: "#00d9ff" },
+  { status: "intake", label: "Intake", color: "hsl(var(--primary))" },
   { status: "auto_routed", label: "Routing", color: "#a855f7" },
   { status: "pending_review", label: "Needs Review", color: "#f59e0b" },
   { status: "routed", label: "Routed", color: "#14b8a6" },
-  { status: "in_department", label: "In Department", color: "#6366f1" },
+  { status: "in_department", label: "In Department", color: "#6d7a8c" },
 ] as const;
 
 /** Truncate text to a max length with ellipsis. */
@@ -45,7 +45,7 @@ export function VisitPipelineKanban({
             }}
           >
             {/* Column header */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <span
                 className="text-xs font-bold font-mono"
                 style={{ color: col.color }}
@@ -69,7 +69,7 @@ export function VisitPipelineKanban({
             <ScrollArea className="flex-1 max-h-[400px]">
               <div className="p-2 space-y-2">
                 {visits.length === 0 && (
-                  <div className="text-[10px] font-mono text-[#8b949e] text-center py-4">
+                  <div className="text-[10px] font-mono text-muted-foreground text-center py-4">
                     No visits
                   </div>
                 )}
@@ -78,21 +78,21 @@ export function VisitPipelineKanban({
                   return (
                     <div
                       key={visit.visit_id}
-                      className="rounded-lg px-3 py-2 bg-white/[0.03] border border-white/[0.05] transition-colors hover:bg-white/[0.05]"
+                      className="rounded-lg px-3 py-2 bg-muted/30 border border-border transition-colors hover:bg-muted/50"
                     >
                       {/* Patient name */}
-                      <div className="text-[11px] font-bold font-mono text-[#c9d1d9] truncate">
+                      <div className="text-[11px] font-bold font-mono text-foreground truncate">
                         {visit.patient_name}
                       </div>
 
                       {/* Visit ID */}
-                      <div className="text-[10px] font-mono text-[#8b949e] mt-0.5">
+                      <div className="text-[10px] font-mono text-muted-foreground mt-0.5">
                         {visit.visit_id}
                       </div>
 
                       {/* Complaint snippet */}
                       {visit.chief_complaint && (
-                        <div className="text-[10px] font-mono text-[#8b949e] mt-1 leading-tight">
+                        <div className="text-[10px] font-mono text-muted-foreground mt-1 leading-tight">
                           {truncate(visit.chief_complaint, 60)}
                         </div>
                       )}
@@ -106,7 +106,7 @@ export function VisitPipelineKanban({
                           {formatTimeAgo(visit.created_at)}
                         </span>
                         {visit.current_department && (
-                          <span className="text-[10px] font-mono text-[#6366f1] truncate ml-2">
+                          <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 truncate ml-2">
                             {visit.current_department}
                           </span>
                         )}

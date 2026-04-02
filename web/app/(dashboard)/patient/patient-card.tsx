@@ -24,11 +24,11 @@ export function PatientCard({ patient, viewMode }: PatientCardProps) {
         <Card className="record-card group">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 group-hover:scale-110 transition-transform">
-                <User className="w-6 h-6 text-cyan-500" />
+              <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:scale-110 transition-transform">
+                <User className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-semibold group-hover:text-cyan-500 transition-colors">
+                <h3 className="font-display text-lg font-semibold group-hover:text-primary transition-colors">
                   {patient.name}
                 </h3>
                 <p className="text-xs text-muted-foreground">Patient ID: #{patient.id}</p>
@@ -54,13 +54,13 @@ export function PatientCard({ patient, viewMode }: PatientCardProps) {
       ) : (
         <Card className="record-card group p-4 hover:scale-[1.01] transition-all">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 group-hover:scale-110 transition-transform flex-shrink-0">
-              <User className="w-5 h-5 text-cyan-500" />
+            <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:scale-110 transition-transform flex-shrink-0">
+              <User className="w-5 h-5 text-primary" />
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-1">
-                <h3 className="font-display text-base font-semibold group-hover:text-cyan-500 transition-colors truncate">
+                <h3 className="font-display text-base font-semibold group-hover:text-primary transition-colors truncate">
                   {patient.name}
                 </h3>
                 <Badge variant={genderVariant(patient.gender)} className="flex-shrink-0">

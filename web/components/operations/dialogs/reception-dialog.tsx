@@ -75,13 +75,13 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-[#161b22] border-white/[0.06]">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-[#00d9ff] font-mono flex items-center gap-2">
+          <DialogTitle className="text-primary font-mono flex items-center gap-2">
             {selectedVisit && (
               <button
                 onClick={handleBack}
-                className="text-[#8b949e] hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft size={16} />
               </button>
@@ -101,7 +101,7 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex gap-1 border-b border-white/[0.06] pb-2">
+            <div className="flex gap-1 border-b border-border pb-2">
               {TABS.map((tab) => {
                 const count = visits.filter((v) => tab.statuses.includes(v.status)).length;
                 return (
@@ -110,8 +110,8 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
                     onClick={() => setActiveTab(tab.id)}
                     className={`px-3 py-1.5 rounded-md text-xs font-mono transition-colors ${
                       activeTab === tab.id
-                        ? "bg-[rgba(0,217,255,0.1)] text-[#00d9ff]"
-                        : "text-[#8b949e] hover:text-white"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {tab.label} ({count})
@@ -126,25 +126,25 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
                 <p className="text-xs text-red-400 px-1">{visitLoadError}</p>
               )}
               {filteredVisits.length === 0 && (
-                <p className="text-center text-[#8b949e] text-sm py-8">No patients in this stage</p>
+                <p className="text-center text-muted-foreground text-sm py-8">No patients in this stage</p>
               )}
               {filteredVisits.map((visit) => (
                 <button
                   key={visit.id}
                   onClick={() => handleVisitClick(visit)}
                   disabled={loadingVisit}
-                  className="w-full text-left rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 cursor-pointer hover:border-[rgba(0,217,255,0.3)] transition-colors disabled:opacity-50"
+                  className="w-full text-left rounded-lg border border-border bg-muted/20 px-3 py-2 cursor-pointer hover:border-primary/30 transition-colors disabled:opacity-50"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-white">{visit.patient_name}</span>
-                    <span className="text-[10px] font-mono text-[#8b949e]">
+                    <span className="text-sm font-semibold text-foreground">{visit.patient_name}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
                       {formatTimeAgo(visit.created_at)}
                     </span>
                   </div>
                   {visit.chief_complaint && (
-                    <p className="text-xs text-[#8b949e] mt-1 line-clamp-1">{visit.chief_complaint}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{visit.chief_complaint}</p>
                   )}
-                  <div className="text-[10px] font-mono text-[#6b7280] mt-1">
+                  <div className="text-[10px] font-mono text-muted-foreground mt-1">
                     {visit.visit_id} · {visit.status.replaceAll("_", " ")}
                   </div>
                 </button>

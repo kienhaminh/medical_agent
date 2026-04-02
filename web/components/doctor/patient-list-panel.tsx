@@ -4,7 +4,6 @@ import { User, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import type { VisitListItem } from "@/lib/api";
 import { LiveBoardFeed } from "./live-board-feed";
 import type { WSEvent } from "@/lib/ws-events";
@@ -43,7 +42,7 @@ function PatientCard({
       className={cn(
         "w-full text-left px-3 py-2 rounded-md transition-colors",
         selected
-          ? "bg-cyan-500/10 border border-cyan-500/30"
+          ? "bg-primary/10 border border-primary/30"
           : "hover:bg-muted/50 border border-transparent",
       )}
     >
@@ -99,15 +98,15 @@ export function PatientListPanel({
   wsEvents,
 }: PatientListPanelProps) {
   return (
-    <div className="flex flex-col h-full border-r border-border bg-card/20">
+    <div className="flex flex-col h-full border-r border-border bg-card overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-3 border-b border-border">
-        <User className="h-4 w-4 text-cyan-500" />
+        <User className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold">Patients</span>
       </div>
 
       {/* Scrollable content */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {loading ? (
           <QueueSkeleton />
         ) : (
@@ -153,7 +152,7 @@ export function PatientListPanel({
             </div>
           </>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Live Board Feed */}
       <div className="border-t border-border">

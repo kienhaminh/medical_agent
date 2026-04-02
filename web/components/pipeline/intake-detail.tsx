@@ -54,7 +54,7 @@ export function IntakeDetail({ visit }: IntakeDetailProps) {
     <div className="flex flex-col gap-4 h-full">
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <Badge variant="outline" className="border-cyan-500/40 text-cyan-500">
+          <Badge variant="outline" className="border-primary/40 text-primary">
             Intake in Progress
           </Badge>
         </div>

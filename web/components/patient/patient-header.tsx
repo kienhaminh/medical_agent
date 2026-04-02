@@ -37,7 +37,7 @@ export function PatientHeader({
                   router.push("/patient");
                 }
               }}
-              className="hover:bg-cyan-500/10"
+              className="hover:bg-primary/10"
               title={sessionId ? "Back to Chat" : "Back to Patients"}
             >
               <ChevronLeft className="w-5 h-5" />
@@ -47,7 +47,7 @@ export function PatientHeader({
               {sessionId && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                   <span
-                    className="text-cyan-500 cursor-pointer hover:underline"
+                    className="text-primary cursor-pointer hover:underline"
                     onClick={() => router.push(`/agent?session=${sessionId}`)}
                   >
                     Agent Chat
@@ -57,7 +57,7 @@ export function PatientHeader({
                 </div>
               )}
               <h1 className="font-display text-2xl font-bold flex items-center gap-3">
-                <div className="w-1 h-8 bg-gradient-to-b from-cyan-500 to-teal-500 rounded-full" />
+                <div className="w-1 h-8 bg-primary rounded-full" />
                 {patient.name}
               </h1>
               <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
@@ -81,7 +81,7 @@ export function PatientHeader({
           <div className="flex items-center gap-3">
             <Button
               onClick={() => setAiOpen(!aiOpen)}
-              variant={aiOpen ? "medical-outline" : "medical"}
+              variant={aiOpen ? "outline-primary" : "default"}
             >
               <Sparkles className="w-4 h-4 mr-2" />
               {aiOpen ? "Close AI" : "AI Assistant"}

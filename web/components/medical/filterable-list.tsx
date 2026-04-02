@@ -103,12 +103,12 @@ export function FilterableList<T extends Record<string, any>>({
             variant="outline"
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
-            className={`gap-2 ${showFilters ? "bg-cyan-500/10 text-cyan-500" : ""}`}
+            className={`gap-2 ${showFilters ? "bg-primary/10 text-primary" : ""}`}
           >
             <Filter className="w-4 h-4" />
             Filters
             {activeFilterCount > 0 && (
-              <Badge variant="secondary" className="ml-1 bg-cyan-500 text-white text-xs">
+              <Badge variant="secondary" className="ml-1 bg-primary text-white text-xs">
                 {activeFilterCount}
               </Badge>
             )}
@@ -189,7 +189,7 @@ export function FilterableList<T extends Record<string, any>>({
             onClick={() => setViewMode("grid")}
             className={`h-8 px-3 ${
               viewMode === "grid"
-                ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
+                ? "bg-gradient-to-r from-primary/10 to-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -202,7 +202,7 @@ export function FilterableList<T extends Record<string, any>>({
             onClick={() => setViewMode("list")}
             className={`h-8 px-3 ${
               viewMode === "list"
-                ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
+                ? "bg-gradient-to-r from-primary/10 to-primary/10 text-primary"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >

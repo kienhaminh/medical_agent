@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   name: string;
@@ -81,7 +82,7 @@ export function Sidebar() {
             unoptimized
           />
         </div>
-        <span className="font-display text-lg font-bold tracking-wider bg-linear-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+        <span className="font-display text-lg font-bold tracking-wider text-primary">
           MEDI-NEXUS
         </span>
       </div>
@@ -109,7 +110,7 @@ export function Sidebar() {
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
                       isActive
-                        ? "bg-linear-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500 medical-border-glow"
+                        ? "bg-primary/10 text-primary medical-border-glow"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground"
                     )}
                   >
@@ -126,14 +127,17 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-border p-4 space-y-3">
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p className="font-medium">System Status</p>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            <span className="text-emerald-500 font-medium">
-              All systems operational
-            </span>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium">System Status</p>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              <span className="text-emerald-500 font-medium">
+                Operational
+              </span>
+            </div>
           </div>
+          <ThemeToggle />
         </div>
 
         {user && (

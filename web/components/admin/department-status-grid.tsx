@@ -35,7 +35,7 @@ export function DepartmentStatusGrid({
 
   if (sorted.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-[#8b949e] font-mono text-sm gap-2">
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground font-mono text-sm gap-2">
         <Building2 size={24} className="opacity-40" />
         No departments configured
       </div>
@@ -70,10 +70,10 @@ export function DepartmentStatusGrid({
             ].join(" ")}
             style={{
               background: isClosed
-                ? "rgba(255,255,255,0.02)"
+                ? "var(--muted)"
                 : `${statusColor}08`,
               borderColor: isClosed
-                ? "rgba(255,255,255,0.08)"
+                ? "var(--border)"
                 : `${statusColor}40`,
               boxShadow: isCritical
                 ? `0 0 20px ${statusColor}30`
@@ -92,7 +92,7 @@ export function DepartmentStatusGrid({
                 />
                 <span
                   className="text-sm font-bold font-mono truncate"
-                  style={{ color: isClosed ? "#8b949e" : statusColor }}
+                  style={{ color: isClosed ? "var(--muted-foreground)" : statusColor }}
                 >
                   {dept.label}
                 </span>
@@ -122,13 +122,13 @@ export function DepartmentStatusGrid({
 
             {/* Capacity bar */}
             <div className="mb-2">
-              <div className="flex justify-between text-[10px] font-mono text-[#8b949e] mb-1">
+              <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-1">
                 <span>
                   {dept.current_patient_count}/{dept.capacity} beds
                 </span>
                 <span>{utilization}%</span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
@@ -141,7 +141,7 @@ export function DepartmentStatusGrid({
 
             {/* Queue indicator */}
             {dept.queue_length > 0 && (
-              <div className="text-[10px] font-mono text-[#f59e0b] mt-1">
+              <div className="text-[10px] font-mono text-amber-500 mt-1">
                 {dept.queue_length} in queue
               </div>
             )}

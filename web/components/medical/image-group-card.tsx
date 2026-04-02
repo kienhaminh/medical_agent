@@ -24,7 +24,7 @@ export function ImageGroupCard({ group, groupImages, onClick }: ImageGroupCardPr
   return (
     <div className="group">
       <Card
-        className="cursor-pointer overflow-hidden border border-border/50 hover:border-cyan-500/60 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
+        className="cursor-pointer overflow-hidden border border-border/50 hover:border-primary/60 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10"
         onClick={onClick}
       >
         <div className="aspect-video bg-gradient-to-br from-muted/20 to-muted/10 relative overflow-hidden">
@@ -98,7 +98,7 @@ export function ImageGroupCard({ group, groupImages, onClick }: ImageGroupCardPr
           <div className="flex items-center gap-2">
             {latestImage && new Date(latestImage.created_at) > new Date(group.created_at) && (
               <div className="text-xs text-muted-foreground/70 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-cyan-400" />
+                <Sparkles className="w-3 h-3 text-primary" />
                 <span>Updated</span>
               </div>
             )}
@@ -112,7 +112,7 @@ export function ImageGroupCard({ group, groupImages, onClick }: ImageGroupCardPr
         <div className="mt-2 px-1">
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-2 text-muted-foreground/70">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
               <span className="truncate">
                 {uniqueTypes.length === 1 ? uniqueTypes[0]?.toUpperCase() : `${uniqueTypes.length} types`}
               </span>

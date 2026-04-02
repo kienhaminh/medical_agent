@@ -87,7 +87,7 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
   return (
     <div className="flex flex-col h-full flex-1 min-w-0">
       {/* Scrollable panels */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
       <div className="p-4 space-y-3">
         {/* Patient Card */}
         <CollapsiblePanel

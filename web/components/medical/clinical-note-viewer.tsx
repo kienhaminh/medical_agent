@@ -13,7 +13,7 @@ export function ClinicalNoteViewer({ content }: { content: string }) {
   return (
     <div className="space-y-6">
       {/* Header Card */}
-      <Card className="p-6 border-2 border-border/50 bg-gradient-to-br from-cyan-500/5 to-teal-500/5">
+      <Card className="p-6 border-2 border-border/50 bg-gradient-to-br from-primary/5 to-primary/5">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h2 className="font-display text-2xl font-bold text-foreground mb-2">
@@ -30,10 +30,10 @@ export function ClinicalNoteViewer({ content }: { content: string }) {
             {parsedNote.patientInfo && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
                 {parsedNote.patientInfo.name && (
-                  <InfoField icon={<User className="w-4 h-4 text-cyan-500" />} label="Patient" value={parsedNote.patientInfo.name} />
+                  <InfoField icon={<User className="w-4 h-4 text-primary" />} label="Patient" value={parsedNote.patientInfo.name} />
                 )}
                 {parsedNote.patientInfo.age && (
-                  <InfoField icon={<Calendar className="w-4 h-4 text-teal-500" />} label="Age" value={parsedNote.patientInfo.age} />
+                  <InfoField icon={<Calendar className="w-4 h-4 text-primary" />} label="Age" value={parsedNote.patientInfo.age} />
                 )}
                 {parsedNote.patientInfo.gender && (
                   <InfoField icon={<User className="w-4 h-4 text-purple-500" />} label="Gender" value={parsedNote.patientInfo.gender} className="capitalize" />
@@ -52,7 +52,7 @@ export function ClinicalNoteViewer({ content }: { content: string }) {
             <div className="ml-4">
               <Badge
                 variant="secondary"
-                className="bg-gradient-to-r from-cyan-500/20 to-teal-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/30 px-4 py-2 text-sm"
+                className="bg-gradient-to-r from-primary/20 to-primary/20 text-primary border-primary/30 px-4 py-2 text-sm"
               >
                 <span className="font-semibold">{parsedNote.diagnosis.condition}</span>
                 {parsedNote.diagnosis.icd10 && (

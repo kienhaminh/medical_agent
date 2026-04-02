@@ -15,7 +15,7 @@ const KPI_ITEMS = [
     key: "active_patients" as const,
     label: "Active Patients",
     icon: Activity,
-    color: "#00d9ff",
+    color: "hsl(var(--primary))",
   },
   {
     key: "departments_at_capacity" as const,
@@ -34,7 +34,7 @@ const KPI_ITEMS = [
     key: "discharged_today" as const,
     label: "Discharged Today",
     icon: LogOut,
-    color: "#10b981",
+    color: "#059669",
   },
 ];
 
@@ -71,13 +71,13 @@ export function KpiBar({ stats, lastUpdated }: KpiBarProps) {
             <span className="text-sm font-bold font-mono" style={{ color: item.color }}>
               {formatted}
             </span>
-            <span className="text-[10px] font-mono text-[#8b949e]">{item.label}</span>
+            <span className="text-[10px] font-mono text-muted-foreground">{item.label}</span>
           </div>
         );
       })}
 
       {lastUpdated && (
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] font-mono text-[#8b949e]">
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
           <Wifi size={10} className="text-emerald-500" />
           {formatSyncAge(lastUpdated)}
         </div>

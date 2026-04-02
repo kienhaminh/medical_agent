@@ -46,7 +46,7 @@ export default function PatientsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="font-display text-3xl font-bold flex items-center gap-3">
-                <div className="w-1 h-10 bg-gradient-to-b from-cyan-500 to-teal-500 rounded-full" />
+                <div className="w-1 h-10 bg-primary rounded-full" />
                 Patient Records
               </h1>
               <p className="text-muted-foreground mt-1">Manage and view patient medical records</p>
@@ -74,12 +74,12 @@ export default function PatientsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowFilters(!showFilters)}
-                className={`gap-2 ${showFilters ? "bg-cyan-500/10 text-cyan-500" : ""}`}
+                className={`gap-2 ${showFilters ? "bg-primary/10 text-primary" : ""}`}
               >
                 <Filter className="w-4 h-4" />
                 Filters
                 {activeFilterCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 bg-cyan-500 text-white text-xs">
+                  <Badge variant="secondary" className="ml-1 bg-primary text-primary-foreground text-xs">
                     {activeFilterCount}
                   </Badge>
                 )}
@@ -137,8 +137,8 @@ export default function PatientsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="space-y-4 text-center">
-              <div className="inline-flex p-4 rounded-full bg-cyan-500/10 animate-pulse">
-                <Activity className="w-8 h-8 text-cyan-500" />
+              <div className="inline-flex p-4 rounded-full bg-primary/10 animate-pulse">
+                <Activity className="w-8 h-8 text-primary" />
               </div>
               <p className="text-muted-foreground">Loading patients...</p>
             </div>
@@ -147,8 +147,8 @@ export default function PatientsPage() {
           <div className="flex items-center justify-center py-16">
             <div className="text-center space-y-4">
               <div className="inline-flex p-6 rounded-full bg-muted/50 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <User className="w-12 h-12 text-muted-foreground group-hover:text-cyan-500 transition-colors duration-300" />
+                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <User className="w-12 h-12 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
               </div>
               <div>
                 <h2 className="font-display text-xl font-semibold mb-2">
@@ -179,7 +179,7 @@ export default function PatientsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setViewMode("grid")}
-                  className={`h-8 px-3 ${viewMode === "grid" ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`h-8 px-3 ${viewMode === "grid" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   <Grid3x3 className="w-4 h-4 mr-1.5" />
                   Grid
@@ -188,7 +188,7 @@ export default function PatientsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setViewMode("list")}
-                  className={`h-8 px-3 ${viewMode === "list" ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`h-8 px-3 ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   <List className="w-4 h-4 mr-1.5" />
                   List

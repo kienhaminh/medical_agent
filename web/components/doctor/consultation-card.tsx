@@ -94,11 +94,11 @@ export function ConsultationCard({ content, threadId }: ConsultationCardProps) {
     : {};
 
   return (
-    <div className="rounded-lg border border-cyan-500/20 bg-card/60 overflow-hidden my-2">
+    <div className="rounded-lg border border-primary/20 bg-card/60 overflow-hidden my-2">
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500/10 border-b border-cyan-500/20">
-        <Users className="w-4 h-4 text-cyan-400" />
-        <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-primary/10 border-b border-primary/20">
+        <Users className="w-4 h-4 text-primary" />
+        <span className="text-xs font-semibold text-primary uppercase tracking-wider">
           Team Consultation
         </span>
         {parsed.confidence && (
@@ -132,7 +132,7 @@ export function ConsultationCard({ content, threadId }: ConsultationCardProps) {
           )}
           {parsed.chiefNotes && parsed.chiefNotes !== "None" && (
             <p className="text-xs text-muted-foreground">
-              <span className="text-cyan-400 font-medium">Notes: </span>
+              <span className="text-primary font-medium">Notes: </span>
               {parsed.chiefNotes}
             </p>
           )}
@@ -172,7 +172,7 @@ export function ConsultationCard({ content, threadId }: ConsultationCardProps) {
                     key={msg.id}
                     className={`rounded px-3 py-2 text-xs ${
                       msg.sender_type === "chief"
-                        ? "bg-cyan-500/10 border border-cyan-500/20 text-cyan-300"
+                        ? "bg-primary/10 border border-primary/20 text-primary"
                         : "bg-muted/30 text-foreground/80"
                     }`}
                   >

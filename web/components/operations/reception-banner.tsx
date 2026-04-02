@@ -24,20 +24,20 @@ export function ReceptionBanner({ visits, onClick }: ReceptionBannerProps) {
       onClick={onClick}
       className={`w-full text-left rounded-xl border px-6 py-4 transition-all hover:brightness-110 focus:outline-none ${hasReview ? "animate-pulse" : ""}`}
       style={{
-        background: "rgba(0, 217, 255, 0.06)",
+        background: "hsl(var(--primary) / 0.06)",
         borderColor: hasReview
           ? "rgba(245, 158, 11, 0.6)"
-          : "rgba(0, 217, 255, 0.4)",
+          : "hsl(var(--primary) / 0.4)",
         boxShadow: hasReview
           ? "0 0 20px rgba(245, 158, 11, 0.15)"
-          : "0 0 15px rgba(0, 217, 255, 0.1)",
+          : "0 0 15px hsl(var(--primary) / 0.1)",
       }}
     >
-      <div className="text-sm font-bold font-mono text-[#00d9ff] mb-3 tracking-widest flex items-center gap-2">
+      <div className="text-sm font-bold font-mono text-primary mb-3 tracking-widest flex items-center gap-2">
         RECEPTION
         {visits.length > 0 && (
           <span className="text-xs px-1.5 py-0.5 rounded-full font-mono"
-            style={{ background: "rgba(0,217,255,0.12)", color: "#00d9ff" }}>
+            style={{ background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))" }}>
             {visits.length}
           </span>
         )}
@@ -46,9 +46,9 @@ export function ReceptionBanner({ visits, onClick }: ReceptionBannerProps) {
         <span
           className="px-2.5 py-1 rounded-full"
           style={{
-            color: "#00d9ff",
-            background: "rgba(0, 217, 255, 0.12)",
-            border: "1px solid rgba(0, 217, 255, 0.25)",
+            color: "hsl(var(--primary))",
+            background: "hsl(var(--primary) / 0.12)",
+            border: "1px solid hsl(var(--primary) / 0.25)",
           }}
         >
           intake: {intakeCount}
@@ -66,19 +66,19 @@ export function ReceptionBanner({ visits, onClick }: ReceptionBannerProps) {
         <span
           className="px-2.5 py-1 rounded-full"
           style={{
-            color: hasReview ? "#f59e0b" : "#8b949e",
+            color: hasReview ? "#f59e0b" : "var(--muted-foreground)",
             background: hasReview
               ? "rgba(245, 158, 11, 0.12)"
-              : "rgba(139, 148, 158, 0.08)",
+              : "transparent",
             border: hasReview
               ? "1px solid rgba(245, 158, 11, 0.3)"
-              : "1px solid rgba(139, 148, 158, 0.15)",
+              : "1px solid var(--border)",
           }}
         >
           review: {reviewCount}
         </span>
         {visits.length === 0 && (
-          <span className="text-[#8b949e]">No patients in reception</span>
+          <span className="text-muted-foreground">No patients in reception</span>
         )}
       </div>
     </button>

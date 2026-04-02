@@ -62,7 +62,7 @@ export function ImagingRecordsList({ records, setViewerRecord }: ImagingRecordsL
                 {record.image_type?.toUpperCase()}
               </Badge>
             </div>
-            <h3 className="font-display font-semibold mb-2 group-hover:text-cyan-500 transition-colors">
+            <h3 className="font-display font-semibold mb-2 group-hover:text-primary transition-colors">
               {record.title}
             </h3>
             <div className="relative w-full h-64 mb-3 bg-muted rounded-md overflow-hidden">
@@ -83,7 +83,7 @@ export function ImagingRecordsList({ records, setViewerRecord }: ImagingRecordsL
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-display font-semibold truncate group-hover:text-cyan-500 transition-colors">
+                  <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
                     {record.title}
                   </h3>
                   <Badge variant={record.image_type === "mri" ? "mri" : record.image_type === "xray" ? "xray" : "default"}>

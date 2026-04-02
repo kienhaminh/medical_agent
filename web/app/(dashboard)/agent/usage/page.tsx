@@ -34,7 +34,7 @@ export default function UsagePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     );
   }
@@ -49,7 +49,7 @@ export default function UsagePage() {
       <div className="container mx-auto px-6 py-8">
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold flex items-center gap-3">
-            <div className="w-1 h-10 bg-gradient-to-b from-cyan-500 to-teal-500 rounded-full" />
+            <div className="w-1 h-10 bg-gradient-to-b from-primary to-primary/70 rounded-full" />
             Usage & Monitoring
           </h1>
           <p className="text-muted-foreground mt-1">

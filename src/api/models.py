@@ -177,8 +177,8 @@ class VisitResponse(BaseModel):
     patient_id: int
     status: str
     confidence: Optional[float] = None
-    routing_suggestion: Optional[list[str]] = None
-    routing_decision: Optional[list[str]] = None
+    routing_suggestion: Optional[list] = None
+    routing_decision: Optional[list] = None
     chief_complaint: Optional[str] = None
     intake_session_id: Optional[int] = None
     reviewed_by: Optional[str] = None

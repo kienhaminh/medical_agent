@@ -36,10 +36,10 @@ export function PatientLink({
       onClick={handleClick}
       className={cn(
         "inline-flex items-center gap-1 cursor-pointer",
-        "text-cyan-400 hover:text-cyan-300",
-        "underline decoration-cyan-500/50 hover:decoration-cyan-400",
+        "text-primary hover:text-primary",
+        "underline decoration-primary/50 hover:decoration-primary",
         "transition-all duration-200",
-        "hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]",
+        "hover:drop-shadow-sm",
         "group relative",
         className
       )}
@@ -55,7 +55,7 @@ export function PatientLink({
     >
       <User className="w-3.5 h-3.5 inline-block opacity-70 group-hover:opacity-100" />
       <span className="font-medium">{patientName}</span>
-      <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm text-cyan-300 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 border border-cyan-500/20">
+      <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900/95 backdrop-blur-sm text-primary text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 border border-primary/20">
         View Patient Details
       </span>
     </span>

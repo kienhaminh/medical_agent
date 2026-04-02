@@ -18,10 +18,10 @@ export function ChatWelcome({ onSelectPrompt }: ChatWelcomeProps) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)] space-y-8 animate-in fade-in duration-700">
       <div className="relative">
-        <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-teal-500/10 flex items-center justify-center medical-border-glow">
-          <Sparkles className="w-12 h-12 text-cyan-500 animate-pulse" />
+        <div className="w-24 h-24 rounded-2xl bg-primary/10 flex items-center justify-center medical-border-glow">
+          <Sparkles className="w-12 h-12 text-primary animate-pulse" />
         </div>
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-cyan-500 rounded-full animate-pulse" />
+        <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full animate-pulse" />
       </div>
 
       <div className="text-center space-y-3 max-w-2xl">
@@ -48,8 +48,8 @@ export function ChatWelcome({ onSelectPrompt }: ChatWelcomeProps) {
               className="record-card group text-left p-4 hover:scale-[1.02] transition-all duration-200"
             >
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
-                  <Icon className="w-4 h-4 text-cyan-500" />
+                <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Icon className="w-4 h-4 text-primary" />
                 </div>
                 <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors flex-1">
                   {text}

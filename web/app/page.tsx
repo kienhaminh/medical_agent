@@ -7,19 +7,19 @@ import { Activity, Brain, Eye, Lock, Zap, Sliders } from "lucide-react";
 export default function Home() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Clinical Futurism Background */}
+      {/* Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Dot matrix medical grid */}
-        <div className="absolute inset-0 dot-matrix-bg opacity-40" />
+        <div className="absolute inset-0 dot-matrix-bg opacity-20" />
 
         {/* Gradient overlay */}
-        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-bl from-cyan-500/10 via-transparent to-transparent" />
-        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-tr from-teal-500/10 via-transparent to-transparent" />
+        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-bl from-primary/10 via-transparent to-transparent" />
+        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-tr from-primary/10 via-transparent to-transparent" />
 
         {/* Geometric medical shapes */}
-        <div className="absolute top-1/4 right-1/4 w-64 h-64 border border-cyan-500/20 rounded-full" />
+        <div className="absolute top-1/4 right-1/4 w-64 h-64 border border-primary/20 rounded-full" />
         <div
-          className="absolute bottom-1/3 left-1/4 w-48 h-48 border-2 border-teal-500/10"
+          className="absolute bottom-1/3 left-1/4 w-48 h-48 border-2 border-primary/10"
           style={{ transform: "rotate(45deg)" }}
         />
 
@@ -44,7 +44,7 @@ export default function Home() {
                     unoptimized
                   />
                 </div>
-                <span className="font-display text-lg font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                <span className="font-display text-lg font-bold tracking-wider text-primary">
                   MEDI-NEXUS
                 </span>
               </div>
@@ -52,7 +52,7 @@ export default function Home() {
                 <Link href="/agent">
                   <Button
                     size="sm"
-                    className="bg-linear-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-xs font-semibold tracking-wider px-4 h-8 shadow-lg shadow-cyan-500/20 transition-all hover:shadow-cyan-500/30"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold tracking-wider px-4 h-8 shadow-lg shadow-primary/20 transition-all hover:shadow-primary/30"
                   >
                     GO TO CHAT
                   </Button>
@@ -67,9 +67,9 @@ export default function Home() {
           <div className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center py-24">
             <div className="max-w-5xl mx-auto text-center space-y-8">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 backdrop-blur-sm medical-border-glow">
-                <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse" />
-                <span className="font-display text-xs tracking-widest text-cyan-500">
+              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-sm medical-border-glow">
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                <span className="font-display text-xs tracking-widest text-primary">
                   AI-POWERED MEDICAL INTELLIGENCE
                 </span>
               </div>
@@ -79,7 +79,7 @@ export default function Home() {
                 <span className="block bg-linear-to-r from-foreground via-foreground/90 to-foreground/70 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-700">
                   Medical Intelligence,
                 </span>
-                <span className="block mt-2 bg-linear-to-r from-cyan-500 via-teal-500 to-cyan-600 bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
+                <span className="block mt-2 text-primary animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
                   Evolved
                 </span>
               </h1>
@@ -96,7 +96,7 @@ export default function Home() {
                 <Link href="/intake">
                   <Button
                     size="lg"
-                    className="text-sm tracking-wider h-12 px-8 bg-linear-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white shadow-lg shadow-cyan-500/20"
+                    className="text-sm tracking-wider h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                   >
                     CHECK IN AS PATIENT →
                   </Button>
@@ -115,7 +115,7 @@ export default function Home() {
               {/* Stats */}
               <div className="grid grid-cols-3 gap-8 max-w-3xl mx-auto pt-16 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700">
                 <div className="space-y-2">
-                  <div className="font-display text-4xl font-bold text-cyan-500">
+                  <div className="font-display text-4xl font-bold text-primary">
                     Multi-Modal
                   </div>
                   <div className="font-body text-sm text-muted-foreground">
@@ -123,7 +123,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="font-display text-4xl font-bold text-teal-500">
+                  <div className="font-display text-4xl font-bold text-primary">
                     100%
                   </div>
                   <div className="font-body text-sm text-muted-foreground">
@@ -131,7 +131,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="font-display text-4xl font-bold text-cyan-500">
+                  <div className="font-display text-4xl font-bold text-primary">
                     24/7
                   </div>
                   <div className="font-body text-sm text-muted-foreground">
@@ -148,7 +148,7 @@ export default function Home() {
               <div className="text-center mb-16 space-y-4">
                 <h2 className="font-display text-4xl lg:text-5xl font-bold">
                   Advanced{" "}
-                  <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                  <span className="text-primary">
                     Medical Capabilities
                   </span>
                 </h2>
@@ -213,9 +213,9 @@ export default function Home() {
                       }}
                     >
                       <div
-                        className={`inline-flex p-3 rounded-xl bg-${feature.color}-500/10 mb-4 group-hover:scale-110 transition-transform duration-300`}
+                        className={`inline-flex p-3 rounded-xl bg-primary/10 mb-4 group-hover:scale-110 transition-transform duration-300`}
                       >
-                        <Icon className={`w-6 h-6 text-${feature.color}-500`} />
+                        <Icon className={`w-6 h-6 text-primary`} />
                       </div>
                       <h3 className="font-display text-xl font-semibold mb-3">
                         {feature.title}
@@ -236,7 +236,7 @@ export default function Home() {
               <div className="space-y-4">
                 <h2 className="font-display text-4xl lg:text-5xl font-bold">
                   Enterprise-Grade{" "}
-                  <span className="bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                  <span className="text-primary">
                     Tech Stack
                   </span>
                 </h2>
@@ -255,9 +255,9 @@ export default function Home() {
                 ].map((tech) => (
                   <div
                     key={tech.name}
-                    className="p-6 border border-border/50 rounded-xl bg-card/30 hover:bg-card/50 transition-all hover:scale-105 hover:border-cyan-500/50 group"
+                    className="p-6 border border-border/50 rounded-xl bg-card/30 hover:bg-card/50 transition-all hover:scale-105 hover:border-primary/50 group"
                   >
-                    <div className="font-display text-base font-bold mb-1 group-hover:text-cyan-500 transition-colors">
+                    <div className="font-display text-base font-bold mb-1 group-hover:text-primary transition-colors">
                       {tech.name}
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -278,7 +278,7 @@ export default function Home() {
                 </Link>
                 <p className="text-sm text-muted-foreground">
                   Or{" "}
-                  <Link href="/agent" className="text-cyan-500 hover:underline">
+                  <Link href="/agent" className="text-primary hover:underline">
                     try the AI agent
                   </Link>{" "}
                   to see it in action
@@ -303,7 +303,7 @@ export default function Home() {
                     unoptimized
                   />
                 </div>
-                <span className="font-display text-sm font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                <span className="font-display text-sm font-bold tracking-wider text-primary">
                   MEDI-NEXUS
                 </span>
               </div>
@@ -313,13 +313,13 @@ export default function Home() {
               <div className="flex gap-6">
                 <Link
                   href="/patient"
-                  className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors"
+                  className="font-body text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   Patients
                 </Link>
                 <Link
                   href="/agent"
-                  className="font-body text-sm text-muted-foreground hover:text-cyan-500 transition-colors"
+                  className="font-body text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   AI Agent
                 </Link>

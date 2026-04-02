@@ -25,8 +25,8 @@ export function UsageStatsTab({ stats, inputCost, outputCost, totalCost }: Usage
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="record-card">
           <div className="flex items-start justify-between mb-4">
-            <div className="p-3 rounded-xl bg-cyan-500/10">
-              <Activity className="w-6 h-6 text-cyan-500" />
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Activity className="w-6 h-6 text-primary" />
             </div>
             <Badge variant="clinical">Total</Badge>
           </div>
@@ -90,7 +90,7 @@ export function UsageStatsTab({ stats, inputCost, outputCost, totalCost }: Usage
       {/* Token Usage Breakdown */}
       <Card className="record-card">
         <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2">
-          <div className="w-1 h-6 bg-cyan-500 rounded-full" />
+          <div className="w-1 h-6 bg-primary rounded-full" />
           Token Usage Breakdown
         </h2>
         <div className="space-y-4">
@@ -101,7 +101,7 @@ export function UsageStatsTab({ stats, inputCost, outputCost, totalCost }: Usage
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div
-                className="bg-cyan-500 h-2 rounded-full transition-all duration-500"
+                className="bg-primary h-2 rounded-full transition-all duration-500"
                 style={{ width: `${totalTokens > 0 ? (inputTokens / totalTokens) * 100 : 0}%` }}
               />
             </div>
@@ -113,7 +113,7 @@ export function UsageStatsTab({ stats, inputCost, outputCost, totalCost }: Usage
             </div>
             <div className="w-full bg-muted rounded-full h-2">
               <div
-                className="bg-teal-500 h-2 rounded-full transition-all duration-500"
+                className="bg-primary h-2 rounded-full transition-all duration-500"
                 style={{ width: `${totalTokens > 0 ? (outputTokens / totalTokens) * 100 : 0}%` }}
               />
             </div>
@@ -140,7 +140,7 @@ export function UsageStatsTab({ stats, inputCost, outputCost, totalCost }: Usage
           <Separator />
           <div className="flex items-center justify-between pt-2">
             <span className="text-sm font-semibold">Total Estimated</span>
-            <span className="text-lg font-bold text-cyan-500">${totalCost.toFixed(4)}</span>
+            <span className="text-lg font-bold text-primary">${totalCost.toFixed(4)}</span>
           </div>
         </div>
       </Card>

@@ -59,7 +59,7 @@ export function QuickActionsBar({
           size="sm"
           onClick={onSaveNotes}
           disabled={disabled}
-          className="border-cyan-500/30 hover:bg-cyan-500/10 hover:text-cyan-400"
+          className="border-primary/30 hover:bg-primary/10 hover:text-primary"
         >
           <FileCheck className="w-4 h-4 mr-2" />
           Save Notes
@@ -75,7 +75,7 @@ export function QuickActionsBar({
               variant="outline"
               size="sm"
               disabled={disabled}
-              className="border-teal-500/30 hover:bg-teal-500/10 hover:text-teal-400"
+              className="border-primary/30 hover:bg-primary/10 hover:text-primary"
             >
               <ArrowRightLeft className="w-4 h-4 mr-2" />
               Transfer
@@ -107,7 +107,7 @@ export function QuickActionsBar({
               <AlertDialogAction
                 onClick={handleTransferConfirm}
                 disabled={!transferTarget}
-                className="bg-teal-600 hover:bg-teal-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-white"
               >
                 Confirm Transfer
               </AlertDialogAction>

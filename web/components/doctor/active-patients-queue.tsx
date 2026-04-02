@@ -55,16 +55,16 @@ export function ActivePatientsQueue({
   return (
     <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-cyan-500/5 to-teal-500/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-primary/5">
         <div className="flex items-center gap-2">
-          <User className="w-4 h-4 text-cyan-500" />
+          <User className="w-4 h-4 text-primary" />
           <h2 className="font-display text-sm font-semibold">
             Active Patients
           </h2>
           {!loading && (
             <Badge
               variant="secondary"
-              className="text-xs bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+              className="text-xs bg-primary/10 text-primary border-primary/30"
             >
               {visits.length}
             </Badge>
@@ -74,7 +74,7 @@ export function ActivePatientsQueue({
           variant="ghost"
           size="icon"
           onClick={onRefresh}
-          className="h-7 w-7 hover:bg-cyan-500/10 hover:text-cyan-400"
+          className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
           title="Refresh queue"
         >
           <RefreshCw className="w-3.5 h-3.5" />

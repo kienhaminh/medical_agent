@@ -177,7 +177,7 @@ export function RecordUpload({
                           {g.name}
                         </SelectItem>
                       ))}
-                      <SelectItem value="new" className="text-cyan-500 font-medium">
+                      <SelectItem value="new" className="text-primary font-medium">
                         + Create New Group
                       </SelectItem>
                     </SelectContent>

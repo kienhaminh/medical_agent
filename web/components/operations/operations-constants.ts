@@ -6,7 +6,7 @@ export const RECEPTION_STATUSES = ["intake", "triaged", "auto_routed", "pending_
 export const DEPARTMENT_STATUS = "in_department" as const;
 
 export const WAIT_TIME_COLORS = {
-  short: "#00d9ff",   // < 10 minutes — cyan
+  short: "#059669",   // < 10 minutes — sage/emerald
   medium: "#f59e0b",  // 10-30 minutes — amber
   long: "#ef4444",    // > 30 minutes — red
 } as const;
@@ -36,7 +36,7 @@ export function deptLabel(name: string, departments: { name: string; label: stri
 
 export const DEPARTMENT_STATUS_COLORS = {
   IDLE: "#6b7280",
-  OK: "#10b981",
+  OK: "#059669",
   BUSY: "#f59e0b",
   CRITICAL: "#ef4444",
 } as const;

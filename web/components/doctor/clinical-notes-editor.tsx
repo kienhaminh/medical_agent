@@ -123,7 +123,7 @@ export function ClinicalNotesEditor({
           onChange={(e) => onChange(e.target.value)}
           placeholder="Enter clinical notes (SOAP format recommended)..."
           disabled={disabled}
-          className="min-h-[300px] resize-y bg-card/50 border-border/50 focus:border-cyan-500/50 text-sm leading-relaxed"
+          className="min-h-[300px] resize-y bg-card/50 border-border/50 focus:border-primary/50 text-sm leading-relaxed"
         />
       </div>
     </div>

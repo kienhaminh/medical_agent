@@ -52,8 +52,11 @@ export function useWebSocket(token: string | null): UseWebSocketReturn {
   const connect = useCallback(() => {
     if (!token || !mountedRef.current) return;
 
-    // Clean up any existing connection
+    // Clean up any existing connection — detach handlers first to prevent
+    // the old onclose from scheduling a spurious reconnect
     if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
       wsRef.current.close();
       wsRef.current = null;
     }

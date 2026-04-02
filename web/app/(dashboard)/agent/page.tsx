@@ -41,9 +41,9 @@ function AgentChatPageContent() {
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute inset-0 dot-matrix-bg opacity-20" />
         <div className="scan-line absolute inset-0" />
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse" />
         <div
-          className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl animate-pulse"
+          className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-primary/5 rounded-full blur-3xl animate-pulse"
           style={{ animationDelay: "1s" }}
         />
       </div>
@@ -54,13 +54,13 @@ function AgentChatPageContent() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 flex items-center justify-center medical-border-glow">
-                  <Sparkles className="w-5 h-5 text-cyan-500" />
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center medical-border-glow">
+                  <Sparkles className="w-5 h-5 text-primary" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-500 rounded-full animate-pulse" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-pulse" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-bold bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+                <h1 className="font-display text-xl font-bold text-primary">
                   AI Medical Assistant
                 </h1>
                 <p className="text-xs text-muted-foreground">
@@ -111,7 +111,7 @@ function AgentChatPageContent() {
           {loadingSession ? (
             <div className="flex items-center justify-center min-h-[calc(100vh-300px)]">
               <div className="space-y-4 text-center">
-                <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
+                <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
                 <p className="text-sm text-muted-foreground">Loading chat session...</p>
               </div>
             </div>
@@ -173,7 +173,7 @@ export default function AgentChatPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center h-screen">
-          <div className="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
       }
     >

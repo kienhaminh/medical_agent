@@ -71,14 +71,14 @@ export function PatientLabsTab({
           >
             <Card className="record-card group p-4 h-full">
               <div className="flex items-start justify-between mb-3">
-                <div className="p-2 rounded-lg bg-teal-500/10 group-hover:bg-teal-500/20 transition-colors">
-                  <FileHeart className="w-5 h-5 text-teal-500" />
+                <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <FileHeart className="w-5 h-5 text-primary" />
                 </div>
                 <span className="text-xs text-muted-foreground">
                   {new Date(record.created_at).toLocaleDateString()}
                 </span>
               </div>
-              <h3 className="font-display font-semibold mb-2 group-hover:text-cyan-500 transition-colors">
+              <h3 className="font-display font-semibold mb-2 group-hover:text-primary transition-colors">
                 {record.title}
               </h3>
               {record.description && (
@@ -96,11 +96,11 @@ export function PatientLabsTab({
           >
             <Card className="record-card group p-4 hover:scale-[1.01] transition-all">
               <div className="flex items-center gap-4">
-                <div className="p-2.5 rounded-lg bg-teal-500/10 group-hover:bg-teal-500/20 transition-colors flex-shrink-0">
-                  <FileHeart className="w-5 h-5 text-teal-500" />
+                <div className="p-2.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                  <FileHeart className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-semibold truncate group-hover:text-cyan-500 transition-colors">
+                  <h3 className="font-display font-semibold truncate group-hover:text-primary transition-colors">
                     {record.title}
                   </h3>
                   <p className="text-sm text-muted-foreground truncate">

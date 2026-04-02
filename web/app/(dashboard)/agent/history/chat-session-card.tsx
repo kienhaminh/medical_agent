@@ -40,7 +40,7 @@ export function ChatSessionCard({ session, index, onClick, onDelete }: ChatSessi
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <CardTitle className="flex items-center gap-2 text-base">
-              <MessageSquare className="w-4 h-4 text-cyan-500 flex-shrink-0" />
+              <MessageSquare className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="truncate">{session.title}</span>
             </CardTitle>
             <CardDescription className="line-clamp-2 mt-2">

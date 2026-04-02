@@ -59,8 +59,8 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
   function getDetailIcon(record: MedicalRecord) {
     const summary = record.title?.toLowerCase() || "";
     if (summary.includes("registration")) return <FileHeart className="w-5 h-5 text-purple-500" />;
-    if (summary.includes("routine") || summary.includes("laboratory")) return <Microscope className="w-5 h-5 text-teal-500" />;
-    return <Stethoscope className="w-5 h-5 text-cyan-500" />;
+    if (summary.includes("routine") || summary.includes("laboratory")) return <Microscope className="w-5 h-5 text-primary" />;
+    return <Stethoscope className="w-5 h-5 text-primary" />;
   }
 
   return (
@@ -90,21 +90,21 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
             <Button
               size="sm"
               onClick={() => setFilterType("registration")}
-              variant={filterType === "registration" ? "medical" : "medical-outline"}
+              variant={filterType === "registration" ? "default" : "outline"}
             >
               Registration
             </Button>
             <Button
               size="sm"
               onClick={() => setFilterType("encounter")}
-              variant={filterType === "encounter" ? "medical" : "medical-outline"}
+              variant={filterType === "encounter" ? "default" : "outline"}
             >
               Encounters
             </Button>
             <Button
               size="sm"
               onClick={() => setFilterType("labs")}
-              variant={filterType === "labs" ? "medical" : "medical-outline"}
+              variant={filterType === "labs" ? "default" : "outline"}
             >
               Labs
             </Button>
@@ -118,7 +118,7 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               onClick={() => setViewMode("list")}
               className={`h-8 px-3 ${
                 viewMode === "list"
-                  ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -130,7 +130,7 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
               onClick={() => setViewMode("grid")}
               className={`h-8 px-3 ${
                 viewMode === "grid"
-                  ? "bg-gradient-to-r from-cyan-500/10 to-teal-500/10 text-cyan-500"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -196,7 +196,7 @@ export function MedicalRecordsList({ records }: MedicalRecordsListProps) {
         <DialogContent className="max-w-7xl max-h-[90vh] p-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500/10 to-teal-500/10">
+              <div className="p-2 rounded-lg bg-primary/10">
                 {selectedRecord && getDetailIcon(selectedRecord)}
               </div>
               <div className="flex-1">

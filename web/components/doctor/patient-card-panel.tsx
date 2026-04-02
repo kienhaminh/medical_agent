@@ -49,7 +49,7 @@ export function PatientCardPanel({ patient, chiefComplaint }: PatientCardPanelPr
         <Button
           variant="ghost"
           size="sm"
-          className="text-xs h-7 gap-1 text-cyan-500 hover:text-cyan-400"
+          className="text-xs h-7 gap-1 text-primary hover:text-primary/80"
           onClick={() => window.open(`/patient/${patient.id}`, "_blank")}
         >
           Full Record

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
+import { FormInputBar, type ActiveForm } from "@/components/reception/form-input-bar";
 import type { PatientWithDetails } from "@/lib/mock-data";
 import { Message, AgentActivity } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
@@ -35,6 +36,8 @@ interface AiAssistantPanelProps {
   activityDetails?: string;
   loadingSession: boolean;
   handleSendMessage: (e: React.FormEvent) => void;
+  activeForm?: ActiveForm | null;
+  handleFormSubmitted?: () => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   patient: PatientWithDetails;
   activeTab: string;
@@ -56,6 +59,8 @@ export function AiAssistantPanel({
   activityDetails,
   loadingSession,
   handleSendMessage,
+  activeForm,
+  handleFormSubmitted,
   messagesEndRef,
   patient,
   activeTab,
@@ -111,20 +116,20 @@ export function AiAssistantPanel({
         className="absolute -left-2 top-0 bottom-0 w-4 cursor-ew-resize flex items-center justify-center group z-50"
       >
         {/* Visible Line */}
-        <div className="w-0.5 h-full bg-transparent group-hover:bg-cyan-500/50 transition-colors" />
+        <div className="w-0.5 h-full bg-transparent group-hover:bg-primary/50 transition-colors" />
 
         {/* Grip Icon */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm border border-cyan-500/30 rounded-md p-1 shadow-sm">
-          <GripVertical className="w-4 h-4 text-cyan-500" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm border border-primary/30 rounded-md p-1 shadow-sm">
+          <GripVertical className="w-4 h-4 text-primary" />
         </div>
       </div>
 
       {/* AI Header */}
-      <div className="p-4 border-b border-border bg-gradient-to-r from-cyan-500/10 to-teal-500/10">
+      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-primary/10">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display font-semibold flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-cyan-500" />
+              <Sparkles className="w-5 h-5 text-primary" />
               AI Medical Assistant
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
@@ -153,7 +158,7 @@ export function AiAssistantPanel({
               variant="ghost"
               size="sm"
               onClick={() => router.push(`/agent?session=${sessionId}`)}
-              className="text-xs h-6 px-2 hover:bg-cyan-500/10 hover:text-cyan-400"
+              className="text-xs h-6 px-2 hover:bg-primary/10 hover:text-primary"
             >
               Back to Chat
             </Button>
@@ -165,7 +170,7 @@ export function AiAssistantPanel({
       <ScrollArea className="flex-1 p-4">
         {loadingSession ? (
           <div className="text-center text-muted-foreground mt-10 space-y-4">
-            <div className="w-8 h-8 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
+            <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
             <div>
               <p className="font-medium">Loading chat session...</p>
             </div>
@@ -173,13 +178,13 @@ export function AiAssistantPanel({
         ) : (
           messages.length === 0 && (
             <div className="text-center text-muted-foreground mt-10 space-y-4">
-              <div className="inline-flex p-4 rounded-full bg-cyan-500/10">
-                <Activity className="w-8 h-8 text-cyan-500" />
+              <div className="inline-flex p-4 rounded-full bg-primary/10">
+                <Activity className="w-8 h-8 text-primary" />
               </div>
               <div>
                 <p className="font-medium">AI Ready</p>
                 <p className="text-sm mt-2">
-                  Ask about {patient.name}'s medical records
+                  Review {patient.name} medical records
                 </p>
               </div>
             </div>
@@ -222,29 +227,37 @@ export function AiAssistantPanel({
 
       {/* Input */}
       <div className="p-4 border-t border-border bg-card/50">
-        <form onSubmit={handleSendMessage} className="space-y-3">
-          <div className="relative">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about medical records... (Enter to send, Shift+Enter for new line)"
-              className="min-h-[80px] max-h-[200px] resize-none pr-12 text-sm"
-              disabled={isLoading}
-            />
-            <div className="absolute right-3 bottom-3">
-              <Button
-                type="submit"
-                size="icon"
-                disabled={isLoading || !input.trim()}
-                className="h-8 w-8"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+        {activeForm && sessionId && handleFormSubmitted ? (
+          <FormInputBar
+            activeForm={activeForm}
+            sessionId={parseInt(sessionId, 10)}
+            onSubmitted={handleFormSubmitted}
+          />
+        ) : (
+          <form onSubmit={handleSendMessage} className="space-y-3">
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about medical records... (Enter to send, Shift+Enter for new line)"
+                className="min-h-[80px] max-h-[200px] resize-none pr-12 text-sm"
+                disabled={isLoading}
+              />
+              <div className="absolute right-3 bottom-3">
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isLoading || !input.trim()}
+                  className="h-8 w-8"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
     </div>
   );

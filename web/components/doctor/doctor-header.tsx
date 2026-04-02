@@ -73,16 +73,17 @@ export function DoctorHeader({
   }
 
   const initials = user?.name ? getInitials(user.name) : "DR";
-  const displayName = user?.name ?? "Doctor";
+  const rawName = user?.name ?? "Doctor";
+  const displayName = rawName.replace(/^Dr\.?\s*/i, "");
 
   return (
     <header className="h-14 border-b border-border/50 flex items-center gap-4 px-5 shrink-0"
-      style={{ background: "linear-gradient(90deg, rgba(6,182,212,0.07) 0%, transparent 50%)" }}
+      style={{ background: "linear-gradient(90deg, hsl(var(--primary)/0.07) 0%, transparent 50%)" }}
     >
       {/* Doctor identity */}
       <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-7 h-7 rounded-md bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
-          <span className="text-[10px] font-bold tracking-wide text-cyan-400">{initials}</span>
+        <div className="w-7 h-7 rounded-md bg-primary/15 border border-primary/25 flex items-center justify-center">
+          <span className="text-[10px] font-bold tracking-wide text-primary">{initials}</span>
         </div>
         <div className="leading-tight">
           <p className="text-sm font-semibold text-foreground leading-none">
@@ -93,7 +94,7 @@ export function DoctorHeader({
               <>
                 <span className="text-[10px] text-muted-foreground/60">Viewing</span>
                 <ChevronRight className="w-2.5 h-2.5 text-muted-foreground/40" />
-                <span className="text-[10px] text-cyan-400 font-medium max-w-[140px] truncate">
+                <span className="text-[10px] text-primary font-medium max-w-[140px] truncate">
                   {selectedPatientName}
                 </span>
               </>
@@ -117,9 +118,9 @@ export function DoctorHeader({
           onChange={(e) => onSearch(e.target.value)}
           onFocus={() => { if (searchResults.length > 0) setDropdownOpen(true); }}
           placeholder="Search patients…"
-          className="w-full h-8 pl-8 pr-8 text-sm bg-white/[0.04] border border-border/40 rounded-lg
+          className="w-full h-8 pl-8 pr-8 text-sm bg-muted/40 border border-border/40 rounded-lg
                      placeholder:text-muted-foreground/35 text-foreground
-                     focus:outline-none focus:border-cyan-500/40 focus:bg-white/[0.06]
+                     focus:outline-none focus:border-primary/40 focus:bg-muted/60
                      transition-all"
         />
         {searchQuery && (
@@ -145,12 +146,12 @@ export function DoctorHeader({
                   <li key={patient.id}>
                     <button
                       onClick={() => handleSelect(patient)}
-                      className="w-full px-3 py-2.5 text-left hover:bg-cyan-500/8 transition-colors
+                      className="w-full px-3 py-2.5 text-left hover:bg-primary/8 transition-colors
                                  flex items-center gap-3 border-b border-border/20 last:border-b-0"
                     >
-                      <div className="w-7 h-7 rounded-md bg-cyan-500/15 border border-cyan-500/20
+                      <div className="w-7 h-7 rounded-md bg-primary/15 border border-primary/20
                                       flex items-center justify-center shrink-0">
-                        <User className="w-3.5 h-3.5 text-cyan-400" />
+                        <User className="w-3.5 h-3.5 text-primary" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{patient.name}</p>

@@ -118,7 +118,7 @@ export function DepartmentDetail({ visit, departments, onVisitUpdated }: Departm
                 onClick={() => setTransferTarget(dept.name)}
                 className={`text-xs px-2 py-1 rounded-md border transition-colors ${
                   transferTarget === dept.name
-                    ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-400"
+                    ? "border-primary/60 bg-primary/10 text-primary"
                     : "border-border/40 text-muted-foreground hover:border-border"
                 }`}
               >
@@ -168,7 +168,7 @@ export function DepartmentDetail({ visit, departments, onVisitUpdated }: Departm
               onClick={handleComplete}
               disabled={isCompleting}
               size="sm"
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white text-xs"
+              className="flex-1 bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary/90 text-white text-xs"
             >
               <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
               {isCompleting ? "Completing..." : "Complete Visit"}

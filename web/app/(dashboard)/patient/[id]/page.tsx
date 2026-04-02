@@ -139,6 +139,8 @@ export default function PatientDetailPage() {
         activityDetails={chat.activityDetails}
         loadingSession={chat.loadingSession}
         handleSendMessage={chat.handleSendMessage}
+        activeForm={chat.activeForm}
+        handleFormSubmitted={chat.handleFormSubmitted}
         messagesEndRef={chat.messagesEndRef}
         patient={patient}
         activeTab={activeTab}

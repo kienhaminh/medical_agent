@@ -17,25 +17,24 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Activity, Brain, FileText, Heart, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 
-function SubSectionLabel({ code, title }: { code: string; title: string }) {
+function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-baseline gap-4 mb-5">
-      <span className="text-[10px] font-mono tracking-[0.2em] text-muted-foreground/50">{code}</span>
-      <h3 className="text-sm font-mono font-semibold text-muted-foreground uppercase tracking-widest">{title}</h3>
-      <div className="h-px flex-1 bg-border/50" />
+    <div>
+      <h3 className="text-sm font-medium text-muted-foreground mb-4">{title}</h3>
+      {children}
     </div>
   )
 }
 
 function DemoBox({ children, label }: { children: React.ReactNode; label?: string }) {
   return (
-    <div className="rounded-sm border border-border/50 bg-card overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
       {label && (
-        <div className="px-4 py-2 border-b border-border/50 bg-muted/20">
-          <span className="text-[10px] font-mono text-muted-foreground/60 tracking-widest uppercase">{label}</span>
+        <div className="px-5 py-2.5 border-b border-border">
+          <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
         </div>
       )}
-      <div className="p-6 flex flex-wrap gap-3 items-center">{children}</div>
+      <div className="p-5 flex flex-wrap gap-3 items-center">{children}</div>
     </div>
   )
 }
@@ -47,26 +46,24 @@ export default function DSComponents() {
 
   return (
     <section id="components" className="scroll-mt-8">
-      <div className="flex items-end gap-4 mb-10">
-        <div>
-          <p className="text-[10px] font-mono tracking-[0.2em] text-muted-foreground/50 mb-1">SYS.DESIGN.COMP.03</p>
-          <h2 className="font-display text-3xl font-bold">Components</h2>
-        </div>
-        <div className="h-px flex-1 bg-border mb-2" />
-        <span className="text-[10px] font-mono text-muted-foreground mb-2">Shadcn/ui · New York Style · 20 components</span>
+      <div className="mb-10">
+        <h2 className="font-display text-3xl font-bold tracking-tight mb-2">Components</h2>
+        <p className="text-sm text-muted-foreground">
+          shadcn/ui with Radix primitives, restyled for Graphite &amp; Sage.
+        </p>
       </div>
 
       <div className="space-y-10">
         {/* Buttons */}
-        <div>
-          <SubSectionLabel code="03.A" title="Buttons" />
+        <SubSection title="Buttons">
           <div className="space-y-3">
             <DemoBox label="Variants">
-              <Button variant="default">Default</Button>
+              <Button variant="default">Primary</Button>
               <Button variant="secondary">Secondary</Button>
               <Button variant="outline">Outline</Button>
               <Button variant="ghost">Ghost</Button>
               <Button variant="destructive">Destructive</Button>
+              <Button variant="success">Success</Button>
               <Button variant="link">Link</Button>
             </DemoBox>
             <DemoBox label="Sizes">
@@ -81,34 +78,48 @@ export default function DSComponents() {
               <Button variant="secondary"><FileText className="size-4" />Records</Button>
             </DemoBox>
           </div>
-        </div>
+        </SubSection>
 
         {/* Badges */}
-        <div>
-          <SubSectionLabel code="03.B" title="Badges" />
-          <DemoBox label="Variants">
-            <Badge>Default</Badge>
-            <Badge variant="secondary">Secondary</Badge>
-            <Badge variant="outline">Outline</Badge>
-            <Badge variant="destructive">Destructive</Badge>
-          </DemoBox>
-        </div>
+        <SubSection title="Badges">
+          <div className="space-y-3">
+            <DemoBox label="Standard">
+              <Badge>Default</Badge>
+              <Badge variant="secondary">Secondary</Badge>
+              <Badge variant="outline">Outline</Badge>
+              <Badge variant="destructive">Destructive</Badge>
+            </DemoBox>
+            <DemoBox label="Status">
+              <Badge variant="success">Normal</Badge>
+              <Badge variant="warning">Elevated</Badge>
+              <Badge variant="danger">Critical</Badge>
+              <Badge variant="info">Pending</Badge>
+            </DemoBox>
+            <DemoBox label="Medical Records">
+              <Badge variant="mri">MRI</Badge>
+              <Badge variant="xray">X-Ray</Badge>
+              <Badge variant="lab">Lab</Badge>
+              <Badge variant="ct">CT</Badge>
+              <Badge variant="ultrasound">Ultrasound</Badge>
+              <Badge variant="clinical">Clinical</Badge>
+            </DemoBox>
+          </div>
+        </SubSection>
 
         {/* Form Controls */}
-        <div>
-          <SubSectionLabel code="03.C" title="Form Controls" />
+        <SubSection title="Form Controls">
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="rounded-sm border border-border/50 bg-card p-6 space-y-4">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
               <div className="space-y-2">
-                <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Patient ID</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Patient ID</Label>
                 <Input placeholder="e.g. PT-00291" />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Diagnosis</Label>
-                <Textarea placeholder="Enter clinical notes…" className="resize-none h-24" />
+                <Label className="text-xs font-medium text-muted-foreground">Diagnosis</Label>
+                <Textarea placeholder="Enter clinical notes..." className="resize-none h-24" />
               </div>
               <div className="space-y-2">
-                <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Department</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Department</Label>
                 <Select>
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
@@ -123,11 +134,11 @@ export default function DSComponents() {
               </div>
             </div>
 
-            <div className="rounded-sm border border-border/50 bg-card p-6 space-y-6">
+            <div className="rounded-xl border border-border bg-card p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground block mb-1">Notifications</Label>
-                  <p className="text-xs text-muted-foreground">Real-time alerts enabled</p>
+                  <Label className="text-xs font-medium text-muted-foreground block mb-1">Notifications</Label>
+                  <p className="text-xs text-muted-foreground/70">Real-time alerts enabled</p>
                 </div>
                 <Switch checked={switchOn} onCheckedChange={setSwitchOn} />
               </div>
@@ -143,43 +154,42 @@ export default function DSComponents() {
               <Separator />
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <Label className="font-mono text-xs tracking-widest uppercase text-muted-foreground">Confidence Threshold</Label>
-                  <span className="text-sm font-mono" style={{ color: '#00d9ff' }}>{sliderVal[0]}%</span>
+                  <Label className="text-xs font-medium text-muted-foreground">Confidence Threshold</Label>
+                  <span className="text-sm font-mono text-primary">{sliderVal[0]}%</span>
                 </div>
                 <Slider value={sliderVal} onValueChange={setSliderVal} min={0} max={100} step={1} />
               </div>
             </div>
           </div>
-        </div>
+        </SubSection>
 
-        {/* Card & Avatar */}
-        <div>
-          <SubSectionLabel code="03.D" title="Card · Avatar · Skeleton" />
+        {/* Cards & Avatars */}
+        <SubSection title="Cards">
           <div className="grid md:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    <AvatarFallback className="bg-[#00d9ff]/10 font-mono text-sm" style={{ color: '#00d9ff' }}>JD</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">JD</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">Jane Doe</CardTitle>
-                    <CardDescription className="font-mono text-xs">PT-00291 · Cardiology</CardDescription>
+                    <CardDescription className="text-xs font-mono">PT-00291</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Heart Rate</span>
-                  <span className="font-mono" style={{ color: '#10b981' }}>72 bpm</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">72 bpm</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Blood Pressure</span>
-                  <span className="font-mono text-foreground">120/80</span>
+                  <span className="font-mono">120/80</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">SpO₂</span>
-                  <span className="font-mono" style={{ color: '#00b8a9' }}>98%</span>
+                  <span className="text-muted-foreground">SpO2</span>
+                  <span className="font-mono text-primary">98%</span>
                 </div>
               </CardContent>
             </Card>
@@ -190,7 +200,7 @@ export default function DSComponents() {
                   <AlertTriangle className="size-4 text-destructive" />
                   Critical Alert
                 </CardTitle>
-                <CardDescription className="font-mono text-xs">03:47 AM · Auto-generated</CardDescription>
+                <CardDescription className="text-xs font-mono">03:47 AM</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
@@ -203,8 +213,8 @@ export default function DSComponents() {
               </CardContent>
             </Card>
 
-            <div className="rounded-sm border border-border/50 bg-card p-5 space-y-4">
-              <span className="text-[10px] font-mono text-muted-foreground/60 tracking-widest uppercase block">Skeleton Loading</span>
+            <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+              <span className="text-[11px] font-medium text-muted-foreground block">Skeleton Loading</span>
               <div className="flex items-center gap-3">
                 <Skeleton className="size-10 rounded-full" />
                 <div className="space-y-2 flex-1">
@@ -219,12 +229,11 @@ export default function DSComponents() {
               </div>
             </div>
           </div>
-        </div>
+        </SubSection>
 
         {/* Tabs */}
-        <div>
-          <SubSectionLabel code="03.E" title="Tabs" />
-          <div className="rounded-sm border border-border/50 bg-card p-6">
+        <SubSection title="Tabs">
+          <div className="rounded-xl border border-border bg-card p-6">
             <Tabs defaultValue="overview">
               <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -234,13 +243,13 @@ export default function DSComponents() {
               </TabsList>
               <TabsContent value="overview" className="mt-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="size-4 text-emerald-500" />
-                  Patient overview renders here — vitals, active medications, recent visits.
+                  <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+                  Patient overview — vitals, active medications, recent visits.
                 </div>
               </TabsContent>
               <TabsContent value="imaging" className="mt-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Info className="size-4" style={{ color: '#00d9ff' }} />
+                  <Info className="size-4 text-primary" />
                   Imaging records — MRI, CT, X-Ray, Ultrasound thumbnails and reports.
                 </div>
               </TabsContent>
@@ -248,11 +257,11 @@ export default function DSComponents() {
                 <p className="text-sm text-muted-foreground">Lab results table with reference ranges and trend indicators.</p>
               </TabsContent>
               <TabsContent value="notes" className="mt-4">
-                <p className="text-sm text-muted-foreground">Clinical notes with AI-generated summaries and provider annotations.</p>
+                <p className="text-sm text-muted-foreground">Clinical notes with AI summaries and provider annotations.</p>
               </TabsContent>
             </Tabs>
           </div>
-        </div>
+        </SubSection>
       </div>
     </section>
   )

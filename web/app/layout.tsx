@@ -1,34 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
+import { Outfit, Sora, Fira_Code } from "next/font/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfit = Outfit({
+  variable: "--font-outfit",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
+const sora = Sora({
+  variable: "--font-sora",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-// Use Geist as body font (similar serif alternative to Crimson Pro)
-const bodyFont = Geist({
-  variable: "--font-crimson",
+const firaCode = Fira_Code({
+  variable: "--font-fira-code",
   subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "AI Agent - Your Personal AI Assistant",
-  description: "Intelligent conversation agent powered by Claude AI. Natural interactions with meaningful context.",
+  title: "MediNexus - Clinical Intelligence Platform",
+  description:
+    "Clinical intelligence platform powered by AI. Streamlined workflows for modern healthcare.",
   icons: {
     icon: "/favicon.ico",
   },
@@ -40,14 +37,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${jetbrainsMono.variable} ${bodyFont.variable} antialiased`}
+        className={`${outfit.variable} ${sora.variable} ${firaCode.variable} antialiased`}
       >
-        <AuthProvider>
-          {children}
-          <Toaster position="top-right" richColors />
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

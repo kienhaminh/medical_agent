@@ -85,13 +85,13 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-[#161b22] border-[rgba(255,255,255,0.06)]">
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-card border-border">
         <DialogHeader>
           <DialogTitle className="font-mono flex items-center gap-2" style={{ color: department.color }}>
             {selectedVisit && (
               <button
                 onClick={() => setSelectedVisit(null)}
-                className="text-[#8b949e] hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft size={16} />
               </button>
@@ -107,21 +107,21 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
         ) : (
           <>
             {/* Settings */}
-            <div className="flex items-center gap-4 py-2 border-b border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-4 py-2 border-b border-border">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-mono text-[#8b949e]">Capacity:</label>
+                <label className="text-xs font-mono text-muted-foreground">Capacity:</label>
                 <input
                   type="number"
                   min={1}
                   max={20}
                   value={capacity}
                   onChange={(e) => setCapacity(Number(e.target.value))}
-                  className="w-14 rounded bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] px-2 py-1 text-xs font-mono text-white"
+                  className="w-14 rounded bg-muted/50 border border-border px-2 py-1 text-xs font-mono text-foreground"
                 />
                 <button
                   onClick={handleSaveCapacity}
                   disabled={saving || capacity === department.capacity}
-                  className="text-xs font-mono px-2 py-1 rounded bg-[rgba(0,217,255,0.1)] text-[#00d9ff] hover:bg-[rgba(0,217,255,0.2)] disabled:opacity-40"
+                  className="text-xs font-mono px-2 py-1 rounded bg-[primary/10] text-primary hover:bg-primary/20 disabled:opacity-40"
                 >
                   Save
                 </button>
@@ -131,8 +131,8 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
                 disabled={saving}
                 className={`text-xs font-mono px-2 py-1 rounded ${
                   department.is_open
-                    ? "bg-[rgba(239,68,68,0.1)] text-red-400 hover:bg-[rgba(239,68,68,0.2)]"
-                    : "bg-[rgba(16,185,129,0.1)] text-emerald-400 hover:bg-[rgba(16,185,129,0.2)]"
+                    ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                    : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                 }`}
               >
                 {department.is_open ? "Close Dept" : "Open Dept"}
@@ -144,14 +144,14 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
 
             {/* Patient Queue */}
             <div className="flex-1 overflow-y-auto space-y-2 py-2">
-              <div className="text-xs font-mono text-[#8b949e] mb-1">
+              <div className="text-xs font-mono text-muted-foreground mb-1">
                 Patient Queue ({visits.length})
               </div>
               {visitLoadError && (
                 <p className="text-xs text-red-400 px-1">{visitLoadError}</p>
               )}
               {visits.length === 0 && (
-                <p className="text-center text-[#8b949e] text-sm py-6">No patients</p>
+                <p className="text-center text-muted-foreground text-sm py-6">No patients</p>
               )}
               {visits.map((visit) => {
                 const waitColor = getWaitTimeColor(visit.created_at);
@@ -160,23 +160,23 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
                     key={visit.id}
                     onClick={() => handleVisitClick(visit)}
                     disabled={loadingVisit}
-                    className="w-full text-left rounded-lg border px-3 py-2 hover:border-[rgba(255,255,255,0.15)] transition-colors disabled:opacity-50"
+                    className="w-full text-left rounded-lg border px-3 py-2 hover:border-border transition-colors disabled:opacity-50"
                     style={{
-                      background: "rgba(255,255,255,0.02)",
-                      borderColor: "rgba(255,255,255,0.06)",
+                      background: "var(--muted)",
+                      borderColor: "var(--border)",
                     }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: waitColor }} />
-                        <span className="text-sm font-semibold text-white">{visit.patient_name}</span>
+                        <span className="text-sm font-semibold text-foreground">{visit.patient_name}</span>
                       </div>
                       <span className="text-[10px] font-mono" style={{ color: waitColor }}>
                         {formatTimeAgo(visit.created_at)}
                       </span>
                     </div>
                     {visit.chief_complaint && (
-                      <p className="text-xs text-[#8b949e] mt-1 line-clamp-1 ml-4">{visit.chief_complaint}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1 ml-4">{visit.chief_complaint}</p>
                     )}
                   </button>
                 );

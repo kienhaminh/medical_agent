@@ -92,9 +92,9 @@ export default function PatientIntakePage() {
     <div className="flex flex-col h-screen bg-background relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 dot-matrix-bg opacity-30" />
-        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-bl from-cyan-500/8 via-transparent to-transparent" />
-        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-tr from-teal-500/8 via-transparent to-transparent" />
+        <div className="absolute inset-0 dot-matrix-bg opacity-15" />
+        <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-gradient-to-bl from-primary/8 via-transparent to-transparent" />
+        <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-gradient-to-tr from-primary/8 via-transparent to-transparent" />
         <div className="scan-line absolute inset-0" />
       </div>
 
@@ -112,7 +112,7 @@ export default function PatientIntakePage() {
                 unoptimized
               />
             </div>
-            <span className="font-display text-base font-bold tracking-wider bg-gradient-to-r from-cyan-500 to-teal-500 bg-clip-text text-transparent">
+            <span className="font-display text-base font-bold tracking-wider text-primary">
               MEDI-NEXUS
             </span>
             <span className="text-muted-foreground text-sm hidden sm:block">
@@ -137,7 +137,7 @@ export default function PatientIntakePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs tracking-wider border-cyan-500/30 hover:border-cyan-500/60 hover:text-cyan-500"
+                className="h-8 text-xs tracking-wider border-primary/20 hover:border-primary/40 hover:text-primary"
               >
                 HOME
               </Button>
@@ -152,9 +152,9 @@ export default function PatientIntakePage() {
           <div className="space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/5">
-                  <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-display tracking-widest text-cyan-500">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5">
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                  <span className="text-xs font-display tracking-widest text-primary">
                     RECEPTION AI ONLINE
                   </span>
                 </div>
@@ -168,7 +168,7 @@ export default function PatientIntakePage() {
                     <button
                       key={suggestion}
                       onClick={() => sendMessage(undefined, suggestion)}
-                      className="text-xs text-left px-3 py-2 rounded-lg border border-border/60 bg-card/40 hover:bg-card/70 hover:border-cyan-500/40 transition-all text-muted-foreground hover:text-foreground"
+                      className="text-xs text-left px-3 py-2 rounded-lg border border-border/60 bg-card/40 hover:bg-card/70 hover:border-primary/40 transition-all text-muted-foreground hover:text-foreground"
                     >
                       {suggestion}
                     </button>
@@ -195,7 +195,7 @@ export default function PatientIntakePage() {
                 <div
                   className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
                     msg.role === "user"
-                      ? "bg-cyan-500/15 text-foreground rounded-br-sm"
+                      ? "bg-primary/10 text-foreground rounded-br-sm"
                       : "bg-muted/60 text-foreground rounded-bl-sm"
                   }`}
                 >
@@ -210,7 +210,7 @@ export default function PatientIntakePage() {
                       />
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-cyan-500" />
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         {activity && (
                           <span className="text-xs text-muted-foreground animate-pulse">
                             {activity}...
@@ -225,15 +225,6 @@ export default function PatientIntakePage() {
               </div>
               );
             })}
-
-            {/* Inline form — renders inside conversation, full width centered */}
-            {activeForm && sessionId && (
-              <FormInputBar
-                activeForm={activeForm}
-                sessionId={sessionId}
-                onSubmitted={handleFormSubmitted}
-              />
-            )}
 
             {/* Triage Status Card */}
             {triageStatus && !isLoading && (
@@ -273,8 +264,16 @@ export default function PatientIntakePage() {
           </div>
         </div>
 
-        {/* Bottom bar — hidden when form is active (form is inline above) */}
-        {!activeForm && (
+        {/* Bottom bar */}
+        {activeForm && sessionId ? (
+          <div className="py-4 border-t border-border/50">
+            <FormInputBar
+              activeForm={activeForm}
+              sessionId={sessionId}
+              onSubmitted={handleFormSubmitted}
+            />
+          </div>
+        ) : (
           <form
             onSubmit={sendMessage}
             className="py-4 border-t border-border/50 flex gap-2"
@@ -290,7 +289,7 @@ export default function PatientIntakePage() {
               type="submit"
               disabled={!input.trim() || isLoading || !!triageStatus}
               size="icon"
-              className="bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white flex-shrink-0"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground flex-shrink-0"
             >
               <Send className="w-4 h-4" />
             </Button>
