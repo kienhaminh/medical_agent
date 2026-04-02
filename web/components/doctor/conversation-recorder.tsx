@@ -12,7 +12,7 @@ interface ConversationRecorderProps {
 
 type RecorderState = "idle" | "recording" | "transcribing";
 
-function getSpeechRecognition(): typeof SpeechRecognition | null {
+function getSpeechRecognition(): any | null {
   if (typeof window === "undefined") return null;
   return (
     (window as any).SpeechRecognition ||
@@ -123,7 +123,7 @@ export function ConversationRecorder({
 
         const text = await new Promise<string>((resolve, reject) => {
           let transcript = "";
-          recognition.onresult = (event: SpeechRecognitionEvent) => {
+          recognition.onresult = (event: any) => {
             for (let i = event.resultIndex; i < event.results.length; i++) {
               if (event.results[i].isFinal) {
                 transcript += event.results[i][0].transcript + " ";

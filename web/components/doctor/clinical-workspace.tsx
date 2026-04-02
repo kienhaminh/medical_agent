@@ -133,6 +133,7 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
             disabled={!hasPatient}
             onDraftWithAI={props.onDraftWithAI}
             drafting={props.draftingNote}
+            visitId={props.selectedVisit?.id}
           />
         </CollapsiblePanel>
 

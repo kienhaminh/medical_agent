@@ -2,6 +2,7 @@
 
 import { FileEdit, Check, Loader2, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { ConversationRecorder } from "./conversation-recorder";
 
 interface ClinicalNotesEditorProps {
   notes: string;
@@ -11,6 +12,7 @@ interface ClinicalNotesEditorProps {
   disabled?: boolean;
   onDraftWithAI?: () => void;
   drafting?: boolean;
+  visitId?: number;
 }
 
 /** Indicator dot/icon for the current save state. */
@@ -56,11 +58,25 @@ export function ClinicalNotesEditor({
   disabled = false,
   onDraftWithAI,
   drafting = false,
+  visitId,
 }: ClinicalNotesEditorProps) {
+  const handleTranscribed = (text: string) => {
+    const timestamp = new Date().toLocaleString();
+    const entry = `[${timestamp}] Recording transcript:\n${text}`;
+    onChange(notes ? `${notes}\n\n${entry}` : entry);
+  };
+
   return (
     <div className="overflow-hidden flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center justify-end gap-3 px-3 py-2 border-b border-border/50">
+        {visitId && (
+          <ConversationRecorder
+            visitId={visitId}
+            disabled={disabled}
+            onTranscribed={handleTranscribed}
+          />
+        )}
         {onDraftWithAI && (
           <button
             type="button"
