@@ -96,10 +96,17 @@ export function useIntakeChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, triageStatus]);
 
+  // Auto-start: trigger the agent on fresh sessions so it immediately shows the
+  // registration form without requiring the patient to type anything first.
   useEffect(() => {
     const stored = readStoredSession();
-    if (!stored) return;
-
+    if (!stored) {
+      // Small delay so the component is fully mounted before streaming starts.
+      const timer = setTimeout(() => {
+        sendMessage(undefined, "start", true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
     setSessionId(stored.sessionId);
 
     fetch(`/api/chat/sessions/${stored.sessionId}/messages`)
@@ -132,19 +139,21 @@ export function useIntakeChat() {
       });
   }, []);
 
-  const sendMessage = async (e?: React.FormEvent, directMessage?: string) => {
+  const sendMessage = async (e?: React.FormEvent, directMessage?: string, silent = false) => {
     e?.preventDefault();
     const content = (directMessage ?? input).trim();
     if (!content || isLoading) return;
 
     setInput("");
 
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      content,
-    };
-    setMessages((prev) => [...prev, userMsg]);
+    if (!silent) {
+      const userMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: "user",
+        content,
+      };
+      setMessages((prev) => [...prev, userMsg]);
+    }
     setIsLoading(true);
 
     const assistantId = (Date.now() + 1).toString();
