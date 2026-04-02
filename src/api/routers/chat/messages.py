@@ -4,8 +4,8 @@ import json
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
-import redis.asyncio as redis
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,18 +18,166 @@ from ...models import (
     FormResponseRequest,
 )
 from ...dependencies import get_or_create_agent, get_intake_agent
-from ....tasks.agent_tasks import process_agent_message
 from src.tools.form_request_registry import form_registry, current_session_id_var
 from src.forms.vault import save_intake, identify_patient
 from src.forms.field_classification import PII_FIELDS, SAFE_FIELDS, PATIENT_IDENTITY_FIELDS
 from src.agent.stream_processor import StreamProcessor
+from . import broadcast
 
 logger = logging.getLogger(__name__)
-
-# Load configuration
 config = load_config()
 
 router = APIRouter()
+
+
+async def _update_message_db(db, message_id: int, result) -> None:
+    """Persist incremental streaming content to the DB."""
+    db_result = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+    message = db_result.scalar_one_or_none()
+    if message:
+        message.content = result.content
+        message.tool_calls = result.tool_calls_json()
+        message.reasoning = result.reasoning if result.reasoning else None
+        message.logs = result.logs_json()
+        message.token_usage = result.usage_json()
+        message.last_updated_at = datetime.utcnow()
+        await db.commit()
+
+
+async def _run_agent_background(
+    message_id: int,
+    session_id: int,
+    user_id: str,
+    user_message: str,
+    patient_id: Optional[int] = None,
+    record_id: Optional[int] = None,
+) -> None:
+    """Run agent in an asyncio background task.
+
+    Publishes streaming events via the in-memory broadcast bus.
+    Saves content incrementally to the DB so reconnecting clients
+    can resume from current partial content.
+    """
+    processor = StreamProcessor()
+    last_save_time = datetime.utcnow()
+    chunk_count = 0
+    SAVE_INTERVAL_SECONDS = 5
+    SAVE_CHUNK_THRESHOLD = 50
+
+    try:
+        async with AsyncSessionLocal() as db:
+            # Mark message as streaming
+            result = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+            message = result.scalar_one_or_none()
+            if not message:
+                raise ValueError(f"Message {message_id} not found")
+            message.status = "streaming"
+            message.streaming_started_at = datetime.utcnow()
+            message.last_updated_at = datetime.utcnow()
+            await db.commit()
+
+            await broadcast.publish(message_id, {"type": "status", "status": "streaming"})
+
+            # Build context message
+            context_message = user_message
+            if patient_id:
+                result = await db.execute(select(Patient).where(Patient.id == patient_id))
+                patient = result.scalar_one_or_none()
+                if patient:
+                    context_message = (
+                        f"Context: Patient {patient.name} "
+                        f"(DOB: {patient.dob}, Gender: {patient.gender}).\n\n"
+                    )
+                    if record_id:
+                        result = await db.execute(
+                            select(MedicalRecord).where(MedicalRecord.id == record_id)
+                        )
+                        record = result.scalar_one_or_none()
+                        if record:
+                            context_message += f"Focus Record: {record.record_type}\n"
+                            if record.record_type == "text":
+                                context_message += f"Content: {record.content}\n"
+                            elif record.record_type in ("image", "pdf"):
+                                context_message += f"File: {record.content}\n"
+                                if record.summary:
+                                    context_message += f"Metadata: {record.summary}\n"
+                    context_message += f"User Query: {user_message}"
+
+            # Load chat history
+            stmt = (
+                select(ChatMessage)
+                .where(ChatMessage.session_id == session_id)
+                .order_by(ChatMessage.created_at)
+            )
+            result = await db.execute(stmt)
+            chat_history = [
+                {"role": m.role, "content": m.content}
+                for m in result.scalars().all()
+                if m.id != message_id and m.content and m.content.strip()
+            ]
+
+            # Run agent
+            user_agent = get_or_create_agent(user_id)
+            stream = await user_agent.process_message(
+                user_message=context_message.strip(),
+                stream=True,
+                chat_history=chat_history,
+            )
+
+            async for event in processor.process(stream):
+                chunk_count += 1
+                if isinstance(event, dict):
+                    await broadcast.publish(message_id, event)
+
+                elapsed = (datetime.utcnow() - last_save_time).total_seconds()
+                if elapsed >= SAVE_INTERVAL_SECONDS or chunk_count >= SAVE_CHUNK_THRESHOLD:
+                    await _update_message_db(db, message_id, processor.result)
+                    last_save_time = datetime.utcnow()
+                    chunk_count = 0
+
+            # Final save
+            r = processor.result
+            result = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+            message = result.scalar_one_or_none()
+            if message:
+                message.content = r.content
+                message.tool_calls = r.tool_calls_json()
+                message.reasoning = r.reasoning if r.reasoning else None
+                message.logs = r.logs_json()
+                message.token_usage = r.usage_json()
+                message.status = "completed"
+                message.completed_at = datetime.utcnow()
+                message.last_updated_at = datetime.utcnow()
+                await db.commit()
+
+            await broadcast.publish(message_id, {"type": "done"})
+
+    except asyncio.CancelledError:
+        await broadcast.publish(message_id, {"type": "error", "message": "Task cancelled"})
+        async with AsyncSessionLocal() as err_db:
+            r = processor.result
+            result = await err_db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+            msg = result.scalar_one_or_none()
+            if msg:
+                msg.content = r.content
+                msg.status = "interrupted"
+                msg.error_message = "Task cancelled"
+                msg.completed_at = datetime.utcnow()
+                await err_db.commit()
+
+    except Exception as e:
+        logger.error("Background agent task failed for message %d: %s", message_id, e, exc_info=True)
+        await broadcast.publish(message_id, {"type": "error", "message": str(e)})
+        async with AsyncSessionLocal() as err_db:
+            r = processor.result
+            result = await err_db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+            msg = result.scalar_one_or_none()
+            if msg:
+                msg.content = r.content
+                msg.status = "error"
+                msg.error_message = str(e)
+                msg.completed_at = datetime.utcnow()
+                await err_db.commit()
 
 
 @router.post("/api/chat/{session_id}/form-response")
@@ -457,7 +605,7 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
     """Send chat message and dispatch background task for processing.
 
     This endpoint immediately returns a task_id and message_id,
-    then processes the message in the background via Celery.
+    then processes the message in the background via an asyncio task.
 
     Args:
         request: Chat request with message, user_id, and optional context
@@ -506,22 +654,23 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
         await db.commit()
         await db.refresh(assistant_msg)
 
-        # 4. Dispatch Celery Task
-        task = process_agent_message.delay(
-            session_id=session.id,
+        # 4. Dispatch asyncio background task (no Celery/Redis required)
+        bg_task = asyncio.create_task(_run_agent_background(
             message_id=assistant_msg.id,
+            session_id=session.id,
             user_id=request.user_id or "default",
             user_message=request.message,
             patient_id=request.patient_id,
             record_id=request.record_id,
-        )
+        ))
+        broadcast.register_task(assistant_msg.id, bg_task)
 
-        # 5. Update assistant message with task_id
-        assistant_msg.task_id = task.id
+        # 5. Record pseudo task_id (message_id used as identifier)
+        assistant_msg.task_id = str(assistant_msg.id)
         await db.commit()
 
         return ChatTaskResponse(
-            task_id=task.id,
+            task_id=str(assistant_msg.id),
             message_id=assistant_msg.id,
             session_id=session.id,
             status="pending"
@@ -533,21 +682,15 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
 
 @router.get("/api/chat/tasks/{task_id}/status", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
-    """Get status of a Celery task.
+    """Get status of a background task by looking up the message in DB.
 
     Args:
-        task_id: Celery task ID
+        task_id: Task ID (equals message_id as string)
 
     Returns:
         TaskStatusResponse with task status and message preview
     """
     try:
-        from celery.result import AsyncResult
-        from ....tasks import celery_app
-
-        # Get task result from Celery
-        task_result = AsyncResult(task_id, app=celery_app)
-
         # Find message by task_id
         stmt = select(ChatMessage).where(ChatMessage.task_id == task_id)
         result = await db.execute(stmt)
@@ -561,13 +704,23 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
         if message.content:
             content_preview = message.content[:100] + "..." if len(message.content) > 100 else message.content
 
+        # Map DB status to Celery-compatible status strings for API compatibility
+        status_map = {
+            "pending": "PENDING",
+            "streaming": "STARTED",
+            "completed": "SUCCESS",
+            "error": "FAILURE",
+            "interrupted": "FAILURE",
+        }
+        celery_status = status_map.get(message.status or "pending", "PENDING")
+
         return TaskStatusResponse(
             task_id=task_id,
-            status=task_result.status,  # PENDING, STARTED, SUCCESS, FAILURE, RETRY
+            status=celery_status,
             message_id=message.id,
             content_preview=content_preview,
             error=message.error_message,
-            result=task_result.result if task_result.successful() else None
+            result=message.content if message.status == "completed" else None
         )
 
     except HTTPException:
@@ -580,118 +733,60 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
 async def stream_message_updates(message_id: int, db: AsyncSession = Depends(get_db)):
     """Stream updates for a specific message via Server-Sent Events.
 
-    Uses Redis Pub/Sub for real-time updates from background tasks.
-    Falls back to DB check if task is already completed.
-
-    Args:
-        message_id: Message ID to stream updates for
-
-    Returns:
-        StreamingResponse with SSE updates
+    Uses in-memory broadcast for real-time updates from background tasks.
+    Falls back to DB state if the task already completed.
     """
-    logger.info(f"Starting stream for message {message_id}")
+    logger.info("Starting stream for message %d", message_id)
 
     async def generate():
-        logger.info(f"Inside generate for message {message_id}")
+        # 1. Check initial DB state
+        async with AsyncSessionLocal() as local_db:
+            result = await local_db.execute(
+                select(ChatMessage).where(ChatMessage.id == message_id)
+            )
+            message = result.scalar_one_or_none()
+
+            if not message:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Message not found'})}\n\n"
+                return
+
+            # Already finished — return final state and close
+            if message.status in ("completed", "error", "interrupted"):
+                yield f"data: {json.dumps({'type': 'status', 'status': message.status, 'content': message.content, 'tool_calls': json.loads(message.tool_calls) if message.tool_calls else None, 'reasoning': message.reasoning, 'logs': json.loads(message.logs) if message.logs else None, 'patient_references': json.loads(message.patient_references) if message.patient_references else None, 'error_message': message.error_message, 'usage': json.loads(message.token_usage) if message.token_usage else None})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+
+            # Send current partial content so reconnecting clients resume visually
+            if message.content:
+                yield f"data: {json.dumps({'type': 'status', 'status': message.status, 'content': message.content})}\n\n"
+
+        # 2. Subscribe to in-memory broadcast
+        queue = broadcast.subscribe(message_id)
         try:
-            # Initialize Redis
-            redis_client = redis.from_url(config.redis_url)
-            pubsub = redis_client.pubsub()
-
-            # 1. Subscribe to Redis channel FIRST to avoid missing events
-            channel = f"chat:message:{message_id}"
-            logger.info(f"Subscribing to Redis channel: {channel}")
-            await pubsub.subscribe(channel)
-            logger.info(f"Subscribed to {channel}")
-
-            logger.info(f"Checking DB for message {message_id}")
-            # 2. Check initial state from DB
-            async with AsyncSessionLocal() as local_db:
-                result = await local_db.execute(
-                    select(ChatMessage).where(ChatMessage.id == message_id)
-                )
-                message = result.scalar_one_or_none()
-
-                if not message:
-                    logger.error(f"Message {message_id} not found in DB")
-                    await pubsub.unsubscribe()
-                    yield f"data: {json.dumps({'error': 'Message not found'})}\n\n"
-                    return
-
-                logger.info(f"Message {message_id} found with status: {message.status}")
-
-                # If already completed/error, send final state and exit
-                if message.status in ['completed', 'error', 'interrupted']:
-                    await pubsub.unsubscribe()
-                    yield f"data: {json.dumps({
-                        'type': 'status',
-                        'status': message.status,
-                        'content': message.content,
-                        'tool_calls': json.loads(message.tool_calls) if message.tool_calls else None,
-                        'reasoning': message.reasoning,
-                        'logs': json.loads(message.logs) if message.logs else None,
-                        'patient_references': json.loads(message.patient_references) if message.patient_references else None,
-                        'error_message': message.error_message,
-                        'usage': json.loads(message.token_usage) if message.token_usage else None
-                    })}\n\n"
-                    yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                    return
-
-                # Send current content if any (for resuming)
-                if message.content:
-                    yield f"data: {json.dumps({
-                        'type': 'status',
-                        'status': message.status,
-                        'content': message.content
-                    })}\n\n"
-
-            # Send a test event to verify stream is working
-            test_event = json.dumps({'type': 'status', 'status': 'connected'})
-            logger.info(f"Sending test event: {test_event}")
-            yield f"data: {test_event}\n\n"
-
-            # 3. Stream events
-            logger.info(f"Starting event loop for message {message_id}")
-            event_count = 0
             while True:
-                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-
-                if message:
-                    event_count += 1
-                    logger.info(f"Received Redis message #{event_count}: {message}")
-                    data = message['data']
-                    if isinstance(data, bytes):
-                        data = data.decode('utf-8')
-
-                    # Yield the raw event data (it's already JSON from agent_tasks)
-                    logger.info(f"Yielding event #{event_count}: {data[:100]}...")
-                    yield f"data: {data}\n\n"
-
-                    # Check for completion signal
-                    try:
-                        parsed = json.loads(data)
-                        if parsed.get("type") in ["done", "error"]:
-                            logger.info(f"Stream completed for message {message_id} with type: {parsed.get('type')}")
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                    if event.get("type") in ("done", "error"):
+                        break
+                except asyncio.TimeoutError:
+                    # Keepalive + DB fallback check in case we missed the done event
+                    async with AsyncSessionLocal() as check_db:
+                        result = await check_db.execute(
+                            select(ChatMessage).where(ChatMessage.id == message_id)
+                        )
+                        msg = result.scalar_one_or_none()
+                        if msg and msg.status in ("completed", "error", "interrupted"):
+                            yield f"data: {json.dumps({'type': 'done'})}\n\n"
                             break
-                    except Exception:
-                        pass
-
-                await asyncio.sleep(0.01)
+                    yield f"data: {json.dumps({'type': 'keepalive'})}\n\n"
 
         except asyncio.CancelledError:
-            logger.info(f"Stream cancelled for message {message_id}")
+            logger.info("Stream cancelled for message %d", message_id)
         except Exception as e:
-            logger.error(f"Stream error for message {message_id}: {e}", exc_info=True)
+            logger.error("Stream error for message %d: %s", message_id, e, exc_info=True)
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         finally:
-            logger.info(f"Cleaning up stream for message {message_id}")
-            try:
-                await pubsub.unsubscribe()
-                await redis_client.aclose()
-            except Exception as e:
-                logger.error(f"Error during cleanup: {e}")
+            broadcast.unsubscribe(message_id, queue)
 
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-    )
+    return StreamingResponse(generate(), media_type="text/event-stream")
