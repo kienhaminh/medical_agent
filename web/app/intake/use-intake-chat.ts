@@ -161,6 +161,7 @@ export function useIntakeChat() {
           message: content,
           stream: true,
           session_id: sessionId,
+          mode: "intake",
         }),
       });
 
