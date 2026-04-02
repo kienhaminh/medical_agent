@@ -165,7 +165,7 @@ async def _process_dynamic_input(session_id: int, answers: dict[str, str]) -> st
 
     # --- Step 3: persist intake data ---
     pii_answers = {k: v for k, v in answers.items() if k in PII_FIELDS}
-    has_clinical = bool(answers.get("chief_complaint") or answers.get("symptoms"))
+    has_clinical = bool(answers.get("chief_complaint"))
 
     # Call save_intake when:
     # - Step 1 (identity present + PII fields), OR
