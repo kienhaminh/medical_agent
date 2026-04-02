@@ -28,21 +28,21 @@ class IntakeSubmission(Base):
 
     # Contact
     phone: Mapped[str] = mapped_column(String(30))
-    email: Mapped[str] = mapped_column(String(254))
-    address: Mapped[str] = mapped_column(Text)
+    email: Mapped[Optional[str]] = mapped_column(String(254), nullable=True)
+    address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Visit
     chief_complaint: Mapped[str] = mapped_column(Text)
     symptoms: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Insurance
-    insurance_provider: Mapped[str] = mapped_column(String(200))
-    policy_id: Mapped[str] = mapped_column(String(100))
+    # Insurance — no longer collected; kept for future use
+    insurance_provider: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    policy_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
-    # Emergency contact
-    emergency_contact_name: Mapped[str] = mapped_column(String(200))
-    emergency_contact_relationship: Mapped[str] = mapped_column(String(50))
-    emergency_contact_phone: Mapped[str] = mapped_column(String(30))
+    # Emergency contact — no longer collected; kept for future use
+    emergency_contact_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    emergency_contact_relationship: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    emergency_contact_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
 
     # JSON blob for dynamic fields that don't map to fixed columns above.
     extra_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

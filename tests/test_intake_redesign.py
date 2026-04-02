@@ -41,3 +41,28 @@ def test_height_cm_not_in_unknown_fields():
     field = "height_cm"
     assert field in SAFE_FIELDS
     assert field not in PII_FIELDS
+
+
+def test_intake_submission_nullable_columns():
+    """email and dropped fields must be Optional on the model."""
+    import inspect
+    from src.models.intake_submission import IntakeSubmission
+    hints = IntakeSubmission.__annotations__
+    from typing import get_args, get_origin, Union
+    import types
+
+    nullable_fields = [
+        "email", "address", "insurance_provider", "policy_id",
+        "emergency_contact_name", "emergency_contact_relationship",
+        "emergency_contact_phone",
+    ]
+    for field in nullable_fields:
+        assert field in hints, f"Missing annotation for {field}"
+        hint = hints[field]
+        # SQLAlchemy Mapped[Optional[str]] → check Optional
+        args = get_args(hint)
+        inner = args[0] if args else hint
+        inner_args = get_args(inner)
+        assert type(None) in inner_args, (
+            f"{field} should be Optional but got {hint}"
+        )
