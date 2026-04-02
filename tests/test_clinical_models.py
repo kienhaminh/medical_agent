@@ -50,7 +50,6 @@ def test_vital_sign_model_fields():
 def test_patient_dob_is_date_type():
     """Patient.dob must be a date object, not a string."""
     from src.models.patient import Patient
-    from datetime import date
     p = Patient(name="Test", dob=date(1990, 1, 1), gender="female")
     assert isinstance(p.dob, date)
     assert str(p.dob) == "1990-01-01"
