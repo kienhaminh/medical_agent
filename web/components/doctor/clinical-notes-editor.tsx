@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { FileEdit, Check, Loader2, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ConversationRecorder } from "./conversation-recorder";
+import { LiveTranscriptPreview } from "./live-transcript-preview";
 
 interface ClinicalNotesEditorProps {
   notes: string;
@@ -60,6 +62,22 @@ export function ClinicalNotesEditor({
   drafting = false,
   visitId,
 }: ClinicalNotesEditorProps) {
+  const [liveText, setLiveText] = useState("");
+  const [isLive, setIsLive] = useState(false);
+  const [isRefining, setIsRefining] = useState(false);
+
+  const handleLiveText = (text: string) => {
+    setLiveText(text);
+  };
+
+  const handleLiveStateChange = (live: boolean, refining: boolean) => {
+    setIsLive(live);
+    setIsRefining(refining);
+    if (!live && !refining) {
+      setLiveText("");
+    }
+  };
+
   const handleTranscribed = (text: string) => {
     const timestamp = new Date().toLocaleString();
     const entry = `[${timestamp}] Recording transcript:\n${text}`;
@@ -75,6 +93,8 @@ export function ClinicalNotesEditor({
             visitId={visitId}
             disabled={disabled}
             onTranscribed={handleTranscribed}
+            onLiveText={handleLiveText}
+            onLiveStateChange={handleLiveStateChange}
           />
         )}
         {onDraftWithAI && (
@@ -90,6 +110,11 @@ export function ClinicalNotesEditor({
         )}
         <SaveStatusIndicator saving={saving} saved={saved} />
       </div>
+
+      {/* Live transcript preview */}
+      {(isLive || isRefining) && (
+        <LiveTranscriptPreview text={liveText} isRefining={isRefining} />
+      )}
 
       {/* Editor */}
       <div className="p-3 flex-1">
