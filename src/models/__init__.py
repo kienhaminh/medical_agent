@@ -12,6 +12,9 @@ from .base import (
     SYNC_DATABASE_URL,
 )
 from .patient import Patient
+from .allergy import Allergy
+from .medication import Medication
+from .vital_sign import VitalSign
 from .intake_submission import IntakeSubmission
 from .medical_record import MedicalRecord
 from .imaging import Imaging, ImageGroup
@@ -35,6 +38,9 @@ __all__ = [
     "SYNC_DATABASE_URL",
     # Models
     "Patient",
+    "Allergy",
+    "Medication",
+    "VitalSign",
     "IntakeSubmission",
     "MedicalRecord",
     "Imaging",

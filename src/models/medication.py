@@ -21,4 +21,4 @@ class Medication(Base):
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # NULL = active
 
-    patient: Mapped["Patient"] = relationship(backref="medications")
+    patient: Mapped["Patient"] = relationship(back_populates="medications")

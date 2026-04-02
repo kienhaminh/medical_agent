@@ -18,4 +18,4 @@ class Allergy(Base):
     severity: Mapped[str] = mapped_column(String(20))  # mild | moderate | severe
     recorded_at: Mapped[date] = mapped_column(Date)
 
-    patient: Mapped["Patient"] = relationship(backref="allergies")
+    patient: Mapped["Patient"] = relationship(back_populates="allergies")

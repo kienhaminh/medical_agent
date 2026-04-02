@@ -27,4 +27,4 @@ class VitalSign(Base):
     weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     height_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
-    patient: Mapped["Patient"] = relationship(backref="vital_signs")
+    patient: Mapped["Patient"] = relationship(back_populates="vital_signs")
