@@ -26,18 +26,39 @@ import { MessageRole } from "@/types/enums";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 
-const DOCTOR_SESSION_KEY = "medinexus_doctor_session";
+const DOCTOR_SESSIONS_KEY = "medinexus_doctor_sessions";
 
-function saveSession(sessionId: number): void {
-  localStorage.setItem(DOCTOR_SESSION_KEY, JSON.stringify({ session_id: sessionId }));
+function savePatientSession(patientId: number, sessionId: number): void {
+  try {
+    const raw = localStorage.getItem(DOCTOR_SESSIONS_KEY);
+    const map: Record<string, number> = raw ? JSON.parse(raw) : {};
+    map[String(patientId)] = sessionId;
+    localStorage.setItem(DOCTOR_SESSIONS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore storage errors
+  }
 }
 
-function loadSession(): { session_id: number } | null {
+function loadPatientSession(patientId: number): number | null {
   try {
-    const raw = localStorage.getItem(DOCTOR_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = localStorage.getItem(DOCTOR_SESSIONS_KEY);
+    if (!raw) return null;
+    const map: Record<string, number> = JSON.parse(raw);
+    return map[String(patientId)] ?? null;
   } catch {
     return null;
+  }
+}
+
+function clearPatientSession(patientId: number): void {
+  try {
+    const raw = localStorage.getItem(DOCTOR_SESSIONS_KEY);
+    if (!raw) return;
+    const map: Record<string, number> = JSON.parse(raw);
+    delete map[String(patientId)];
+    localStorage.setItem(DOCTOR_SESSIONS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore storage errors
   }
 }
 
