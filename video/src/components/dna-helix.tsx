@@ -15,7 +15,7 @@ export const DnaHelix: React.FC<DnaHelixProps> = ({
   opacity = 0.25,
 }) => {
   const frame = useCurrentFrame();
-  const rotation = frame * 0.8; // degrees per frame
+  const rotation = frame * 0.4; // degrees per frame (slow cinematic rotation)
 
   // Generate helix points
   const pointCount = 20;

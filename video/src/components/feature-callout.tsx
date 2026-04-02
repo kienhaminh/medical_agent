@@ -35,7 +35,7 @@ export const FeatureCallout: React.FC<FeatureCalloutProps> = ({
   const enterProgress = spring({
     frame: Math.max(0, frame - startFrame),
     fps,
-    config: { damping: 14 },
+    config: { damping: 20, mass: 1.2 },
   });
 
   const exitOpacity =

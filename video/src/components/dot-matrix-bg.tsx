@@ -11,9 +11,11 @@ export const DotMatrixBg: React.FC<DotMatrixBgProps> = ({
   opacity = 0.3,
 }) => {
   const frame = useCurrentFrame();
-  const bgOpacity = interpolate(frame, [0, fadeInFrames], [0, 1], {
-    extrapolateRight: "clamp",
-  });
+  const bgOpacity = fadeInFrames <= 0
+    ? 1
+    : interpolate(frame, [0, fadeInFrames], [0, 1], {
+        extrapolateRight: "clamp",
+      });
 
   return (
     <div

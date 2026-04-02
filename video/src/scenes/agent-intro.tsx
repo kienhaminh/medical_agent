@@ -34,8 +34,8 @@ export const AgentIntro: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const line1Progress = spring({ frame, fps, config: { damping: 12 } });
-  const line2Progress = spring({ frame: Math.max(0, frame - 30), fps, config: { damping: 12 } });
+  const line1Progress = spring({ frame, fps, config: { damping: 20, mass: 1.5 } });
+  const line2Progress = spring({ frame: Math.max(0, frame - 30), fps, config: { damping: 20, mass: 1.5 } });
   const headlineFade = interpolate(frame, [80, 100], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
   const featureStartFrame = 100;

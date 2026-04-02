@@ -68,7 +68,7 @@ export const AdvantageCard: React.FC<AdvantageCardProps> = ({
   const progress = spring({
     frame: Math.max(0, frame - startFrame),
     fps,
-    config: { damping: 14 },
+    config: { damping: 18, mass: 1.3 },
   });
 
   const scale = interpolate(progress, [0, 1], [0.95, 1]);

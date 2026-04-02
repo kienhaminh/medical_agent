@@ -22,7 +22,7 @@ const IntakeChatContent: React.FC = () => {
   const triageScale = spring({
     frame: Math.max(0, frame - triageFrame),
     fps,
-    config: { damping: 14 },
+    config: { damping: 18, mass: 1.2 },
   });
   const triageBaseScale = interpolate(triageScale, [0, 1], [0.95, 1]);
 

@@ -24,7 +24,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const slideProgress = spring({
     frame: Math.max(0, frame - startFrame),
     fps,
-    config: { damping: 12 },
+    config: { damping: 18, mass: 1.1 },
   });
 
   const slideX = isUser ? (1 - slideProgress) * 50 : (slideProgress - 1) * 50;

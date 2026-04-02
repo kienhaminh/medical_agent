@@ -27,7 +27,7 @@ const DoctorWorkspaceContent: React.FC = () => {
   const panelProgress = spring({
     frame: Math.max(0, frame - 5),
     fps,
-    config: { damping: 12 },
+    config: { damping: 18, mass: 1.3 },
   });
 
   const aiSectionStart = 200;
@@ -335,7 +335,7 @@ const DoctorWorkspaceContent: React.FC = () => {
                 const toolProgress = spring({
                   frame: Math.max(0, frame - toolFrame),
                   fps,
-                  config: { damping: 14 },
+                  config: { damping: 18, mass: 1.1 },
                 });
                 const isCompleted = frame >= toolFrame + 15;
 
@@ -439,7 +439,7 @@ export const RoutingAndSupport: React.FC = () => {
   const doctorEnterProgress = spring({
     frame,
     fps,
-    config: { damping: 14 },
+    config: { damping: 20, mass: 1.5 },
   });
 
   return (

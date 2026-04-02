@@ -36,7 +36,7 @@ export const FloatingScreen: React.FC<FloatingScreenProps> = ({
   const enterProgress = spring({
     frame: Math.max(0, frame - enterFrame),
     fps,
-    config: { damping: 14 },
+    config: { damping: 20, mass: 1.5 },
   });
 
   // --- Zoom animation ---
@@ -46,7 +46,7 @@ export const FloatingScreen: React.FC<FloatingScreenProps> = ({
     const zoomInP = spring({
       frame: Math.max(0, frame - zoomInFrame),
       fps,
-      config: { damping: 12 },
+      config: { damping: 22, mass: 1.8 },
     });
     zoomProgress = zoomInP;
   }
@@ -54,7 +54,7 @@ export const FloatingScreen: React.FC<FloatingScreenProps> = ({
     const zoomOutP = spring({
       frame: Math.max(0, frame - zoomOutFrame),
       fps,
-      config: { damping: 12 },
+      config: { damping: 22, mass: 1.8 },
     });
     zoomProgress = 1 - zoomOutP;
   }
@@ -62,7 +62,7 @@ export const FloatingScreen: React.FC<FloatingScreenProps> = ({
   // --- Exit animation ---
   let exitProgress = 1; // 1 = visible, 0 = gone
   if (exitFrame !== undefined) {
-    exitProgress = interpolate(frame, [exitFrame, exitFrame + 15], [1, 0], {
+    exitProgress = interpolate(frame, [exitFrame, exitFrame + 20], [1, 0], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });

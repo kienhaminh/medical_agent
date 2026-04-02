@@ -49,9 +49,9 @@ export const ParticleNetwork: React.FC<ParticleNetworkProps> = ({
 
   // Animate particle positions
   const getPos = (p: Particle) => {
-    const drift = frame * p.speed * 0.3;
+    const drift = frame * p.speed * 0.15;
     const x = ((p.x + drift * (p.layer === "front" ? 1 : 0.5)) % 1960) - 20;
-    const y = p.y + Math.sin(frame * 0.02 * p.speed + p.x) * 20;
+    const y = p.y + Math.sin(frame * 0.012 * p.speed + p.x) * 15;
     return { x, y };
   };
 

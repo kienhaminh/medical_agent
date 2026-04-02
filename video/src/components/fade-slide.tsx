@@ -21,7 +21,7 @@ export const FadeSlide: React.FC<FadeSlideProps> = ({
   const progress = spring({
     frame: Math.max(0, frame - startFrame),
     fps,
-    config: { damping: 12 },
+    config: { damping: 18, mass: 1.2 },
   });
 
   const translate = {

@@ -26,7 +26,7 @@ export const LogoAssembly: React.FC<LogoAssemblyProps> = ({
   const assembleProgress = spring({
     frame: Math.max(0, frame - startFrame),
     fps,
-    config: { damping: 12 },
+    config: { damping: 20, mass: 2 },
   });
 
   const logoOpacity = interpolate(assembleProgress, [0.5, 1], [0, 1], {
