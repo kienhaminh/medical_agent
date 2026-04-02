@@ -182,7 +182,6 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         if not session:
             session = ChatSession(
                 title=request.message[:50] + "..." if len(request.message) > 50 else request.message,
-                agent_role=request.agent_role,
             )
             db.add(session)
             await db.commit()
@@ -424,7 +423,6 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             # Create new session
             session = ChatSession(
                 title=request.message[:50] + "..." if len(request.message) > 50 else request.message,
-                agent_role=request.agent_role,
             )
             db.add(session)
             await db.commit()
@@ -460,7 +458,6 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             user_message=request.message,
             patient_id=request.patient_id,
             record_id=request.record_id,
-            agent_role=session.agent_role,
         )
 
         # 5. Update assistant message with task_id

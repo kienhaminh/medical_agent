@@ -38,7 +38,6 @@ async def get_chat_sessions(db: AsyncSession = Depends(get_db)):
             response.append(ChatSessionResponse(
                 id=session.id,
                 title=session.title,
-                agent_role=session.agent_role,
                 message_count=len(messages),
                 preview=preview,
                 tags=[],  # TODO: Extract tags from content

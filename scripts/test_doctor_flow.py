@@ -24,7 +24,6 @@ from typing import Optional
 import httpx
 
 BASE_URL = "http://localhost:8000"
-DOCTOR_AGENT_ROLE = "clinical_text"  # Internist agent role — core agent, always present
 BETWEEN_SCENARIOS_DELAY = 3.0  # seconds — lets the backend settle between scenarios
 
 SCENARIOS = [
@@ -539,7 +538,6 @@ class DoctorFlowTester:
                     f"{self.base_url}/api/chat",
                     json={
                         "message": "Hello, I need to consult about a patient.",
-                        "agent_role": DOCTOR_AGENT_ROLE,
                         "patient_id": self.patient_id,
                         "stream": True,
                     },

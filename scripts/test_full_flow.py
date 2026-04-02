@@ -248,7 +248,6 @@ def _is_stop_condition(reply: str, tool_calls: list) -> bool:
 # FlowTester
 # ---------------------------------------------------------------------------
 
-INTAKE_AGENT_ROLE = "reception_triage"
 
 
 class FlowTester:
@@ -277,7 +276,7 @@ class FlowTester:
                 async with client.stream(
                     "POST",
                     f"{self.base_url}/api/chat",
-                    json={"message": opening, "agent_role": INTAKE_AGENT_ROLE, "stream": True},
+                    json={"message": opening, "stream": True},
                     timeout=60.0,
                 ) as resp:
                     resp.raise_for_status()

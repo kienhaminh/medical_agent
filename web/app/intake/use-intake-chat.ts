@@ -3,6 +3,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { ActiveForm } from "@/components/reception/form-input-bar";
+import { createSseParser } from "@/lib/sse";
 
 const INTAKE_SESSION_KEY = "intake_session";
 
@@ -129,7 +130,7 @@ export function useIntakeChat() {
       .catch(() => {
         // Network unavailable — session ID kept so next message continues the same session
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const sendMessage = async (e?: React.FormEvent, directMessage?: string) => {
     e?.preventDefault();
@@ -160,7 +161,6 @@ export function useIntakeChat() {
           message: content,
           stream: true,
           session_id: sessionId,
-          agent_role: "reception_triage",
         }),
       });
 
@@ -171,88 +171,75 @@ export function useIntakeChat() {
       if (!reader) throw new Error("Response body is not readable");
 
       let accumulated = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
-          if (line.startsWith("data: ")) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
+      const processSseChunk = createSseParser((parsed) => {
+        if (typeof parsed.chunk === "string") {
+          if (activity) setActivity(null);
+          accumulated += parsed.chunk;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? { ...msg, content: accumulated }
+                : msg
+            )
+          );
+        }
 
-              if (parsed.chunk) {
-                // Content is arriving — clear activity indicator
-                if (activity) setActivity(null);
-                accumulated += parsed.chunk;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantId
-                      ? { ...msg, content: accumulated }
-                      : msg
-                  )
-                );
-              }
+        if (parsed.tool_call && typeof parsed.tool_call === "object") {
+          const toolCall = parsed.tool_call as Record<string, unknown>;
+          const toolName = String(toolCall.tool ?? toolCall.name ?? "");
+          setActivity(
+            TOOL_LABELS[toolName] ?? `Running ${toolName.replace(/_/g, " ")}`,
+          );
+        }
 
-              // Tool call started — show activity indicator
-              if (parsed.tool_call) {
-                const toolName: string =
-                  parsed.tool_call.tool ?? parsed.tool_call.name ?? "";
-                setActivity(
-                  TOOL_LABELS[toolName] ?? `Running ${toolName.replace(/_/g, " ")}`,
-                );
-              }
+        if (parsed.tool_result) {
+          setActivity("Analyzing results");
+        }
 
-              // Tool result received — switch to "analyzing" until next chunk or done
-              if (parsed.tool_result) {
-                setActivity("Analyzing results");
-              }
+        if (typeof parsed.session_id === "number" && !sessionId) {
+          setSessionId(parsed.session_id);
+          writeStoredSession(parsed.session_id);
+        }
 
-              if (parsed.session_id && !sessionId) {
-                setSessionId(parsed.session_id);
-                writeStoredSession(parsed.session_id);
-              }
+        if (parsed.form_request && typeof parsed.form_request === "object") {
+          const formRequest = parsed.form_request as ActiveForm;
+          setActiveForm(formRequest);
+          setActivity(null);
 
-              // Show the form — hide the input bar
-              if (parsed.form_request) {
-                setActiveForm(parsed.form_request as ActiveForm);
-                setActivity(null);
+          const formMsg =
+            formRequest.schema?.message ||
+            formRequest.schema?.title ||
+            "Please fill out the form below.";
+          accumulated = formMsg;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantId
+                ? { ...msg, content: formMsg }
+                : msg
+            )
+          );
+        }
 
-                // Replace the empty assistant bubble with the form's prompt message
-                const formMsg =
-                  parsed.form_request.schema?.message ||
-                  parsed.form_request.schema?.title ||
-                  "Please fill out the form below.";
-                accumulated = formMsg;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantId
-                      ? { ...msg, content: formMsg }
-                      : msg
-                  )
-                );
-              }
-
-              // Detect triage completion from tool results
-              if (parsed.tool_result) {
-                const resultText = parsed.tool_result.result || "";
-                if (typeof resultText === "string" && resultText.includes("Triage completed")) {
-                  const deptMatch = resultText.match(/Auto-routed to:\s*([^(]+)/);
-                  const confMatch = resultText.match(/confidence:\s*([\d.]+)/);
-                  if (deptMatch) {
-                    setTriageStatus({
-                      department: deptMatch[1].trim(),
-                      confidence: confMatch ? parseFloat(confMatch[1]) : 0,
-                    });
-                  }
-                }
-              }
-
-              if (parsed.done) break;
-            } catch {
-              // ignore malformed SSE lines
+        if (parsed.tool_result && typeof parsed.tool_result === "object") {
+          const toolResult = parsed.tool_result as Record<string, unknown>;
+          const resultText = toolResult.result;
+          if (typeof resultText === "string" && resultText.includes("Triage completed")) {
+            const deptMatch = resultText.match(/Auto-routed to:\s*([^(]+)/);
+            const confMatch = resultText.match(/confidence:\s*([\d.]+)/);
+            if (deptMatch) {
+              setTriageStatus({
+                department: deptMatch[1].trim(),
+                confidence: confMatch ? parseFloat(confMatch[1]) : 0,
+              });
             }
           }
         }
+      });
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        processSseChunk(decoder.decode(value, { stream: true }));
       }
     } catch {
       setMessages((prev) =>

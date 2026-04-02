@@ -89,7 +89,16 @@ class LangGraphAgent:
     async def _generate_response(self, initial_state: dict, config: dict) -> str:
         """Non-streaming: invoke graph and return final content."""
         final_state = await self.graph.ainvoke(initial_state, config=config)
-        return final_state["messages"][-1].content
+        messages = final_state["messages"]
+        logger.debug(
+            "Agent response messages (%d total):\n%s",
+            len(messages),
+            "\n".join(
+                f"  [{i}] {type(m).__name__}: {getattr(m, 'content', '')[:200]!r}"
+                for i, m in enumerate(messages)
+            ),
+        )
+        return messages[-1].content
 
     async def _stream_response(
         self, initial_state: dict, config: dict
@@ -97,6 +106,18 @@ class LangGraphAgent:
         """Streaming: yield content, tool events, and usage metadata."""
         async for event in self.graph.astream_events(initial_state, config=config, version="v2"):
             event_type = event.get("event")
+
+            if event_type == "on_chain_end" and event.get("name") == "LangGraph":
+                messages = event.get("data", {}).get("output", {}).get("messages", [])
+                if messages:
+                    logger.debug(
+                        "Agent response messages (%d total):\n%s",
+                        len(messages),
+                        "\n".join(
+                            f"  [{i}] {type(m).__name__}: {getattr(m, 'content', '')[:200]!r}"
+                            for i, m in enumerate(messages)
+                        ),
+                    )
 
             if event_type == "on_custom_event" and event.get("name") == "agent_log":
                 yield {"type": "log", "content": event["data"]}

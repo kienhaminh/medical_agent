@@ -65,7 +65,6 @@ def create_visit(patient_id: int) -> str:
         # Create chat session
         session = ChatSession(
             title=f"Intake - {visit_id}",
-            agent_role="reception_triage",
         )
         db.add(session)
         db.flush()

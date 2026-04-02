@@ -13,3 +13,5 @@ class AgentState(TypedDict):
     steps_taken: int
     # Final output for the frontend
     final_report: Union[str, None]
+    # Required by create_react_agent for step limiting
+    remaining_steps: int

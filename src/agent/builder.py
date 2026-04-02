@@ -8,7 +8,6 @@ import logging
 
 from langgraph.prebuilt import create_react_agent
 
-from .state import AgentState
 from ..tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,6 @@ class GraphBuilder:
         graph = create_react_agent(
             model=self.llm,
             tools=all_tools,
-            state_schema=AgentState,
             prompt=self.system_prompt,
         )
 

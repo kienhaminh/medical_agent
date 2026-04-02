@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, stream, session_id, agent_role, patient_id, record_id, user_id } = await request.json();
+    const { message, stream, session_id, patient_id, record_id, user_id } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
         stream: stream || false,
       };
       if (session_id) body.session_id = session_id;
-      if (agent_role) body.agent_role = agent_role;
       if (patient_id) body.patient_id = patient_id;
       if (record_id) body.record_id = record_id;
       if (user_id) body.user_id = user_id;

@@ -40,7 +40,6 @@ def process_agent_message(
     user_message: str,
     patient_id: Optional[int] = None,
     record_id: Optional[int] = None,
-    agent_role: Optional[str] = None,
 ):
     """Process agent message in background with incremental persistence.
 
@@ -51,7 +50,6 @@ def process_agent_message(
         user_message: User's message content
         patient_id: Optional patient ID for context
         record_id: Optional medical record ID for context
-        agent_role: Optional agent role — if set, that agent's system prompt overrides the default
     """
     # Use asyncio.run() which properly manages the event loop
     return asyncio.run(
@@ -63,7 +61,6 @@ def process_agent_message(
             user_message=user_message,
             patient_id=patient_id,
             record_id=record_id,
-            agent_role=agent_role,
         )
     )
 
@@ -76,9 +73,8 @@ async def _process_message_async(
     user_message: str,
     patient_id: Optional[int] = None,
     record_id: Optional[int] = None,
-    agent_role: Optional[str] = None,
 ):
-    """Async processing logic for agent message."""
+    """Async processing logic for agent message background task."""
     
     # Initialize Redis
     redis_client = redis.from_url(config.redis_url)

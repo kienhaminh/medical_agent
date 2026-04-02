@@ -74,7 +74,6 @@ class ChatRequest(BaseModel):
     patient_id: Optional[int] = None
     record_id: Optional[int] = None
     session_id: Optional[int] = None
-    agent_role: Optional[str] = None
 
 class ChatResponse(BaseModel):
     """Chat response model."""
@@ -104,7 +103,6 @@ class ChatSessionResponse(BaseModel):
     """Chat session response model."""
     id: int
     title: str
-    agent_role: Optional[str] = None
     message_count: int
     preview: Optional[str] = None
     tags: Optional[list[str]] = None
@@ -134,7 +132,6 @@ class ChatMessageResponse(BaseModel):
 class ChatSessionCreate(BaseModel):
     """Create chat session request."""
     title: str
-    agent_role: Optional[str] = None
 
 class TaskStatusResponse(BaseModel):
     """Task status response model."""
