@@ -40,7 +40,7 @@ async def _update_message_db(db, message_id: int, result) -> None:
         message.reasoning = result.reasoning if result.reasoning else None
         message.logs = result.logs_json()
         message.token_usage = result.usage_json()
-        message.last_updated_at = datetime.utcnow()
+        message.last_updated_at = datetime.now(timezone.utc)
         await db.commit()
 
 
@@ -59,7 +59,7 @@ async def _run_agent_background(
     can resume from current partial content.
     """
     processor = StreamProcessor()
-    last_save_time = datetime.utcnow()
+    last_save_time = datetime.now(timezone.utc)
     chunk_count = 0
     SAVE_INTERVAL_SECONDS = 5
     SAVE_CHUNK_THRESHOLD = 50
@@ -72,8 +72,8 @@ async def _run_agent_background(
             if not message:
                 raise ValueError(f"Message {message_id} not found")
             message.status = "streaming"
-            message.streaming_started_at = datetime.utcnow()
-            message.last_updated_at = datetime.utcnow()
+            message.streaming_started_at = datetime.now(timezone.utc)
+            message.last_updated_at = datetime.now(timezone.utc)
             await db.commit()
 
             await broadcast.publish(message_id, {"type": "status", "status": "streaming"})
@@ -129,10 +129,10 @@ async def _run_agent_background(
                 if isinstance(event, dict):
                     await broadcast.publish(message_id, event)
 
-                elapsed = (datetime.utcnow() - last_save_time).total_seconds()
+                elapsed = (datetime.now(timezone.utc) - last_save_time).total_seconds()
                 if elapsed >= SAVE_INTERVAL_SECONDS or chunk_count >= SAVE_CHUNK_THRESHOLD:
                     await _update_message_db(db, message_id, processor.result)
-                    last_save_time = datetime.utcnow()
+                    last_save_time = datetime.now(timezone.utc)
                     chunk_count = 0
 
             # Final save
@@ -146,8 +146,8 @@ async def _run_agent_background(
                 message.logs = r.logs_json()
                 message.token_usage = r.usage_json()
                 message.status = "completed"
-                message.completed_at = datetime.utcnow()
-                message.last_updated_at = datetime.utcnow()
+                message.completed_at = datetime.now(timezone.utc)
+                message.last_updated_at = datetime.now(timezone.utc)
                 await db.commit()
 
             await broadcast.publish(message_id, {"type": "done"})
@@ -162,8 +162,9 @@ async def _run_agent_background(
                 msg.content = r.content
                 msg.status = "interrupted"
                 msg.error_message = "Task cancelled"
-                msg.completed_at = datetime.utcnow()
+                msg.completed_at = datetime.now(timezone.utc)
                 await err_db.commit()
+        raise
 
     except Exception as e:
         logger.error("Background agent task failed for message %d: %s", message_id, e, exc_info=True)
@@ -176,7 +177,7 @@ async def _run_agent_background(
                 msg.content = r.content
                 msg.status = "error"
                 msg.error_message = str(e)
-                msg.completed_at = datetime.utcnow()
+                msg.completed_at = datetime.now(timezone.utc)
                 await err_db.commit()
 
 
