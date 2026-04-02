@@ -33,3 +33,11 @@ def test_height_cm_is_safe_field():
 def test_weight_kg_is_safe_field():
     from src.forms.field_classification import SAFE_FIELDS
     assert "weight_kg" in SAFE_FIELDS
+
+
+def test_height_cm_not_in_unknown_fields():
+    """height_cm must not fall into the 'unknown' bucket after classification."""
+    from src.forms.field_classification import PII_FIELDS, SAFE_FIELDS
+    field = "height_cm"
+    assert field in SAFE_FIELDS
+    assert field not in PII_FIELDS

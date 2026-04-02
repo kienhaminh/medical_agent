@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal
+from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal, VitalSign
 from src.config.settings import load_config
 from ...models import (
     ChatRequest, ChatResponse, ChatTaskResponse, TaskStatusResponse,
@@ -118,11 +118,13 @@ async def _process_dynamic_input(session_id: int, answers: dict[str, str]) -> st
     """Process a dynamically generated form submission.
 
     Classifies fields as PII or safe, stores PII in the vault,
-    and returns opaque IDs + safe field values to the agent.
+    threads patient_id across multi-step forms via the session accumulator,
+    creates a VitalSign when height/weight are present, and returns
+    opaque IDs + safe field values to the agent.
     """
     result_parts: list[str] = []
 
-    # Check if all patient identity fields are present → lookup/create patient.
+    # --- Step 1: resolve patient identity ---
     has_identity = PATIENT_IDENTITY_FIELDS.issubset(answers.keys())
     patient_id: int | None = None
 
@@ -131,27 +133,61 @@ async def _process_dynamic_input(session_id: int, answers: dict[str, str]) -> st
             patient_id, is_new = await identify_patient(answers)
             result_parts.append(f"patient_id={patient_id}")
             result_parts.append(f"is_new={'true' if is_new else 'false'}")
+            # Persist patient_id for subsequent steps in this session.
+            form_registry.accumulate_answers(session_id, {"__patient_id": str(patient_id)})
         except Exception as e:
             logger.error("identify_patient failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to identify patient")
+    else:
+        # Recover patient_id established in a previous step of this session.
+        accumulated = form_registry.get_accumulated_answers(session_id)
+        pid_str = accumulated.get("__patient_id")
+        if pid_str:
+            patient_id = int(pid_str)
 
-    # If we have PII fields, persist to IntakeSubmission via vault.
-    pii_answers = {k: v for k, v in answers.items() if k in PII_FIELDS}
-    if pii_answers and has_identity:
+    # --- Step 2: create VitalSign when height/weight are provided ---
+    height_cm_str = answers.get("height_cm", "").strip()
+    weight_kg_str = answers.get("weight_kg", "").strip()
+    if patient_id and (height_cm_str or weight_kg_str):
         try:
-            pid, intake_id = await save_intake(answers, patient_id=patient_id)
+            async with AsyncSessionLocal() as db:
+                vital = VitalSign(
+                    patient_id=patient_id,
+                    recorded_at=datetime.now(timezone.utc),
+                    height_cm=float(height_cm_str) if height_cm_str else None,
+                    weight_kg=float(weight_kg_str) if weight_kg_str else None,
+                )
+                db.add(vital)
+                await db.commit()
+            result_parts.append("vitals_recorded=true")
+        except Exception as e:
+            logger.error("VitalSign creation failed: %s", e, exc_info=True)
+
+    # --- Step 3: persist intake data ---
+    pii_answers = {k: v for k, v in answers.items() if k in PII_FIELDS}
+    has_clinical = bool(answers.get("chief_complaint") or answers.get("symptoms"))
+
+    # Call save_intake when:
+    # - Step 1 (identity present + PII fields), OR
+    # - Step 2 (patient already known from session + clinical fields present)
+    if (pii_answers and has_identity) or (patient_id and not has_identity and has_clinical):
+        try:
+            _pid, intake_id = await save_intake(answers, patient_id=patient_id)
             result_parts.append(f"intake_id={intake_id}")
         except Exception as e:
             logger.error("save_intake failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to save intake data")
 
-    # Return safe field values directly.
+    # --- Step 4: return safe field values to agent ---
     safe_answers = {k: v for k, v in answers.items() if k in SAFE_FIELDS}
     for k, v in safe_answers.items():
         result_parts.append(f"{k}={v}")
 
     # Note any unknown fields collected (values NOT returned).
-    unknown = {k for k in answers if k not in PII_FIELDS and k not in SAFE_FIELDS}
+    unknown = {
+        k for k in answers
+        if k not in PII_FIELDS and k not in SAFE_FIELDS and not k.startswith("__")
+    }
     if unknown:
         result_parts.append(f"additional_fields_collected={','.join(sorted(unknown))}")
 
