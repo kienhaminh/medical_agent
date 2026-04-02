@@ -172,43 +172,9 @@ export function useDoctorWorkspace() {
 
   // Restore session from localStorage and load chat history
   useEffect(() => {
-    const stored = loadSession();
-    if (!stored) return;
-
-    chatSessionIdRef.current = stored.session_id;
-    setChatSessionId(stored.session_id);
-
-    getSessionMessages(stored.session_id)
-      .then((messages) => {
-        const uiMessages = messages
-          .filter((m) => m.content && m.content.trim())
-          .map(mapApiMessageToUi);
-        if (uiMessages.length > 0) {
-          setChatMessages(uiMessages);
-        }
-
-        // Reconnect to any message that was still processing when the page was refreshed
-        const pending = messages.find(
-          (m) => m.status === "pending" || m.status === "streaming"
-        );
-        if (pending) {
-          setChatLoading(true);
-          setCurrentActivity("thinking");
-          setActivityDetails("Reconnecting...");
-          const cancel = streamMessageUpdates(
-            pending.id,
-            (event: StreamEvent) => handleStreamEvent(event, pending.id.toString()),
-            () => clearChatLoadingState()
-          );
-          cancelStreamRef.current = cancel;
-        }
-      })
-      .catch(() => {
-        // Session may no longer exist — silently clear it
-        localStorage.removeItem(DOCTOR_SESSION_KEY);
-        chatSessionIdRef.current = null;
-        setChatSessionId(null);
-      });
+    // Note: This will be removed in Task 3
+    // For now, we do not restore from localStorage automatically
+    // Each patient selection will start fresh
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -287,6 +253,7 @@ export function useDoctorWorkspace() {
     if (!selectedVisit) return;
     try {
       await completeVisit(selectedVisit.id);
+      clearPatientSession(selectedVisit.patient_id);
       toast.success("Patient discharged");
       setSelectedVisit(null);
       setSelectedPatient(null);
@@ -302,6 +269,7 @@ export function useDoctorWorkspace() {
       if (!selectedVisit) return;
       try {
         await transferVisit(selectedVisit.id, targetDepartment);
+        clearPatientSession(selectedVisit.patient_id);
         toast.success(`Patient transferred to ${targetDepartment}`);
         setSelectedVisit(null);
         setSelectedPatient(null);
@@ -408,8 +376,10 @@ export function useDoctorWorkspace() {
       if (!chatSessionIdRef.current) {
         chatSessionIdRef.current = response.session_id;
         setChatSessionId(response.session_id);
+        if (selectedPatient) {
+          savePatientSession(selectedPatient.id, response.session_id);
+        }
       }
-      saveSession(response.session_id);
 
       const assistantMessage: Message = {
         id: response.message_id.toString(),
@@ -484,8 +454,10 @@ export function useDoctorWorkspace() {
       if (!chatSessionIdRef.current) {
         chatSessionIdRef.current = response.session_id;
         setChatSessionId(response.session_id);
+        if (selectedPatient) {
+          savePatientSession(selectedPatient.id, response.session_id);
+        }
       }
-      saveSession(response.session_id);
 
       const assistantMessage: Message = {
         id: response.message_id.toString(),
