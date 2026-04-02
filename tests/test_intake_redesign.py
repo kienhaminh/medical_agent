@@ -6,3 +6,15 @@ def test_intake_system_prompt_is_nonempty_string():
     assert isinstance(INTAKE_SYSTEM_PROMPT, str)
     assert len(INTAKE_SYSTEM_PROMPT) > 100
     assert "ask_user_input" in INTAKE_SYSTEM_PROMPT
+
+
+def test_chat_request_accepts_mode_field():
+    from src.api.models import ChatRequest
+    req = ChatRequest(message="hello", mode="intake")
+    assert req.mode == "intake"
+
+
+def test_chat_request_mode_defaults_to_none():
+    from src.api.models import ChatRequest
+    req = ChatRequest(message="hello")
+    assert req.mode is None

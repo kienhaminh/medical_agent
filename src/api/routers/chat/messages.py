@@ -196,8 +196,12 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         db.add(user_msg)
         await db.commit()
 
-        # Get user-specific agent
-        user_agent = get_or_create_agent(request.user_id)
+        # Select agent based on mode
+        if request.mode == "intake":
+            from ...dependencies import get_intake_agent
+            user_agent = get_intake_agent()
+        else:
+            user_agent = get_or_create_agent(request.user_id)
 
         # Fetch patient info if provided
         patient = None
