@@ -36,7 +36,28 @@ async def list_rooms(db: AsyncSession = Depends(get_db)):
     """List all rooms with current occupancy."""
     result = await db.execute(select(Room).order_by(Room.room_number))
     rooms = result.scalars().all()
-    return [await _build_response(r, db) for r in rooms]
+
+    # Batch-fetch patient names for all occupied rooms in one query
+    occupied_ids = [r.current_visit_id for r in rooms if r.current_visit_id is not None]
+    name_map: dict[int, str] = {}
+    if occupied_ids:
+        rows = await db.execute(
+            select(Visit.id, Patient.name)
+            .join(Patient, Patient.id == Visit.patient_id)
+            .where(Visit.id.in_(occupied_ids))
+        )
+        name_map = dict(rows.all())
+
+    return [
+        RoomResponse(
+            id=r.id,
+            room_number=r.room_number,
+            department_name=r.department_name,
+            current_visit_id=r.current_visit_id,
+            patient_name=name_map.get(r.current_visit_id) if r.current_visit_id else None,
+        )
+        for r in rooms
+    ]
 
 
 @router.post("", response_model=RoomResponse, status_code=201)
@@ -59,6 +80,10 @@ async def assign_room(room_number: str, body: RoomAssign, db: AsyncSession = Dep
     room = result.scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail=f"Room '{room_number}' not found")
+    if body.current_visit_id is not None:
+        visit_check = await db.execute(select(Visit.id).where(Visit.id == body.current_visit_id))
+        if visit_check.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail=f"Visit '{body.current_visit_id}' not found")
     room.current_visit_id = body.current_visit_id
     await db.commit()
     await db.refresh(room)

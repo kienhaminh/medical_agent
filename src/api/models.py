@@ -257,7 +257,7 @@ class RoomCreate(BaseModel):
     department_name: str
 
 class RoomAssign(BaseModel):
-    current_visit_id: Optional[int]
+    current_visit_id: Optional[int] = None
 
 class RoomResponse(BaseModel):
     id: int

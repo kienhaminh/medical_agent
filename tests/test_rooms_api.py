@@ -117,3 +117,10 @@ async def test_patch_room_unassign(client, seeded_dept):
     response = await client.patch("/api/rooms/101", json={"current_visit_id": None})
     assert response.status_code == 200
     assert response.json()["current_visit_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_patch_room_assign_nonexistent_visit(client, seeded_dept):
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    response = await client.patch("/api/rooms/101", json={"current_visit_id": 99999})
+    assert response.status_code == 404
