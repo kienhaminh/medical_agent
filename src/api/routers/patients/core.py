@@ -3,6 +3,8 @@ import logging
 import os
 from datetime import date as _date
 from fastapi import APIRouter, HTTPException, Depends
+
+from src.utils.upload_storage import public_url_for_rel, public_url_from_filesystem_path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import cast, or_, select, String as SAString
 
@@ -98,8 +100,10 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
             file_url = None
             file_type = "text"
         else:
-            filename = os.path.basename(r.content or "")
-            file_url = f"http://localhost:8000/uploads/{filename}" if filename else None
+            raw = r.content or ""
+            file_url = public_url_from_filesystem_path(raw)
+            if not file_url and raw:
+                file_url = public_url_for_rel(os.path.basename(raw))
             if r.summary and "Title: " in r.summary:
                 try:
                     title = r.summary.split("Title: ")[1].split(" |")[0].strip()
@@ -137,6 +141,7 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
                 original_url=i.original_url,
                 preview_url=i.preview_url,
                 group_id=i.group_id,
+                segmentation_result=i.segmentation_result,
                 created_at=i.created_at.isoformat(),
             ) for i in imaging
         ],

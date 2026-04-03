@@ -21,6 +21,7 @@ from ..models.room import Room
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription, rooms
+from src.utils.upload_storage import upload_root
 import src.tools  # Register tools
 import src.skills.builtin  # Register skill search tools
 
@@ -80,7 +81,8 @@ async def lifespan(app: FastAPI):
         user_count = await session.execute(select(func.count(User.id)))
         if (user_count.scalar() or 0) == 0:
             default_users = [
-                User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="internal_medicine"),
+                # Cardiology matches seeded in-department visits (Walter Kim, Robert Fitzgerald) for demo queue.
+                User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="cardiology"),
                 User(username="admin", password_hash=hash_password("admin123"), name="System Admin", role="admin"),
             ]
             for user in default_users:
@@ -88,7 +90,7 @@ async def lifespan(app: FastAPI):
             await session.commit()
             logger.info("Seeded %d default users", len(default_users))
 
-    # Seed rooms if none exist (2 rooms per department for demo)
+    # Seed rooms if none exist — one room per capacity slot per department
     async with AsyncSessionLocal() as session:
         room_count_result = await session.execute(select(func.count(Room.id)))
         if (room_count_result.scalar() or 0) == 0:
@@ -96,7 +98,7 @@ async def lifespan(app: FastAPI):
             depts = all_depts_result.scalars().all()
             room_counter = 100
             for dept in depts:
-                for _ in range(2):
+                for _ in range(dept.capacity):
                     room_counter += 1
                     session.add(Room(
                         room_number=str(room_counter),
@@ -128,8 +130,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount uploads directory for serving files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Mount uploads directory for serving files (absolute path so cwd does not matter)
+app.mount("/uploads", StaticFiles(directory=str(upload_root())), name="uploads")
 
 # Include routers
 app.include_router(patients.router)

@@ -1,23 +1,34 @@
 """Imaging and ImageGroup models."""
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 
 class Imaging(Base):
-    """Imaging model for storing medical images."""
+    """Imaging model for storing medical images per patient.
+
+    Each record holds:
+    - preview_url: JPG preview for display
+    - original_url: path/URL to the .nii.gz source file
+    - segmentation_result: raw JSON output returned by the MCP segmentation server
+    """
     __tablename__ = "imaging"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     image_type: Mapped[str] = mapped_column(String(50))  # x-ray, t1, t1ce, t2, flair
-    original_url: Mapped[str] = mapped_column(Text)
+    # JPG preview shown in the UI
     preview_url: Mapped[str] = mapped_column(Text)
+    # Original .nii.gz file sent to the MCP segmentation server
+    original_url: Mapped[str] = mapped_column(Text)
+    # Full JSON payload returned by the segmentation MCP (null until segmentation runs)
+    segmentation_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="imaging")

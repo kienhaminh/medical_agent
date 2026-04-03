@@ -9,7 +9,7 @@ export const SCENE_CALLOUTS = {
 } as const;
 
 export const INTAKE_MESSAGES = [
-  { role: "assistant" as const, text: "Welcome to Medi-Nexus! I'm your intake assistant. Are you a new or returning patient?" },
+  { role: "assistant" as const, text: "Welcome to Medera! I'm your intake assistant. Are you a new or returning patient?" },
   { role: "user" as const, text: "I'm new here. I'm experiencing chest pain." },
   { role: "assistant" as const, text: "I'm sorry to hear that. Let me get you checked in right away. Please fill out this quick form:" },
 ] as const;

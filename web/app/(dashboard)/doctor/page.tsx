@@ -36,11 +36,16 @@ export default function DoctorPage() {
     listDepartments().then(setDepartments).catch(() => {});
   }, []);
 
+  // Only show patients in this doctor's department
+  const departmentVisits = user?.department
+    ? workspace.queueVisits.filter((v) => v.current_department === user.department)
+    : workspace.queueVisits;
+
   // Split patients: mine vs waiting room
-  const myPatients = workspace.queueVisits.filter(
+  const myPatients = departmentVisits.filter(
     (v) => v.assigned_doctor === user?.name,
   );
-  const waitingRoom = workspace.queueVisits.filter(
+  const waitingRoom = departmentVisits.filter(
     (v) => !v.assigned_doctor || v.assigned_doctor !== user?.name,
   );
 

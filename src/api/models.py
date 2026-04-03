@@ -33,9 +33,13 @@ class ImagingResponse(BaseModel):
     patient_id: int
     title: str
     image_type: str
-    original_url: str
+    # JPG preview URL for display
     preview_url: str
+    # Original .nii.gz file URL/path
+    original_url: str
     group_id: Optional[int] = None
+    # Raw JSON payload from MCP segmentation (null if not yet segmented)
+    segmentation_result: Optional[dict] = None
     created_at: str
 
 class ImageGroupResponse(BaseModel):
@@ -50,7 +54,9 @@ class ImageGroupCreate(BaseModel):
 class ImagingCreate(BaseModel):
     title: str
     image_type: str
+    # JPG preview URL for display
     preview_url: str
+    # Original .nii.gz file URL/path sent to the segmentation MCP
     original_url: str
     group_id: Optional[int] = None
 
@@ -265,6 +271,8 @@ class RoomResponse(BaseModel):
     department_name: str
     current_visit_id: Optional[int]
     patient_name: Optional[str]
+    chief_complaint: Optional[str] = None
+    checked_in_at: Optional[str] = None
 
 
 # --- Visit tracking schemas ---

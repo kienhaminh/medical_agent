@@ -6,8 +6,66 @@ import type { ActiveForm } from "@/components/reception/form-input-bar";
 import { createSseParser } from "@/lib/sse";
 
 const INTAKE_SESSION_KEY = "intake_session";
+const INTAKE_MESSAGES_CACHE_KEY = "intake_messages_cache";
+const INTAKE_TRIAGE_CACHE_KEY = "intake_triage_cache";
 const VISITOR_ID_KEY = "visitor_id";
 const VISITOR_LAST_ACTIVITY_KEY = "visitor_last_activity";
+
+interface MessagesCache {
+  sessionId: number;
+  date: string;
+  messages: ChatMessage[];
+}
+
+interface TriageCache {
+  sessionId: number;
+  date: string;
+  status: TriageStatus;
+}
+
+function readMessagesCache(sessionId: number): ChatMessage[] | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(INTAKE_MESSAGES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed: MessagesCache = JSON.parse(raw);
+    if (parsed.sessionId !== sessionId || parsed.date !== getTodayDate()) return null;
+    return parsed.messages;
+  } catch {
+    return null;
+  }
+}
+
+function writeMessagesCache(sessionId: number, messages: ChatMessage[]): void {
+  try {
+    const entry: MessagesCache = { sessionId, date: getTodayDate(), messages };
+    localStorage.setItem(INTAKE_MESSAGES_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // Ignore quota errors
+  }
+}
+
+function readTriageCache(sessionId: number): TriageStatus | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(INTAKE_TRIAGE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed: TriageCache = JSON.parse(raw);
+    if (parsed.sessionId !== sessionId || parsed.date !== getTodayDate()) return null;
+    return parsed.status;
+  } catch {
+    return null;
+  }
+}
+
+function writeTriageCache(sessionId: number, status: TriageStatus): void {
+  try {
+    const entry: TriageCache = { sessionId, date: getTodayDate(), status };
+    localStorage.setItem(INTAKE_TRIAGE_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // Ignore quota errors
+  }
+}
 
 interface StoredSession {
   sessionId: number;
@@ -42,6 +100,8 @@ function writeStoredSession(sessionId: number): void {
 
 function clearStoredSession(): void {
   localStorage.removeItem(INTAKE_SESSION_KEY);
+  localStorage.removeItem(INTAKE_MESSAGES_CACHE_KEY);
+  localStorage.removeItem(INTAKE_TRIAGE_CACHE_KEY);
   localStorage.removeItem(VISITOR_ID_KEY);
   localStorage.removeItem(VISITOR_LAST_ACTIVITY_KEY);
 }
@@ -104,6 +164,17 @@ export function useIntakeChat() {
     if (!stored) return;
     setSessionId(stored.sessionId);
 
+    // Restore triage status from cache
+    const cachedTriage = readTriageCache(stored.sessionId);
+    if (cachedTriage) setTriageStatus(cachedTriage);
+
+    // Restore messages from cache (includes formSubmission cards); fall back to API
+    const cachedMessages = readMessagesCache(stored.sessionId);
+    if (cachedMessages && cachedMessages.length > 0) {
+      setMessages(cachedMessages);
+      return;
+    }
+
     fetch(`/api/chat/sessions/${stored.sessionId}/messages`)
       .then((res) => {
         if (!res.ok) {
@@ -133,6 +204,20 @@ export function useIntakeChat() {
         // Network unavailable — session ID kept so next message continues the same session
       });
   }, []);
+
+  // Persist messages to localStorage so form submission cards survive refresh
+  useEffect(() => {
+    if (sessionId && messages.length > 0) {
+      writeMessagesCache(sessionId, messages);
+    }
+  }, [messages, sessionId]);
+
+  // Persist triage status to localStorage
+  useEffect(() => {
+    if (sessionId && triageStatus) {
+      writeTriageCache(sessionId, triageStatus);
+    }
+  }, [triageStatus, sessionId]);
 
   const sendMessage = async (
     e?: React.FormEvent,

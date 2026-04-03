@@ -76,7 +76,7 @@ const MobileChrome: React.FC<{ opacity: number }> = ({ opacity }) => (
           fontWeight: 500,
         }}
       >
-        medi-nexus.health
+        medera.health
       </span>
     </div>
 

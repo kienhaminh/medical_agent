@@ -708,6 +708,8 @@ export interface RoomInfo {
   department_name: string;
   current_visit_id: number | null;
   patient_name: string | null;
+  chief_complaint: string | null;
+  checked_in_at: string | null;
 }
 
 export interface HospitalStats {

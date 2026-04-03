@@ -74,7 +74,7 @@ const DoctorWorkspaceContent: React.FC = () => {
               WebkitTextFillColor: "transparent",
             }}
           >
-            MEDI-NEXUS
+            MEDERA
           </span>
           <div
             style={{

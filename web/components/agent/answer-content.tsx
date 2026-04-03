@@ -112,6 +112,8 @@ export function AnswerContent({
     a: ({ children, ...props }) => (
       <a
         className="text-primary hover:text-primary underline transition-colors"
+        target="_blank"
+        rel="noopener noreferrer"
         {...props}
       >
         {children}

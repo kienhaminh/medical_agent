@@ -7,16 +7,12 @@ import { KpiBar } from "@/components/operations/kpi-bar";
 import { ReceptionBanner } from "@/components/operations/reception-banner";
 import { DepartmentGrid } from "@/components/operations/department-grid";
 import { ReceptionDialog } from "@/components/operations/dialogs/reception-dialog";
-import { DepartmentDialog } from "@/components/operations/dialogs/department-dialog";
 
 export default function OperationsPage() {
   const [receptionOpen, setReceptionOpen] = useState(false);
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
 
   const { departments, rooms, stats, receptionVisits, departmentVisits, loading, error, lastUpdated, refresh } =
     useOperationsDashboard();
-
-  const selectedDepartment = departments.find((d) => d.name === selectedDept) ?? null;
 
   if (loading) {
     return (
@@ -54,7 +50,6 @@ export default function OperationsPage() {
           departments={departments}
           rooms={rooms}
           departmentVisits={departmentVisits}
-          onDeptClick={setSelectedDept}
         />
       </div>
 
@@ -65,15 +60,6 @@ export default function OperationsPage() {
         visits={receptionVisits}
         departments={departments}
         onVisitUpdated={refresh}
-      />
-
-      <DepartmentDialog
-        open={!!selectedDept}
-        onOpenChange={(open) => !open && setSelectedDept(null)}
-        department={selectedDepartment}
-        departments={departments}
-        visits={selectedDept ? (departmentVisits[selectedDept] ?? []) : []}
-        onUpdated={refresh}
       />
     </div>
   );

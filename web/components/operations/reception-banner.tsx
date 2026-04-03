@@ -16,65 +16,42 @@ export function ReceptionBanner({ visits, onClick }: ReceptionBannerProps) {
   const reviewCount = visits.filter(
     (v) => v.status === "pending_review" || v.status === "routed"
   ).length;
+  const pendingReviewCount = visits.filter(
+    (v) => v.status === "pending_review"
+  ).length;
 
-  const hasReview = reviewCount > 0;
+  const hasReview = pendingReviewCount > 0;
 
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left rounded-xl border px-6 py-4 transition-all hover:brightness-110 focus:outline-none ${hasReview ? "animate-pulse" : ""}`}
-      style={{
-        background: "hsl(var(--primary) / 0.06)",
-        borderColor: hasReview
-          ? "rgba(245, 158, 11, 0.6)"
-          : "hsl(var(--primary) / 0.4)",
-        boxShadow: hasReview
-          ? "0 0 20px rgba(245, 158, 11, 0.15)"
-          : "0 0 15px hsl(var(--primary) / 0.1)",
-      }}
+      className="w-full text-left rounded-xl border border-border px-6 py-4 transition-all hover:brightness-110 focus:outline-none bg-primary/[0.06]"
     >
       <div className="text-sm font-bold font-mono text-primary mb-3 tracking-widest flex items-center gap-2">
         RECEPTION
         {visits.length > 0 && (
-          <span className="text-xs px-1.5 py-0.5 rounded-full font-mono"
-            style={{ background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))" }}>
+          <span className="text-xs px-1.5 py-0.5 rounded-full font-mono bg-primary/[0.12] text-primary">
             {visits.length}
+          </span>
+        )}
+        {hasReview && (
+          <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-amber-500/[0.15] text-amber-500 border border-amber-500/30">
+            review needed
           </span>
         )}
       </div>
       <div className="flex items-center gap-4 text-[12px] font-mono">
-        <span
-          className="px-2.5 py-1 rounded-full"
-          style={{
-            color: "hsl(var(--primary))",
-            background: "hsl(var(--primary) / 0.12)",
-            border: "1px solid hsl(var(--primary) / 0.25)",
-          }}
-        >
+        <span className="px-2.5 py-1 rounded-full border text-primary bg-primary/[0.12] border-primary/25">
           intake: {intakeCount}
         </span>
-        <span
-          className="px-2.5 py-1 rounded-full"
-          style={{
-            color: "#a78bfa",
-            background: "rgba(167, 139, 250, 0.12)",
-            border: "1px solid rgba(167, 139, 250, 0.25)",
-          }}
-        >
+        <span className="px-2.5 py-1 rounded-full border text-violet-400 bg-violet-400/[0.12] border-violet-400/25">
           routing: {routingCount}
         </span>
-        <span
-          className="px-2.5 py-1 rounded-full"
-          style={{
-            color: hasReview ? "#f59e0b" : "var(--muted-foreground)",
-            background: hasReview
-              ? "rgba(245, 158, 11, 0.12)"
-              : "transparent",
-            border: hasReview
-              ? "1px solid rgba(245, 158, 11, 0.3)"
-              : "1px solid var(--border)",
-          }}
-        >
+        <span className={`px-2.5 py-1 rounded-full border ${
+          hasReview
+            ? "text-amber-500 bg-amber-500/[0.12] border-amber-500/30"
+            : "text-muted-foreground bg-transparent border-border"
+        }`}>
           review: {reviewCount}
         </span>
         {visits.length === 0 && (

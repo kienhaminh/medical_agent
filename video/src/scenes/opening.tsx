@@ -76,7 +76,7 @@ export const Opening: React.FC = () => {
               transform: `scale(${logoScale})`,
             }}
           >
-            MEDI-NEXUS
+            MEDERA
           </span>
           <span
             style={{

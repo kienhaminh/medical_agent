@@ -75,7 +75,7 @@ export const IntakeChat: React.FC = () => {
               WebkitTextFillColor: "transparent",
             }}
           >
-            MEDI-NEXUS
+            MEDERA
           </span>
           <span style={{ color: colors.mutedForeground, fontSize: 14 }}>
             / Patient Intake

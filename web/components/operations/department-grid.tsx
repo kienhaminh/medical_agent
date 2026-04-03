@@ -8,12 +8,11 @@ interface DepartmentGridProps {
   departments: DepartmentInfo[];
   rooms: RoomInfo[];
   departmentVisits: Record<string, VisitListItem[]>;
-  onDeptClick: (deptName: string) => void;
 }
 
 const STATUS_PRIORITY: Record<string, number> = { CRITICAL: 0, BUSY: 1, OK: 2, IDLE: 3 };
 
-export function DepartmentGrid({ departments, rooms, departmentVisits, onDeptClick }: DepartmentGridProps) {
+export function DepartmentGrid({ departments, rooms, departmentVisits }: DepartmentGridProps) {
   const sorted = [...departments].sort((a, b) => {
     // Closed departments always last
     if (a.is_open !== b.is_open) return a.is_open ? -1 : 1;
@@ -37,9 +36,7 @@ export function DepartmentGrid({ departments, rooms, departmentVisits, onDeptCli
         <DepartmentCard
           key={dept.name}
           dept={dept}
-          visits={departmentVisits[dept.name] ?? []}
           rooms={rooms.filter((r) => r.department_name === dept.name)}
-          onClick={() => onDeptClick(dept.name)}
         />
       ))}
     </div>

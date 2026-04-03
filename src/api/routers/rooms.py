@@ -15,21 +15,28 @@ router = APIRouter(prefix="/api/rooms", tags=["Rooms"])
 # _build_response is used by create_room and assign_room (single-room endpoints).
 # list_rooms uses its own inline batch join to avoid N+1 queries.
 async def _build_response(room: Room, db: AsyncSession) -> RoomResponse:
-    """Build RoomResponse, joining patient name from visit if occupied."""
+    """Build RoomResponse, joining patient name and visit info if occupied."""
     patient_name = None
+    chief_complaint = None
+    checked_in_at = None
     if room.current_visit_id is not None:
         result = await db.execute(
-            select(Patient.name)
+            select(Patient.name, Visit.chief_complaint, Visit.created_at)
             .join(Visit, Visit.patient_id == Patient.id)
             .where(Visit.id == room.current_visit_id)
         )
-        patient_name = result.scalar_one_or_none()
+        row = result.one_or_none()
+        if row:
+            patient_name, chief_complaint, checked_in_at_dt = row
+            checked_in_at = checked_in_at_dt.isoformat() if checked_in_at_dt else None
     return RoomResponse(
         id=room.id,
         room_number=room.room_number,
         department_name=room.department_name,
         current_visit_id=room.current_visit_id,
         patient_name=patient_name,
+        chief_complaint=chief_complaint,
+        checked_in_at=checked_in_at,
     )
 
 
@@ -39,16 +46,21 @@ async def list_rooms(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Room).order_by(Room.room_number))
     rooms = result.scalars().all()
 
-    # Batch-fetch patient names for all occupied rooms in one query
+    # Batch-fetch patient name, complaint, and check-in time for occupied rooms
     occupied_ids = [r.current_visit_id for r in rooms if r.current_visit_id is not None]
-    name_map: dict[int, str] = {}
+    visit_map: dict[int, tuple[str, str | None, str | None]] = {}
     if occupied_ids:
         rows = await db.execute(
-            select(Visit.id, Patient.name)
+            select(Visit.id, Patient.name, Visit.chief_complaint, Visit.created_at)
             .join(Patient, Patient.id == Visit.patient_id)
             .where(Visit.id.in_(occupied_ids))
         )
-        name_map = dict(rows.all())
+        for visit_id, name, complaint, created_at_dt in rows.all():
+            visit_map[visit_id] = (
+                name,
+                complaint,
+                created_at_dt.isoformat() if created_at_dt else None,
+            )
 
     return [
         RoomResponse(
@@ -56,7 +68,9 @@ async def list_rooms(db: AsyncSession = Depends(get_db)):
             room_number=r.room_number,
             department_name=r.department_name,
             current_visit_id=r.current_visit_id,
-            patient_name=name_map.get(r.current_visit_id) if r.current_visit_id else None,
+            patient_name=visit_map[r.current_visit_id][0] if r.current_visit_id in visit_map else None,
+            chief_complaint=visit_map[r.current_visit_id][1] if r.current_visit_id in visit_map else None,
+            checked_in_at=visit_map[r.current_visit_id][2] if r.current_visit_id in visit_map else None,
         )
         for r in rooms
     ]

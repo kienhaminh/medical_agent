@@ -113,7 +113,7 @@ export default function PatientIntakePage() {
               />
             </div>
             <span className="font-display text-base font-bold tracking-wider text-primary">
-              MEDI-NEXUS
+              MEDERA
             </span>
             <span className="text-muted-foreground text-sm hidden sm:block">
               / Patient Intake

@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 # Initialize ToolRegistry (singleton)
 tool_registry = ToolRegistry()
 
+# Register all LangChain tools before building the graph (LangGraphAgent also imports this,
+# but doing it here makes MCP-backed tools guaranteed available on first agent build).
+import src.tools  # noqa: E402, F401
+
 # Initialize LLM provider
 config = load_config()
 

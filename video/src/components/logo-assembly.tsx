@@ -102,7 +102,7 @@ export const LogoAssembly: React.FC<LogoAssemblyProps> = ({
           transform: `scale(${interpolate(logoOpacity, [0, 1], [0.9, 1])})`,
         }}
       >
-        MEDI-NEXUS
+        MEDERA
       </span>
     </div>
   );

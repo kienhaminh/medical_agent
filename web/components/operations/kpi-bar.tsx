@@ -15,26 +15,26 @@ const KPI_ITEMS = [
     key: "active_patients" as const,
     label: "Active Patients",
     icon: Activity,
-    color: "hsl(var(--primary))",
+    classes: "text-primary bg-primary/[0.08] border-primary/20",
   },
   {
     key: "departments_at_capacity" as const,
     label: "At Capacity",
     icon: AlertTriangle,
-    color: "#ef4444",
+    classes: "text-red-500 bg-red-500/[0.08] border-red-500/20",
   },
   {
     key: "avg_wait_minutes" as const,
     label: "Avg Wait",
     icon: Clock,
-    color: "#f59e0b",
+    classes: "text-amber-500 bg-amber-500/[0.08] border-amber-500/20",
     format: (v: number) => `${v.toFixed(0)}m`,
   },
   {
     key: "discharged_today" as const,
     label: "Discharged Today",
     icon: LogOut,
-    color: "#059669",
+    classes: "text-emerald-600 bg-emerald-600/[0.08] border-emerald-600/20",
   },
 ];
 
@@ -48,7 +48,6 @@ function formatSyncAge(date: Date): string {
 export function KpiBar({ stats, lastUpdated }: KpiBarProps) {
   const [, setTick] = useState(0);
 
-  // Re-render every second so the sync age text stays current
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
@@ -62,15 +61,9 @@ export function KpiBar({ stats, lastUpdated }: KpiBarProps) {
         const formatted = item.format ? item.format(value) : String(value);
 
         return (
-          <div
-            key={item.key}
-            className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-            style={{ background: `${item.color}08`, border: `1px solid ${item.color}20` }}
-          >
-            <Icon size={14} style={{ color: item.color }} />
-            <span className="text-sm font-bold font-mono" style={{ color: item.color }}>
-              {formatted}
-            </span>
+          <div key={item.key} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 border ${item.classes}`}>
+            <Icon size={14} />
+            <span className="text-sm font-bold font-mono">{formatted}</span>
             <span className="text-[10px] font-mono text-muted-foreground">{item.label}</span>
           </div>
         );

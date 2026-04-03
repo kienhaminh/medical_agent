@@ -5,11 +5,13 @@ Run:
 
 Idempotent: safe to run multiple times. Skips patients that already exist
 (matched by name + dob). Clears and re-seeds clinical data (allergies,
-medications, vitals, records, visits) for existing patients on each run.
+medications, vitals, records, visits, imaging) for existing patients on each run.
 """
 import asyncio
 import logging
+import shutil
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,9 +24,50 @@ from src.models.medication import Medication
 from src.models.vital_sign import VitalSign
 from src.models.visit import Visit, VisitStatus
 from src.models.chat import ChatSession
+from src.models.imaging import Imaging
+from src.utils.upload_storage import local_path_from_public_url, public_url_for_rel, upload_root
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Repo root: scripts/db/seed/seed.py -> parents[3] == medical_agent/
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Default BraTS template (4 modalities) used for every seeded patient.
+DEFAULT_BRATS_IMAGING = [
+    {
+        "title": "BraTS20 Training 369 — T1 (sample)",
+        "image_type": "t1",
+        "source_preview": "uploads/patients/369/brats369_t1_preview.jpg",
+        "source_volume": "uploads/patients/369/brats369_t1.nii.gz",
+        "preview_filename": "brats369_t1_preview.jpg",
+        "volume_filename": "brats369_t1.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 369 — T1CE (sample)",
+        "image_type": "t1ce",
+        "source_preview": "uploads/patients/369/brats369_t1ce_preview.jpg",
+        "source_volume": "uploads/patients/369/brats369_t1ce.nii.gz",
+        "preview_filename": "brats369_t1ce_preview.jpg",
+        "volume_filename": "brats369_t1ce.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 369 — T2 (sample)",
+        "image_type": "t2",
+        "source_preview": "uploads/patients/369/brats369_t2_preview.jpg",
+        "source_volume": "uploads/patients/369/brats369_t2.nii.gz",
+        "preview_filename": "brats369_t2_preview.jpg",
+        "volume_filename": "brats369_t2.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 369 — FLAIR (sample)",
+        "image_type": "flair",
+        "source_preview": "uploads/patients/369/brats369_flair_preview.jpg",
+        "source_volume": "uploads/patients/369/brats369_flair.nii.gz",
+        "preview_filename": "brats369_flair_preview.jpg",
+        "volume_filename": "brats369_flair.nii.gz",
+    },
+]
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +284,8 @@ P: Add montelukast 10mg ON. Allergen avoidance advice. Written asthma action pla
             "clinical_notes": "Moderate exacerbation. Post-nebuliser PEFR 72%. Prednisolone course started.",
             "confidence": 0.91,
         },
+        # In department — sample MRI set for doctor portal
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "Harold Washington",
@@ -295,6 +340,7 @@ P: Refer pulmonary rehab. Flu + pneumococcal vaccine. Long-term O2 assessment: a
             "clinical_notes": "AECOPD with infective trigger. IV furosemide started. On NIV. Monitoring ABG.",
             "confidence": 0.93,
         },
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "James Okafor",
@@ -462,6 +508,7 @@ P: Next device check 12 months. Continue current heart failure regime. CRT-D upg
             "clinical_notes": "Acute decompensated HFrEF. IV furosemide infusion. Strict fluid restriction. Awaiting MitraClip referral.",
             "confidence": 0.97,
         },
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "Maria Santos",
@@ -782,6 +829,7 @@ P: Aspirin 300mg loading. Fondaparinux 2.5mg SC. IV morphine for pain. Repeat tr
             "clinical_notes": "NSTEMI workup. Troponin trending. Angiography scheduled within 72h.",
             "confidence": 0.98,
         },
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "Lily Nakamura",
@@ -925,6 +973,7 @@ P: Continue donepezil + memantine. Neurology review for progression. OT home saf
             "current_department": "neurology",
             "confidence": 0.94,
         },
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "Nina Volkova",
@@ -975,6 +1024,34 @@ def _days_ago(n: int) -> datetime:
     return datetime.utcnow() - timedelta(days=n)
 
 
+async def _seed_imaging_for_patient(db: AsyncSession, patient_id: int, spec: dict) -> None:
+    """Copy BraTS sample files into uploads/patients/{id}/ and insert Imaging row."""
+    src_p = REPO_ROOT / spec["source_preview"]
+    src_v = REPO_ROOT / spec["source_volume"]
+    if not src_p.is_file() or not src_v.is_file():
+        logger.warning(
+            "Imaging seed skipped — missing file(s): exists preview=%s volume=%s",
+            src_p.is_file(),
+            src_v.is_file(),
+        )
+        return
+    p_name = spec.get("preview_filename", "preview.jpg")
+    v_name = spec.get("volume_filename", "volume.nii.gz")
+    dest_dir = upload_root() / "patients" / str(patient_id)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src_p, dest_dir / p_name)
+    shutil.copy2(src_v, dest_dir / v_name)
+    db.add(
+        Imaging(
+            patient_id=patient_id,
+            title=spec["title"],
+            image_type=spec["image_type"],
+            preview_url=public_url_for_rel(f"patients/{patient_id}/{p_name}"),
+            original_url=public_url_for_rel(f"patients/{patient_id}/{v_name}"),
+        )
+    )
+
+
 async def _upsert_patient(db: AsyncSession, name: str, dob: date, gender: str) -> Patient:
     """Return existing patient or create new one (matched by name + dob)."""
     result = await db.execute(
@@ -1000,7 +1077,8 @@ async def _seed_visit(
     """Create a visit with a linked chat session for intake."""
     n = visit_counter[0]
     visit_counter[0] += 1
-    visit_id = f"VIS-{date.today().strftime('%Y%m%d')}-{n:03d}"
+    # Include patient.id so visit_id is unique globally (date + counter alone collided across patients / re-runs).
+    visit_id = f"VIS-{date.today().strftime('%Y%m%d')}-p{patient.id}-{n:03d}"
 
     session = ChatSession(title=f"Intake - {visit_id}")
     db.add(session)
@@ -1048,6 +1126,22 @@ async def _seed_patient_data(db: AsyncSession, data: dict, visit_counter: list) 
         )
         for row in existing.scalars().all():
             await db.delete(row)
+
+    # Imaging — remove DB rows and local files under uploads/
+    existing_imaging = await db.execute(
+        select(Imaging).where(Imaging.patient_id == patient.id)
+    )
+    for img in existing_imaging.scalars().all():
+        for url in (img.preview_url, img.original_url):
+            if not url:
+                continue
+            lp = local_path_from_public_url(url)
+            if lp and lp.is_file():
+                try:
+                    lp.unlink()
+                except OSError:
+                    pass
+        await db.delete(img)
 
     # Allergies
     for a in data.get("allergies", []):
@@ -1097,6 +1191,10 @@ async def _seed_patient_data(db: AsyncSession, data: dict, visit_counter: list) 
             content=r["content"],
             created_at=_days_ago(r["created_at_offset_days"]),
         ))
+
+    # Imaging is optional per patient.
+    for img_spec in data.get("imaging", []):
+        await _seed_imaging_for_patient(db, patient.id, img_spec)
 
     # Visits — single visit (key: "visit") or multiple (key: "visits")
     single = data.get("visit")

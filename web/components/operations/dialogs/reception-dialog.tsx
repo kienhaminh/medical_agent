@@ -23,7 +23,7 @@ type Tab = "intake" | "routing" | "review";
 const TABS: { id: Tab; label: string; statuses: string[] }[] = [
   { id: "intake", label: "Intake", statuses: ["intake", "triaged"] },
   { id: "routing", label: "Routing", statuses: ["auto_routed"] },
-  { id: "review", label: "Review", statuses: ["pending_review", "routed"] },
+  { id: "review", label: "Review", statuses: ["pending_review"] },
 ];
 
 export function ReceptionDialog({ open, onOpenChange, visits, departments, onVisitUpdated }: ReceptionDialogProps) {
@@ -35,7 +35,7 @@ export function ReceptionDialog({ open, onOpenChange, visits, departments, onVis
   // Auto-switch to Review tab when dialog opens and review items are pending
   useEffect(() => {
     if (open) {
-      const hasReview = visits.some((v) => ["pending_review", "routed"].includes(v.status));
+      const hasReview = visits.some((v) => v.status === "pending_review");
       if (hasReview) setActiveTab("review");
     }
   }, [open]);

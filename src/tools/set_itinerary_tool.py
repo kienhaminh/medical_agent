@@ -93,7 +93,8 @@ def set_itinerary(visit_id: int, steps: list[dict]) -> str:
     return (
         f"Itinerary set: {n} step(s) created. "
         f"Step 1 ({first_label}) is now active.\n"
-        f"Tracking link for patient: /track/{public_visit_id}"
+        f"Tracking link for patient (include this exact markdown in your message): "
+        f"[Track your visit](/track/{public_visit_id})"
     )
 
 

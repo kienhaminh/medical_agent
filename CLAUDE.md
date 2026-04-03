@@ -101,7 +101,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **medical_agent** (2796 symbols, 7170 relationships, 152 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **medical_agent** (3036 symbols, 7816 relationships, 161 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

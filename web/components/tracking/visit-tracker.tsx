@@ -95,7 +95,7 @@ export function VisitTracker({ visitId, initialData }: VisitTrackerProps) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="MediNexus" className="w-6 h-6 object-contain" />
           <span className="font-display font-semibold text-sm tracking-tight text-foreground">
-            MEDI-NEXUS
+            MEDERA
           </span>
         </div>
         <div className="flex items-center gap-2">

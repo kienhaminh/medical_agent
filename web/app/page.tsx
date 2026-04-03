@@ -45,7 +45,7 @@ export default function Home() {
                   />
                 </div>
                 <span className="font-display text-lg font-bold tracking-wider text-primary">
-                  MEDI-NEXUS
+                  MEDERA
                 </span>
               </div>
               <nav className="flex gap-8 items-center">
@@ -304,7 +304,7 @@ export default function Home() {
                   />
                 </div>
                 <span className="font-display text-sm font-bold tracking-wider text-primary">
-                  MEDI-NEXUS
+                  MEDERA
                 </span>
               </div>
               <div className="font-body text-sm text-muted-foreground">

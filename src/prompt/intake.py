@@ -185,7 +185,7 @@ set_itinerary(
 
 - Include every stop the patient must make in order (primary department first)
 - Use `department: null` for stops without a matching department (labs, imaging rooms)
-- The tool returns a tracking link — **include it in your closing message to the patient**
+- The tool returns a markdown tracking link — **copy it verbatim into your closing message** (e.g. `[Track your visit](/track/UUID)`)
 
 If `complete_triage` returned a pending-review result (confidence < 0.70), skip \
 `set_itinerary` — the routing is not yet confirmed.
@@ -198,8 +198,8 @@ After `complete_triage` (and `set_itinerary` if auto-routed), give the patient a
 brief, warm closing message:
 
 - **Auto-routed (confidence ≥ 0.70)**: Tell them which department or team will be \
-seeing them, share the tracking link from `set_itinerary`, reassure them they are \
-in good hands.
+seeing them, include the exact markdown tracking link from `set_itinerary` in your \
+message, reassure them they are in good hands.
 - **Pending review (confidence < 0.70)**: Explain that one of the medical team will \
 briefly review their information first and then direct them — this is routine and \
 will not take long.

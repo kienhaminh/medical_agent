@@ -6,7 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { DepartmentInfo, VisitDetail, VisitListItem } from "@/lib/api";
 import { getVisit, updateDepartment } from "@/lib/api";
-import { formatTimeAgo, getWaitTimeColor } from "../operations-constants";
+import { cn } from "@/lib/utils";
+import { formatTimeAgo } from "../operations-constants";
 import { DepartmentDetail } from "./department-detail";
 
 interface DepartmentDialogProps {
@@ -87,7 +88,7 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="font-mono flex items-center gap-2" style={{ color: department.color }}>
+          <DialogTitle className="font-mono flex items-center gap-2 text-foreground">
             {selectedVisit && (
               <button
                 onClick={() => setSelectedVisit(null)}
@@ -154,24 +155,22 @@ export function DepartmentDialog({ open, onOpenChange, department, departments, 
                 <p className="text-center text-muted-foreground text-sm py-6">No patients</p>
               )}
               {visits.map((visit) => {
-                const waitColor = getWaitTimeColor(visit.created_at);
+                const minutes = Math.floor((Date.now() - new Date(visit.created_at).getTime()) / 60000);
+                const waitClass = minutes < 10 ? "text-emerald-600" : minutes < 30 ? "text-amber-500" : "text-red-500";
+                const dotClass  = minutes < 10 ? "bg-emerald-600"  : minutes < 30 ? "bg-amber-500"  : "bg-red-500";
                 return (
                   <button
                     key={visit.id}
                     onClick={() => handleVisitClick(visit)}
                     disabled={loadingVisit}
-                    className="w-full text-left rounded-lg border px-3 py-2 hover:border-border transition-colors disabled:opacity-50"
-                    style={{
-                      background: "var(--muted)",
-                      borderColor: "var(--border)",
-                    }}
+                    className="w-full text-left rounded-lg border border-border bg-muted px-3 py-2 hover:brightness-95 transition-all disabled:opacity-50"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: waitColor }} />
+                        <span className={cn("w-2 h-2 rounded-full", dotClass)} />
                         <span className="text-sm font-semibold text-foreground">{visit.patient_name}</span>
                       </div>
-                      <span className="text-[10px] font-mono" style={{ color: waitColor }}>
+                      <span className={cn("text-[10px] font-mono", waitClass)}>
                         {formatTimeAgo(visit.created_at)}
                       </span>
                     </div>

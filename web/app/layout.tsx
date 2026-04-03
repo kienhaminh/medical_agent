@@ -23,7 +23,7 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "MediNexus - Clinical Intelligence Platform",
+  title: "Medera - Clinical Intelligence Platform",
   description:
     "Clinical intelligence platform powered by AI. Streamlined workflows for modern healthcare.",
   icons: {

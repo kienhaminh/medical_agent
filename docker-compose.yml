@@ -29,6 +29,21 @@ services:
       timeout: 5s
       retries: 5
 
+  segmentation-mcp:
+    build:
+      context: .
+      dockerfile: segmentation-mcp/Dockerfile.mcp
+    container_name: medical-agent-segmentation-mcp
+    ports:
+      - "8010:8000"
+    environment:
+      - MCP_TRANSPORT=streamable-http
+      - PORT=8000
+      - PUBLIC_UPLOAD_BASE_URL=http://localhost:8000/uploads
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+
   # celery_worker:
   #   build: .
   #   container_name: ai-agent-celery-worker

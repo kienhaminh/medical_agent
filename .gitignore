@@ -65,3 +65,7 @@ config/local.yaml
 .cursor/*
 .gitnexus
 .superpowers/
+
+uploads/
+segmentation-mcp/
+video/

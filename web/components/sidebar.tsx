@@ -5,8 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   MessageSquare,
-  History,
-  BarChart3,
   Monitor,
   LogOut,
   UserRound,
@@ -47,8 +45,6 @@ const navigationGroups: NavGroup[] = [
     label: "Agent",
     items: [
       { name: "Chat", href: "/agent", icon: MessageSquare },
-      { name: "History", href: "/agent/history", icon: History },
-      { name: "Usage", href: "/agent/usage", icon: BarChart3, roles: ["admin"] },
     ],
   },
 ];
@@ -83,7 +79,7 @@ export function Sidebar() {
           />
         </div>
         <span className="font-display text-lg font-bold tracking-wider text-primary">
-          MEDI-NEXUS
+          MEDERA
         </span>
       </div>
 
