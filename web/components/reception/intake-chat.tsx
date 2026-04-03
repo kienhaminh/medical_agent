@@ -10,6 +10,13 @@ import type { Visit } from "@/lib/api";
 import { FormInputBar, type ActiveForm } from "@/components/reception/form-input-bar";
 import { createSseParser } from "@/lib/sse";
 
+const TRACK_LINK_PATTERN = /\/track\/(VIS-[\d]+-[\d]+)/;
+
+function extractTrackingLink(content: string): string | null {
+  const match = content.match(TRACK_LINK_PATTERN);
+  return match ? `/track/${match[1]}` : null;
+}
+
 const TOOL_LABELS: Record<string, string> = {
   create_visit: "Setting up your visit…",
   complete_triage: "Routing you to the right department…",
@@ -170,42 +177,57 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
               key={msg.id}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
-                  msg.role === "user"
-                    ? "bg-primary/15 text-foreground"
-                    : "bg-muted/50 text-foreground"
-                }`}
-              >
-                {msg.content || (
-                  isLoading && msg.role === "assistant" ? (
-                    <div className="flex flex-col gap-1.5">
-                      {activityStatus ? (
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          {activityStatus}
-                        </span>
-                      ) : isThinking ? (
-                        <span className="flex items-center gap-1.5 text-muted-foreground">
-                          <Brain className="w-3.5 h-3.5" />
-                          <span className="flex gap-0.5">
-                            {[0, 200, 400].map((delay) => (
-                              <span
-                                key={delay}
-                                className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce"
-                                style={{ animationDelay: `${delay}ms`, animationDuration: "1.2s" }}
-                              />
-                            ))}
+              <div className="max-w-[80%] space-y-2">
+                <div
+                  className={`px-3 py-2 rounded-xl text-sm ${
+                    msg.role === "user"
+                      ? "bg-primary/15 text-foreground"
+                      : "bg-muted/50 text-foreground"
+                  }`}
+                >
+                  {msg.content || (
+                    isLoading && msg.role === "assistant" ? (
+                      <div className="flex flex-col gap-1.5">
+                        {activityStatus ? (
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            {activityStatus}
                           </span>
-                        </span>
-                      ) : (
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      )}
-                    </div>
-                  ) : (
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                  )
-                )}
+                        ) : isThinking ? (
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Brain className="w-3.5 h-3.5" />
+                            <span className="flex gap-0.5">
+                              {[0, 200, 400].map((delay) => (
+                                <span
+                                  key={delay}
+                                  className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce"
+                                  style={{ animationDelay: `${delay}ms`, animationDuration: "1.2s" }}
+                                />
+                              ))}
+                            </span>
+                          </span>
+                        ) : (
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                    ) : (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    )
+                  )}
+                </div>
+                {msg.role === "assistant" && msg.content && (() => {
+                  const trackHref = extractTrackingLink(msg.content);
+                  return trackHref ? (
+                    <a
+                      href={trackHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-700 bg-green-950/40 text-green-400 text-xs font-medium hover:bg-green-950/70 transition-colors"
+                    >
+                      🔗 Track your visit progress
+                    </a>
+                  ) : null;
+                })()}
               </div>
             </div>
           ))}
