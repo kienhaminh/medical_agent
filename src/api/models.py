@@ -248,3 +248,20 @@ class FormResponseRequest(BaseModel):
     form_id: str
     answers: dict[str, str]
     template: str | None = None  # Fallback when form_id expired from in-memory registry
+
+
+# --- Room schemas ---
+
+class RoomCreate(BaseModel):
+    room_number: str
+    department_name: str
+
+class RoomAssign(BaseModel):
+    current_visit_id: Optional[int]
+
+class RoomResponse(BaseModel):
+    id: int
+    room_number: str
+    department_name: str
+    current_visit_id: Optional[int]
+    patient_name: Optional[str]

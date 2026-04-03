@@ -19,7 +19,7 @@ from ..models.base import AsyncSessionLocal
 from ..models.department import Department
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription
+from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription, rooms
 import src.tools  # Register tools
 import src.skills.builtin  # Register skill search tools
 
@@ -122,6 +122,7 @@ app.include_router(usage.router)
 app.include_router(skills.router)
 app.include_router(visits.router)
 app.include_router(departments.router)
+app.include_router(rooms.router)
 app.include_router(hospital.router)
 app.include_router(auth.router)
 app.include_router(orders.router)
