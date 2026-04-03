@@ -86,13 +86,13 @@ def set_itinerary(visit_id: int, steps: list[dict]) -> str:
     first_label = steps[0]["label"] if steps else "none"
     logger.info(
         "Itinerary set for visit %s: %d steps, first active: %s",
-        visit.visit_id, n, first_label,
+        visit_id, n, first_label,
     )
 
     return (
         f"Itinerary set: {n} step(s) created. "
         f"Step 1 ({first_label}) is now active.\n"
-        f"Tracking link for patient: /track/{visit.visit_id}"
+        f"Tracking link for patient: /track/{visit_id}"
     )
 
 
