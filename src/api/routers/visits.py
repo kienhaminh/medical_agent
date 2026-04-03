@@ -483,12 +483,16 @@ async def update_clinical_notes(visit_id: int, data: ClinicalNotesUpdate, db: As
 
 
 @router.get("/api/visits/{visit_id}/track", response_model=VisitTrackResponse)
-async def get_visit_track(visit_id: int, db: AsyncSession = Depends(get_db)):
+async def get_visit_track(visit_id: str, db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns all tracking data for a visit in one call.
 
     No authentication required. Used by /track/[visitId] frontend page.
+    Accepts both integer PK (e.g. "42") and formatted visit_id string (e.g. "VIS-20260403-012").
     """
-    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    if visit_id.isdigit():
+        result = await db.execute(select(Visit).where(Visit.id == int(visit_id)))
+    else:
+        result = await db.execute(select(Visit).where(Visit.visit_id == visit_id))
     visit = result.scalar_one_or_none()
     if not visit:
         raise HTTPException(status_code=404, detail="Visit not found")
@@ -498,7 +502,7 @@ async def get_visit_track(visit_id: int, db: AsyncSession = Depends(get_db)):
 
     steps_result = await db.execute(
         select(VisitStep)
-        .where(VisitStep.visit_id == visit_id)
+        .where(VisitStep.visit_id == visit.id)
         .order_by(VisitStep.step_order)
     )
     steps = [
@@ -516,7 +520,7 @@ async def get_visit_track(visit_id: int, db: AsyncSession = Depends(get_db)):
     ]
 
     from src.models.order import Order
-    orders_result = await db.execute(select(Order).where(Order.visit_id == visit_id))
+    orders_result = await db.execute(select(Order).where(Order.visit_id == visit.id))
     orders = [
         OrderSummary(order_name=o.order_name, order_type=o.order_type, status=o.status)
         for o in orders_result.scalars().all()
