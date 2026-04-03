@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { User, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { PatientDetail, VisitListItem } from "@/lib/api";
+import type { PatientDetail, VisitListItem, Imaging } from "@/lib/api";
 import { PatientImagingPanel } from "@/components/doctor/patient-imaging-panel";
 
 interface PatientCardPanelProps {
@@ -91,6 +91,7 @@ export function PatientCardPanel({ patient, selectedVisit }: PatientCardPanelPro
         {tabs.map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => setTab(t.id)}
             className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors relative ${
               tab === t.id
@@ -224,6 +225,7 @@ function RecordsTab({ records }: { records?: { id: number; title: string; record
         return (
           <div key={rec.id} className="border border-border rounded-md overflow-hidden">
             <button
+              type="button"
               className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-muted/50 transition-colors"
               onClick={() => {
                 if (hasLink) window.open(rec.file_url!, "_blank");
@@ -256,7 +258,7 @@ function RecordsTab({ records }: { records?: { id: number; title: string; record
 
 // --- Imaging tab ---
 
-function ImagingTab({ imaging }: { imaging?: { id: number; title: string; image_type: string; original_url: string; preview_url: string }[] }) {
+function ImagingTab({ imaging }: { imaging?: Imaging[] }) {
   if (!imaging?.length) {
     return <p className="text-xs text-muted-foreground">No imaging on file.</p>;
   }
