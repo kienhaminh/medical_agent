@@ -124,3 +124,35 @@ async def test_patch_room_assign_nonexistent_visit(client, seeded_dept):
     await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
     response = await client.patch("/api/rooms/101", json={"current_visit_id": 99999})
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_patch_room_assign_visit_already_in_another_room(client, seeded_dept, db_session):
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from datetime import date
+
+    patient = Patient(name="Carol", dob=date(1990, 6, 1), gender="F")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-TEST-DBL",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="ear pain",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    await client.post("/api/rooms", json={"room_number": "102", "department_name": "ent"})
+
+    # Assign visit to room 101
+    await client.patch("/api/rooms/101", json={"current_visit_id": visit.id})
+
+    # Trying to assign same visit to room 102 must fail with 409
+    response = await client.patch("/api/rooms/102", json={"current_visit_id": visit.id})
+    assert response.status_code == 409

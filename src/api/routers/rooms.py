@@ -84,6 +84,18 @@ async def assign_room(room_number: str, body: RoomAssign, db: AsyncSession = Dep
         visit_check = await db.execute(select(Visit.id).where(Visit.id == body.current_visit_id))
         if visit_check.scalar_one_or_none() is None:
             raise HTTPException(status_code=404, detail=f"Visit '{body.current_visit_id}' not found")
+        # Guard against the same visit being assigned to two rooms simultaneously
+        conflict_result = await db.execute(
+            select(Room).where(
+                Room.current_visit_id == body.current_visit_id,
+                Room.room_number != room_number,
+            )
+        )
+        if conflict_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=409,
+                detail=f"Visit '{body.current_visit_id}' is already assigned to another room",
+            )
     room.current_visit_id = body.current_visit_id
     await db.commit()
     await db.refresh(room)
