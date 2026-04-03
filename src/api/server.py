@@ -17,9 +17,10 @@ from sqlalchemy import func, select
 from ..config.database import init_db
 from ..models.base import AsyncSessionLocal
 from ..models.department import Department
+from ..models.room import Room
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
-from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription
+from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription, rooms
 import src.tools  # Register tools
 import src.skills.builtin  # Register skill search tools
 
@@ -87,6 +88,23 @@ async def lifespan(app: FastAPI):
             await session.commit()
             logger.info("Seeded %d default users", len(default_users))
 
+    # Seed rooms if none exist (2 rooms per department for demo)
+    async with AsyncSessionLocal() as session:
+        room_count_result = await session.execute(select(func.count(Room.id)))
+        if (room_count_result.scalar() or 0) == 0:
+            all_depts_result = await session.execute(select(Department))
+            depts = all_depts_result.scalars().all()
+            room_counter = 100
+            for dept in depts:
+                for _ in range(2):
+                    room_counter += 1
+                    session.add(Room(
+                        room_number=str(room_counter),
+                        department_name=dept.name,
+                    ))
+            await session.commit()
+            logger.info("Seeded rooms for %d departments", len(depts))
+
     # Startup: Discover skills
     await discover_skills_on_startup()
 
@@ -122,6 +140,7 @@ app.include_router(usage.router)
 app.include_router(skills.router)
 app.include_router(visits.router)
 app.include_router(departments.router)
+app.include_router(rooms.router)
 app.include_router(hospital.router)
 app.include_router(auth.router)
 app.include_router(orders.router)

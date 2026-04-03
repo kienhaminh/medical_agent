@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from src.models import SessionLocal
 from src.models.department import Department
+from src.models.room import Room
 from src.models.visit import Visit, VisitStatus, AUTO_ROUTE_THRESHOLD
 from src.tools.registry import ToolRegistry
 
@@ -77,6 +78,15 @@ def complete_triage(
                     .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
                 ).scalar() or 0
                 visit.queue_position = max_pos + 1
+                # Assign the first empty room in the target department (ordered by room_number ascending)
+                empty_room = db.execute(
+                    select(Room)
+                    .where(Room.department_name == target_dept)
+                    .where(Room.current_visit_id.is_(None))
+                    .order_by(Room.room_number)
+                ).scalars().first()
+                if empty_room:
+                    empty_room.current_visit_id = visit.id
             route_msg = f"Auto-routed to: {', '.join(routing_suggestion)} (confidence: {confidence:.2f})"
         else:
             visit.status = VisitStatus.PENDING_REVIEW.value

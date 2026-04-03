@@ -1,4 +1,4 @@
-"""Tests for Allergy, Medication, and VitalSign models."""
+"""Tests for Allergy, Medication, VitalSign, Patient, and Room models."""
 import pytest
 from datetime import date, datetime
 
@@ -53,3 +53,11 @@ def test_patient_dob_is_date_type():
     p = Patient(name="Test", dob=date(1990, 1, 1), gender="female")
     assert isinstance(p.dob, date)
     assert str(p.dob) == "1990-01-01"
+
+
+def test_room_model_fields():
+    from src.models.room import Room
+    room = Room(room_number="101", department_name="ent")
+    assert room.room_number == "101"
+    assert room.department_name == "ent"
+    assert room.current_visit_id is None

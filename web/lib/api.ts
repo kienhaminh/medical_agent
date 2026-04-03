@@ -702,6 +702,14 @@ export interface DepartmentInfo {
   status: "IDLE" | "OK" | "BUSY" | "CRITICAL";
 }
 
+export interface RoomInfo {
+  id: number;
+  room_number: string;
+  department_name: string;
+  current_visit_id: number | null;
+  patient_name: string | null;
+}
+
 export interface HospitalStats {
   active_patients: number;
   departments_at_capacity: number;
@@ -842,6 +850,15 @@ export async function listDepartments(): Promise<DepartmentInfo[]> {
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.detail || "Failed to fetch departments");
+  }
+  return response.json();
+}
+
+export async function listRooms(): Promise<RoomInfo[]> {
+  const response = await fetch(`${API_BASE_URL}/rooms`);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to fetch rooms");
   }
   return response.json();
 }

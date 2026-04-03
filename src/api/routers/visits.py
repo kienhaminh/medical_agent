@@ -13,6 +13,7 @@ from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailR
 from src.tools.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
 from src.tools.shift_handoff_tool import generate_shift_handoff as _handoff_fn
 from src.models.department import Department
+from src.models.room import Room as RoomModel
 from src.api.ws.event_bus import event_bus
 from src.api.ws.events import WSEventType
 
@@ -303,6 +304,14 @@ async def complete_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
         )
         for v in source_visits_result.scalars().all():
             v.queue_position -= 1
+    # Clear room assignment for this visit before completing
+    room_result = await db.execute(
+        select(RoomModel).where(RoomModel.current_visit_id == visit.id)
+    )
+    occupied_room = room_result.scalar_one_or_none()
+    if occupied_room:
+        occupied_room.current_visit_id = None
+
     completed_dept = visit.current_department
     visit.status = VisitStatus.COMPLETED.value
     visit.current_department = None
@@ -362,6 +371,14 @@ async def transfer_visit(visit_id: int, transfer: VisitTransferRequest, db: Asyn
         .where(Visit.status == VisitStatus.IN_DEPARTMENT.value)
     )
     max_pos = max_pos_result.scalar() or 0
+    # Clear room assignment in the source department before transferring
+    room_result = await db.execute(
+        select(RoomModel).where(RoomModel.current_visit_id == visit.id)
+    )
+    occupied_room = room_result.scalar_one_or_none()
+    if occupied_room:
+        occupied_room.current_visit_id = None
+
     visit.current_department = transfer.target_department
     visit.queue_position = max_pos + 1
     await db.commit()

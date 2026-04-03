@@ -1,0 +1,321 @@
+# tests/test_rooms_api.py
+import pytest
+import pytest_asyncio
+from contextlib import asynccontextmanager
+from unittest.mock import patch
+from httpx import AsyncClient, ASGITransport
+
+from src.models.base import get_db
+from src.models.department import Department
+from src.models.room import Room
+
+
+@pytest_asyncio.fixture
+async def client(db_session):
+    @asynccontextmanager
+    async def mock_lifespan(app):
+        yield
+
+    with patch("src.api.server.lifespan", mock_lifespan):
+        from src.api.server import app
+
+        async def override_get_db():
+            yield db_session
+
+        app.dependency_overrides[get_db] = override_get_db
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client
+        app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def seeded_dept(db_session):
+    dept = Department(
+        name="ent",
+        label="ENT Department",
+        capacity=4,
+        is_open=True,
+        color="#6366f1",
+        icon="Ear",
+    )
+    db_session.add(dept)
+    await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_list_rooms_empty(client, seeded_dept):
+    response = await client.get("/api/rooms")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_create_room(client, seeded_dept):
+    response = await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    assert response.status_code == 201
+    data = response.json()
+    assert data["room_number"] == "101"
+    assert data["department_name"] == "ent"
+    assert data["current_visit_id"] is None
+    assert data["patient_name"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_room_duplicate_fails(client, seeded_dept):
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    response = await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_list_rooms_returns_created(client, seeded_dept):
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    await client.post("/api/rooms", json={"room_number": "102", "department_name": "ent"})
+    response = await client.get("/api/rooms")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    numbers = [r["room_number"] for r in data]
+    assert "101" in numbers
+    assert "102" in numbers
+
+
+@pytest.mark.asyncio
+async def test_patch_room_assign_visit(client, seeded_dept, db_session):
+    from datetime import date
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+
+    patient = Patient(name="John Doe", dob=date(1980, 1, 1), gender="M")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-TEST-001",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="ear pain",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+
+    response = await client.patch("/api/rooms/101", json={"current_visit_id": visit.id})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["current_visit_id"] == visit.id
+    assert data["patient_name"] == "John Doe"
+
+
+@pytest.mark.asyncio
+async def test_patch_room_unassign(client, seeded_dept):
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    response = await client.patch("/api/rooms/101", json={"current_visit_id": None})
+    assert response.status_code == 200
+    assert response.json()["current_visit_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_patch_room_assign_nonexistent_visit(client, seeded_dept):
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    response = await client.patch("/api/rooms/101", json={"current_visit_id": 99999})
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_complete_triage_assigns_empty_room(db_session):
+    """complete_triage assigns the lowest-numbered empty room on auto-route.
+
+    Strategy: seed all data using the patched sync session so that
+    complete_triage reads from the same connection/transaction. We share
+    a single sync connection and pass that same connection to SessionLocal
+    so both the seeding step and the tool call see the same in-flight data.
+    """
+    from datetime import date
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker, Session
+    from unittest.mock import patch
+    from contextlib import contextmanager
+
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from src.models.department import Department
+    from src.models.room import Room
+    from src.models.base import Base
+
+    # Create a dedicated sync SQLite DB in-memory for this test
+    sync_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(sync_engine)
+
+    # Use a single persistent sync session for seeding + the tool call
+    SyncSession = sessionmaker(bind=sync_engine)
+    sync_session = SyncSession()
+
+    try:
+        # Seed all required data synchronously
+        dept = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#e11d48", icon="Heart")
+        sync_session.add(dept)
+        sync_session.flush()
+
+        room1 = Room(room_number="201", department_name="cardiology")
+        room2 = Room(room_number="202", department_name="cardiology")
+        sync_session.add_all([room1, room2])
+        sync_session.flush()
+
+        patient = Patient(name="Jane Smith", dob=date(1970, 5, 10), gender="F")
+        sync_session.add(patient)
+        sync_session.flush()
+
+        visit = Visit(
+            visit_id="VIS-TRIAGE-001",
+            patient_id=patient.id,
+            status=VisitStatus.INTAKE.value,
+            chief_complaint="",
+        )
+        sync_session.add(visit)
+        sync_session.flush()
+        visit_id = visit.id
+        sync_session.commit()
+
+        # Patch SessionLocal so complete_triage uses the same in-memory DB
+        @contextmanager
+        def patched_session():
+            yield sync_session
+
+        with patch("src.tools.complete_triage_tool.SessionLocal", patched_session):
+            from src.tools.complete_triage_tool import complete_triage
+            result = complete_triage(
+                id=visit_id,
+                chief_complaint="chest pain",
+                intake_notes="Onset 2h ago, radiating to left arm",
+                routing_suggestion=["cardiology"],
+                confidence=0.95,
+            )
+
+        assert "Auto-routed" in result
+
+        # Verify room 201 (lowest) was assigned, room 202 still empty
+        sync_session.expire_all()
+        sync_session.refresh(room1)
+        sync_session.refresh(room2)
+        assert room1.current_visit_id == visit_id
+        assert room2.current_visit_id is None
+    finally:
+        sync_session.close()
+        sync_engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_complete_visit_clears_room(client, seeded_dept, db_session):
+    """Completing a visit unassigns its room."""
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from src.models.room import Room
+    from datetime import date
+
+    patient = Patient(name="Alice", dob=date(1985, 3, 15), gender="F")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-COMPLETE-001",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="sore throat",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    room = Room(room_number="101", department_name="ent", current_visit_id=visit.id)
+    db_session.add(room)
+    await db_session.commit()
+
+    response = await client.patch(f"/api/visits/{visit.id}/complete")
+    assert response.status_code == 200
+
+    await db_session.refresh(room)
+    assert room.current_visit_id is None
+
+
+@pytest.mark.asyncio
+async def test_transfer_visit_clears_old_room(client, db_session):
+    """Transferring a visit unassigns its current room."""
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from src.models.room import Room
+    from src.models.department import Department
+    from datetime import date
+
+    ent = Department(name="ent", label="ENT", capacity=4, is_open=True, color="#6366f1", icon="Ear")
+    cardio = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#e11d48", icon="Heart")
+    db_session.add_all([ent, cardio])
+    await db_session.flush()
+
+    patient = Patient(name="Bob", dob=date(1975, 7, 20), gender="M")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-TRANSFER-001",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="dizziness",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    room = Room(room_number="103", department_name="ent", current_visit_id=visit.id)
+    db_session.add(room)
+    await db_session.commit()
+
+    response = await client.post(
+        f"/api/visits/{visit.id}/transfer",
+        json={"target_department": "cardiology", "reason": "needs cardiac workup"},
+    )
+    assert response.status_code == 200
+
+    await db_session.refresh(room)
+    assert room.current_visit_id is None
+
+
+@pytest.mark.asyncio
+async def test_patch_room_assign_visit_already_in_another_room(client, seeded_dept, db_session):
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from datetime import date
+
+    patient = Patient(name="Carol", dob=date(1990, 6, 1), gender="F")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-TEST-DBL",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="ear pain",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    await client.post("/api/rooms", json={"room_number": "101", "department_name": "ent"})
+    await client.post("/api/rooms", json={"room_number": "102", "department_name": "ent"})
+
+    # Assign visit to room 101
+    await client.patch("/api/rooms/101", json={"current_visit_id": visit.id})
+
+    # Trying to assign same visit to room 102 must fail with 409
+    response = await client.patch("/api/rooms/102", json={"current_visit_id": visit.id})
+    assert response.status_code == 409
