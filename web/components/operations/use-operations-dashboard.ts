@@ -6,14 +6,17 @@ import {
   listDepartments,
   listActiveVisits,
   getHospitalStats,
+  listRooms,
   type DepartmentInfo,
   type HospitalStats,
   type VisitListItem,
+  type RoomInfo,
 } from "@/lib/api";
 import { RECEPTION_STATUSES } from "./operations-constants";
 
 export interface DashboardData {
   departments: DepartmentInfo[];
+  rooms: RoomInfo[];
   stats: HospitalStats;
   receptionVisits: VisitListItem[];
   departmentVisits: Record<string, VisitListItem[]>;
@@ -27,6 +30,7 @@ const POLL_INTERVAL = 5000;
 
 export function useOperationsDashboard(): DashboardData {
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
+  const [rooms, setRooms] = useState<RoomInfo[]>([]);
   const [visits, setVisits] = useState<VisitListItem[]>([]);
   const [stats, setStats] = useState<HospitalStats>({
     active_patients: 0,
@@ -42,14 +46,16 @@ export function useOperationsDashboard(): DashboardData {
 
   const fetchData = useCallback(async () => {
     try {
-      const [depts, vis, st] = await Promise.all([
+      const [depts, vis, st, rms] = await Promise.all([
         listDepartments(),
         listActiveVisits(),
         getHospitalStats(),
+        listRooms(),
       ]);
       setDepartments(depts);
       setVisits(vis);
       setStats(st);
+      setRooms(rms);
       setError(null);
       setLastUpdated(new Date());
       hasLoadedRef.current = true;
@@ -84,6 +90,7 @@ export function useOperationsDashboard(): DashboardData {
 
   return {
     departments,
+    rooms,
     stats,
     receptionVisits,
     departmentVisits,

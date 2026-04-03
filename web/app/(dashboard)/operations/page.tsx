@@ -13,7 +13,7 @@ export default function OperationsPage() {
   const [receptionOpen, setReceptionOpen] = useState(false);
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
 
-  const { departments, stats, receptionVisits, departmentVisits, loading, error, lastUpdated, refresh } =
+  const { departments, rooms, stats, receptionVisits, departmentVisits, loading, error, lastUpdated, refresh } =
     useOperationsDashboard();
 
   const selectedDepartment = departments.find((d) => d.name === selectedDept) ?? null;
@@ -52,6 +52,7 @@ export default function OperationsPage() {
         {/* Department grid */}
         <DepartmentGrid
           departments={departments}
+          rooms={rooms}
           departmentVisits={departmentVisits}
           onDeptClick={setSelectedDept}
         />
