@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from ..config.database import init_db
 from ..models.base import AsyncSessionLocal
 from ..models.department import Department
+from ..models.room import Room
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
 from .dependencies import provider_name, llm_provider
 from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription, rooms
@@ -88,7 +89,6 @@ async def lifespan(app: FastAPI):
             logger.info("Seeded %d default users", len(default_users))
 
     # Seed rooms if none exist (2 rooms per department for demo)
-    from ..models.room import Room
     async with AsyncSessionLocal() as session:
         room_count_result = await session.execute(select(func.count(Room.id)))
         if (room_count_result.scalar() or 0) == 0:
