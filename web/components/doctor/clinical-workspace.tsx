@@ -3,14 +3,12 @@
 import { useState, useCallback, useEffect } from "react";
 import {
   User,
-  Sparkles,
   FileEdit,
   Brain,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CollapsiblePanel } from "./collapsible-panel";
 import { PatientCardPanel } from "./patient-card-panel";
-import { PreVisitBriefCard } from "./pre-visit-brief-card";
 import { ClinicalNotesEditor } from "./clinical-notes-editor";
 import { DdxPanel } from "./ddx-panel";
 import { QuickActionsBar } from "./quick-actions-bar";
@@ -100,22 +98,10 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
           <PatientCardPanel
             patient={props.patient}
             selectedVisit={props.selectedVisit ?? null}
+            visitBrief={props.visitBrief}
+            briefLoading={props.briefLoading}
           />
         </CollapsiblePanel>
-
-        {/* Pre-Visit Brief */}
-        {(props.visitBrief || props.briefLoading) && (
-          <CollapsiblePanel
-            id="brief"
-            title="Pre-Visit Brief"
-            icon={Sparkles}
-            iconColor="text-amber-500"
-            collapsed={collapsed.has("brief")}
-            onToggle={() => toggle("brief")}
-          >
-            <PreVisitBriefCard brief={props.visitBrief} loading={props.briefLoading} />
-          </CollapsiblePanel>
-        )}
 
         {/* Clinical Notes */}
         <CollapsiblePanel

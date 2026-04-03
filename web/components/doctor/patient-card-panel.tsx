@@ -5,10 +5,13 @@ import { User, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PatientDetail, VisitListItem, Imaging } from "@/lib/api";
 import { PatientImagingPanel } from "@/components/doctor/patient-imaging-panel";
+import { PreVisitBriefCard } from "@/components/doctor/pre-visit-brief-card";
 
 interface PatientCardPanelProps {
   patient: PatientDetail | null;
   selectedVisit: VisitListItem | null;
+  visitBrief: string;
+  briefLoading: boolean;
 }
 
 type Tab = "overview" | "visit" | "records" | "imaging";
@@ -33,7 +36,7 @@ const URGENCY_BADGE: Record<string, string> = {
   routine: "bg-green-100 text-green-700",
 };
 
-export function PatientCardPanel({ patient, selectedVisit }: PatientCardPanelProps) {
+export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoading }: PatientCardPanelProps) {
   const [tab, setTab] = useState<Tab>("overview");
 
   if (!patient) {
@@ -112,7 +115,7 @@ export function PatientCardPanel({ patient, selectedVisit }: PatientCardPanelPro
       {/* Tab content */}
       <div className="px-3 py-2.5">
         {tab === "overview" && <OverviewTab visit={selectedVisit} />}
-        {tab === "visit" && <VisitTab visit={selectedVisit} />}
+        {tab === "visit" && <VisitTab visit={selectedVisit} visitBrief={visitBrief} briefLoading={briefLoading} />}
         {tab === "records" && <RecordsTab records={patient.records} />}
         {tab === "imaging" && <ImagingTab imaging={patient.imaging} />}
       </div>
@@ -153,7 +156,7 @@ function OverviewTab({ visit }: { visit: VisitListItem | null }) {
 
 // --- Visit tab ---
 
-function VisitTab({ visit }: { visit: VisitListItem | null }) {
+function VisitTab({ visit, visitBrief, briefLoading }: { visit: VisitListItem | null; visitBrief: string; briefLoading: boolean }) {
   if (!visit) {
     return <p className="text-xs text-muted-foreground">No visit selected.</p>;
   }
@@ -172,13 +175,21 @@ function VisitTab({ visit }: { visit: VisitListItem | null }) {
   ];
 
   return (
-    <div className="divide-y divide-border">
-      {rows.map(({ label, value }) => (
-        <div key={label} className="flex items-center justify-between py-1.5 text-xs">
-          <span className="text-muted-foreground">{label}</span>
-          <span className="font-medium text-right max-w-[55%] truncate">{value}</span>
+    <div className="space-y-0">
+      <div className="divide-y divide-border">
+        {rows.map(({ label, value }) => (
+          <div key={label} className="flex items-center justify-between py-1.5 text-xs">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-medium text-right max-w-[55%] truncate">{value}</span>
+          </div>
+        ))}
+      </div>
+      {(briefLoading || visitBrief) && (
+        <div className="pt-2 -mx-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium px-3 mb-1">Pre-Visit Brief</p>
+          <PreVisitBriefCard brief={visitBrief} loading={briefLoading} />
         </div>
-      ))}
+      )}
     </div>
   );
 }
