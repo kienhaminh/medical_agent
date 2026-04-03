@@ -78,6 +78,27 @@ export interface MedicalRecord {
   created_at: string;
 }
 
+export interface SegmentationResult {
+  status: "success" | "error";
+  patient_id: string;
+  input: {
+    image_url: string;
+    shape_zyx: [number, number, number];
+    slice_index: number;
+  };
+  model: {
+    architecture: string;
+    device: string;
+  };
+  prediction: {
+    pred_classes_in_slice: number[];
+  };
+  artifacts: {
+    overlay_image: { url: string };
+    predmask_image: { url: string };
+  };
+}
+
 export interface Imaging {
   id: number;
   patient_id: number;
@@ -87,6 +108,7 @@ export interface Imaging {
   original_url: string;
   preview_url: string;
   group_id?: number;
+  segmentation_result?: SegmentationResult | null;
   created_at: string;
 }
 
@@ -112,6 +134,18 @@ export async function getPatients(): Promise<Patient[]> {
 export async function getPatient(id: number): Promise<PatientDetail> {
   const res = await fetch(`${API_BASE_URL}/patients/${id}`);
   if (!res.ok) throw new Error("Failed to fetch patient");
+  return res.json();
+}
+
+export async function runSegmentation(
+  patientId: number,
+  imagingId: number
+): Promise<Imaging> {
+  const res = await fetch(
+    `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/segment`,
+    { method: "POST" }
+  );
+  if (!res.ok) throw new Error("Segmentation failed");
   return res.json();
 }
 
