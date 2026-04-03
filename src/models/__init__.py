@@ -22,6 +22,7 @@ from .chat import ChatSession, ChatMessage
 from .visit import Visit, VisitStatus
 from .case_thread import CaseThread, CaseMessage
 from .department import Department
+from .room import Room
 from .user import User, UserRole
 
 __all__ = [
@@ -55,6 +56,8 @@ __all__ = [
     "CaseMessage",
     # Department models
     "Department",
+    # Room models
+    "Room",
     # User models
     "User",
     "UserRole",
