@@ -127,6 +127,92 @@ async def test_patch_room_assign_nonexistent_visit(client, seeded_dept):
 
 
 @pytest.mark.asyncio
+async def test_complete_triage_assigns_empty_room(db_session):
+    """complete_triage assigns the lowest-numbered empty room on auto-route.
+
+    Strategy: seed all data using the patched sync session so that
+    complete_triage reads from the same connection/transaction. We share
+    a single sync connection and pass that same connection to SessionLocal
+    so both the seeding step and the tool call see the same in-flight data.
+    """
+    from datetime import date
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker, Session
+    from unittest.mock import patch
+    from contextlib import contextmanager
+
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from src.models.department import Department
+    from src.models.room import Room
+    from src.models.base import Base
+
+    # Create a dedicated sync SQLite DB in-memory for this test
+    sync_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(sync_engine)
+
+    # Use a single persistent sync session for seeding + the tool call
+    SyncSession = sessionmaker(bind=sync_engine)
+    sync_session = SyncSession()
+
+    try:
+        # Seed all required data synchronously
+        dept = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#e11d48", icon="Heart")
+        sync_session.add(dept)
+        sync_session.flush()
+
+        room1 = Room(room_number="201", department_name="cardiology")
+        room2 = Room(room_number="202", department_name="cardiology")
+        sync_session.add_all([room1, room2])
+        sync_session.flush()
+
+        patient = Patient(name="Jane Smith", dob=date(1970, 5, 10), gender="F")
+        sync_session.add(patient)
+        sync_session.flush()
+
+        visit = Visit(
+            visit_id="VIS-TRIAGE-001",
+            patient_id=patient.id,
+            status=VisitStatus.INTAKE.value,
+            chief_complaint="",
+        )
+        sync_session.add(visit)
+        sync_session.flush()
+        visit_id = visit.id
+        sync_session.commit()
+
+        # Patch SessionLocal so complete_triage uses the same in-memory DB
+        @contextmanager
+        def patched_session():
+            yield sync_session
+
+        with patch("src.tools.complete_triage_tool.SessionLocal", patched_session):
+            from src.tools.complete_triage_tool import complete_triage
+            result = complete_triage(
+                id=visit_id,
+                chief_complaint="chest pain",
+                intake_notes="Onset 2h ago, radiating to left arm",
+                routing_suggestion=["cardiology"],
+                confidence=0.95,
+            )
+
+        assert "Auto-routed" in result
+
+        # Verify room 201 (lowest) was assigned, room 202 still empty
+        sync_session.expire_all()
+        sync_session.refresh(room1)
+        sync_session.refresh(room2)
+        assert room1.current_visit_id == visit_id
+        assert room2.current_visit_id is None
+    finally:
+        sync_session.close()
+        sync_engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_patch_room_assign_visit_already_in_another_room(client, seeded_dept, db_session):
     from src.models.patient import Patient
     from src.models.visit import Visit, VisitStatus
