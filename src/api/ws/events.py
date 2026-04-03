@@ -20,6 +20,9 @@ class WSEventType(str, Enum):
     # Queue updates (broadcast after position shifts)
     QUEUE_UPDATED = "queue.updated"
 
+    # Patient itinerary step advanced
+    STEP_UPDATED = "step.updated"
+
     # AI-generated insights
     AI_INSIGHT = "ai.insight"
 
@@ -46,6 +49,7 @@ NOTIFICATION_ROUTING: dict[WSEventType, dict[str, bool]] = {
     WSEventType.VISIT_COMPLETED:  {"bell": True,  "inline": True,  "toast": False},
     WSEventType.VISIT_TRANSFERRED:{"bell": True,  "inline": True,  "toast": False},
     WSEventType.QUEUE_UPDATED:    {"bell": False, "inline": True,  "toast": False},
+    WSEventType.STEP_UPDATED:     {"bell": False, "inline": True,  "toast": False},
     WSEventType.AI_INSIGHT:       {"bell": False, "inline": False, "toast": False},
     WSEventType.LAB_CRITICAL:     {"bell": True,  "inline": True,  "toast": True},
 }

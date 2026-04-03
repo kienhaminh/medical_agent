@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import get_db, Visit, Patient, ChatSession
+from src.models import get_db, Visit, Patient, ChatSession, VisitStep
+from src.models.visit_step import StepStatus
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
 from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse
 from src.tools.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
@@ -54,6 +55,44 @@ async def _generate_visit_id(db: AsyncSession) -> str:
     else:
         next_num = 1
     return f"{prefix}{next_num:03d}"
+
+
+async def _advance_steps(db: AsyncSession, visit_id: int, new_department: str) -> None:
+    """Auto-advance visit steps when a patient moves to a new department.
+
+    Marks the current ACTIVE step as DONE, then activates the next PENDING
+    step whose department matches new_department — or simply the next step
+    by step_order if no department match exists.
+
+    Called inside check-in and transfer endpoint handlers before db.commit().
+    Is a no-op if the visit has no itinerary steps.
+    """
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    steps_result = await db.execute(
+        select(VisitStep)
+        .where(VisitStep.visit_id == visit_id)
+        .order_by(VisitStep.step_order)
+    )
+    steps = steps_result.scalars().all()
+    if not steps:
+        return
+
+    # Mark current active step as done
+    for step in steps:
+        if step.status == StepStatus.ACTIVE.value:
+            step.status = StepStatus.DONE.value
+            step.completed_at = now
+            break
+
+    # Find next step: prefer department match, fall back to next pending by order
+    pending = [s for s in steps if s.status == StepStatus.PENDING.value]
+    if not pending:
+        return
+
+    dept_match = next((s for s in pending if s.department == new_department), None)
+    next_step = dept_match or pending[0]
+    next_step.status = StepStatus.ACTIVE.value
 
 
 @router.post("/api/visits", response_model=VisitResponse)
