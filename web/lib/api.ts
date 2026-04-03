@@ -78,26 +78,28 @@ export interface MedicalRecord {
   created_at: string;
 }
 
-export interface SegmentationResult {
-  status: "success" | "error";
-  patient_id: string;
-  input: {
-    image_url: string;
-    shape_zyx: [number, number, number];
-    slice_index: number;
-  };
-  model: {
-    architecture: string;
-    device: string;
-  };
-  prediction: {
-    pred_classes_in_slice: number[];
-  };
-  artifacts: {
-    overlay_image: { url: string };
-    predmask_image: { url: string };
-  };
-}
+export type SegmentationResult =
+  | {
+      status: "success";
+      patient_id: string; // MCP echoes the patient_id as a string
+      input: {
+        image_url: string;
+        shape_zyx: [number, number, number];
+        slice_index: number;
+      };
+      model: {
+        architecture: string;
+        device: string;
+      };
+      prediction: {
+        pred_classes_in_slice: number[];
+      };
+      artifacts: {
+        overlay_image: { url: string };
+        predmask_image: { url: string };
+      };
+    }
+  | { status: "error" | "unknown"; [key: string]: unknown };
 
 export interface Imaging {
   id: number;
@@ -145,7 +147,10 @@ export async function runSegmentation(
     `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/segment`,
     { method: "POST" }
   );
-  if (!res.ok) throw new Error("Segmentation failed");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { detail?: string }).detail || "Segmentation failed");
+  }
   return res.json();
 }
 
