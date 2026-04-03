@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { User, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PatientDetail, VisitListItem, Imaging } from "@/lib/api";
-import { PatientImagingPanel } from "@/components/doctor/patient-imaging-panel";
+import { ImagingAnalysisDialog } from "@/components/doctor/imaging-analysis-dialog";
 import { PreVisitBriefCard } from "@/components/doctor/pre-visit-brief-card";
 
 interface PatientCardPanelProps {
@@ -117,7 +117,7 @@ export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoad
         {tab === "overview" && <OverviewTab visit={selectedVisit} />}
         {tab === "visit" && <VisitTab visit={selectedVisit} visitBrief={visitBrief} briefLoading={briefLoading} />}
         {tab === "records" && <RecordsTab records={patient.records} />}
-        {tab === "imaging" && <ImagingTab imaging={patient.imaging} />}
+        {tab === "imaging" && <ImagingTab imaging={patient.imaging} patientId={patient.id} />}
       </div>
     </div>
   );
@@ -269,9 +269,61 @@ function RecordsTab({ records }: { records?: { id: number; title: string; record
 
 // --- Imaging tab ---
 
-function ImagingTab({ imaging }: { imaging?: Imaging[] }) {
-  if (!imaging?.length) {
+function ImagingTab({
+  imaging: initialImaging,
+  patientId,
+}: {
+  imaging?: Imaging[];
+  patientId: number;
+}) {
+  const [imaging, setImaging] = useState<Imaging[]>(initialImaging ?? []);
+  const [dialogImaging, setDialogImaging] = useState<Imaging | null>(null);
+
+  if (!imaging.length) {
     return <p className="text-xs text-muted-foreground">No imaging on file.</p>;
   }
-  return <PatientImagingPanel imaging={imaging} />;
+
+  const handleSegmentationComplete = (updated: Imaging) => {
+    setImaging((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
+    setDialogImaging(updated);
+  };
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {imaging.map((img) => (
+          <button
+            key={img.id}
+            type="button"
+            onClick={() => setDialogImaging(img)}
+            className="group relative overflow-hidden rounded-md border border-border bg-muted/30 transition hover:border-primary/40 text-left"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img.preview_url}
+              alt={img.title}
+              className="h-24 w-full object-contain bg-black/5"
+            />
+            <div className="border-t px-1.5 py-1 text-[10px] leading-tight">
+              <span className="font-medium uppercase text-foreground/90">{img.image_type}</span>
+              <span className="block truncate text-muted-foreground">{img.title}</span>
+            </div>
+            {img.segmentation_result?.status === "success" && (
+              <span className="absolute top-1 right-1 bg-emerald-600 text-white text-[9px] font-bold px-1 py-px rounded">
+                ✓
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-1">Click a tile to open and analyze.</p>
+
+      <ImagingAnalysisDialog
+        imaging={dialogImaging}
+        patientId={patientId}
+        onClose={() => setDialogImaging(null)}
+        onSegmentationComplete={handleSegmentationComplete}
+      />
+    </>
+  );
 }
