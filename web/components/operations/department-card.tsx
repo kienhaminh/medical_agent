@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { DepartmentInfo, VisitListItem, RoomInfo } from "@/lib/api";
 import { DEPARTMENT_STATUS_COLORS, getWaitTimeColor, formatTimeAgo } from "./operations-constants";
+import { RoomTile } from "./room-tile";
 
 interface DepartmentCardProps {
   dept: DepartmentInfo;
@@ -24,33 +25,6 @@ function sortVisits(visits: VisitListItem[]): VisitListItem[] {
     if (posA !== posB) return posA - posB;
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
-}
-
-function RoomTile({ room, statusColor, onOccupiedClick }: {
-  room: RoomInfo;
-  statusColor: string;
-  onOccupiedClick: () => void;
-}) {
-  const isOccupied = room.current_visit_id !== null;
-  return (
-    <div
-      onClick={isOccupied ? onOccupiedClick : undefined}
-      className={`rounded-md px-2 py-1.5 border text-[10px] font-mono truncate ${
-        isOccupied
-          ? "cursor-pointer hover:brightness-110"
-          : "opacity-50 cursor-default"
-      }`}
-      style={{
-        background: isOccupied ? `${statusColor}18` : "var(--muted)",
-        borderColor: isOccupied ? `${statusColor}40` : "var(--border)",
-        color: isOccupied ? statusColor : "var(--muted-foreground)",
-      }}
-    >
-      <span className="font-bold">{room.room_number}</span>
-      {" · "}
-      <span>{room.patient_name ?? "—"}</span>
-    </div>
-  );
 }
 
 export function DepartmentCard({ dept, visits, rooms, onClick }: DepartmentCardProps) {
@@ -78,12 +52,11 @@ export function DepartmentCard({ dept, visits, rooms, onClick }: DepartmentCardP
 
   return (
     <div
-      className={`w-full rounded-xl border transition-all ${isCritical ? "animate-pulse" : ""}`}
+      className={`w-full rounded-xl border transition-all ${isCritical ? "animate-pulse" : ""} ${isClosed ? "opacity-[0.55]" : ""}`}
       style={{
         background: isClosed ? "var(--muted)" : `${statusColor}08`,
         borderColor: isClosed ? "var(--border)" : `${statusColor}40`,
         boxShadow: isCritical ? `0 0 20px ${statusColor}30` : "none",
-        opacity: isClosed ? 0.55 : 1,
       }}
     >
       {/* Header — clicking dept name/stats opens dialog; chevron toggles rooms */}
