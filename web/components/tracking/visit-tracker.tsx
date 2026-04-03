@@ -41,11 +41,11 @@ const ORDER_STATUS_COLORS: Record<string, string> = {
 
 interface VisitTrackerProps {
   visitId: string;
-  initialData: TrackingData;
+  initialData: TrackingData | null;
 }
 
 export function VisitTracker({ visitId, initialData }: VisitTrackerProps) {
-  const [data, setData] = useState<TrackingData>(initialData);
+  const [data, setData] = useState<TrackingData | null>(initialData);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const refresh = useCallback(async () => {
@@ -61,11 +61,20 @@ export function VisitTracker({ visitId, initialData }: VisitTrackerProps) {
     }
   }, [visitId]);
 
-  // Poll every 10 seconds for live status updates
+  // Poll every 10 seconds; also fetch immediately if SSR data was unavailable
   useEffect(() => {
+    if (!initialData) refresh();
     const id = setInterval(refresh, 10_000);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [refresh, initialData]);
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
+        <div className="w-6 h-6 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const urgencyClass = data.urgency_level
     ? (URGENCY_COLORS[data.urgency_level] ?? URGENCY_COLORS.routine)

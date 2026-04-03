@@ -24,7 +24,7 @@ const TOKEN_KEY = "medinexus_token";
 const USER_KEY = "medinexus_user";
 
 /** Public routes that don't require authentication. */
-const PUBLIC_ROUTES = ["/", "/intake", "/login"];
+const PUBLIC_ROUTES = ["/", "/intake", "/login", "/track"];
 
 /** Routes that are restricted to specific roles only. Checked before general role routes. */
 const ADMIN_ONLY_ROUTES = ["/agent/usage", "/agent/settings"];

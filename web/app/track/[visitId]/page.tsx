@@ -1,24 +1,27 @@
-import { notFound } from "next/navigation";
 import { VisitTracker } from "@/components/tracking/visit-tracker";
 
 interface Props {
-  params: { visitId: string };
+  params: Promise<{ visitId: string }>;
 }
 
 async function getTrackingData(visitId: string) {
-  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
-  const res = await fetch(`${backendUrl}/api/visits/${visitId}/track`, {
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+    const res = await fetch(`${backendUrl}/api/visits/${visitId}/track`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
 
 export default async function TrackPage({ params }: Props) {
-  const data = await getTrackingData(params.visitId);
-  if (!data) notFound();
-
-  return <VisitTracker visitId={params.visitId} initialData={data} />;
+  const { visitId } = await params;
+  const data = await getTrackingData(visitId);
+  // If SSR fetch fails, pass null — client component fetches on mount
+  return <VisitTracker visitId={visitId} initialData={data} />;
 }
 
 export const metadata = {
