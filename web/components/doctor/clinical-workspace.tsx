@@ -99,7 +99,7 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
         >
           <PatientCardPanel
             patient={props.patient}
-            chiefComplaint={props.selectedVisit?.chief_complaint || undefined}
+            selectedVisit={props.selectedVisit ?? null}
           />
         </CollapsiblePanel>
 
