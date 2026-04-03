@@ -13,6 +13,7 @@ interface ImagingAnalysisDialogProps {
   onSegmentationComplete: (updated: Imaging) => void;
 }
 
+// BraTS segmentation class colors — medical imaging standard, not UI theme colors
 const LEGEND = [
   { label: "Tumor Core (TC)", color: "bg-red-500" },
   { label: "Edema (ED)", color: "bg-green-500" },
@@ -93,17 +94,17 @@ export function ImagingAnalysisDialog({
       role="dialog"
       aria-modal="true"
       aria-label={`Imaging analysis: ${imaging.title}`}
-      className="fixed inset-0 z-50 flex flex-col bg-black"
+      className="fixed inset-0 z-50 flex flex-col bg-background"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-slate-900 border-b border-slate-700 shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 bg-card border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
             {imaging.image_type}
           </span>
-          <span className="text-sm font-semibold text-white">{imaging.title}</span>
+          <span className="text-sm font-semibold text-foreground">{imaging.title}</span>
           {segResult && (
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-400">
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-primary/10 border border-primary/30 text-primary">
               ✓ Segmented
             </span>
           )}
@@ -111,7 +112,7 @@ export function ImagingAnalysisDialog({
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-500 hover:text-slate-300 transition-colors p-1"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
@@ -129,9 +130,9 @@ export function ImagingAnalysisDialog({
 
         {/* Spinner overlay while running */}
         {running && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
-            <div className="h-9 w-9 rounded-full border-[3px] border-slate-700 border-t-blue-500 animate-spin" />
-            <span className="text-sm text-slate-400">Running segmentation…</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/70">
+            <div className="h-9 w-9 rounded-full border-[3px] border-border border-t-primary animate-spin" />
+            <span className="text-sm text-muted-foreground">Running segmentation…</span>
           </div>
         )}
 
@@ -143,8 +144,8 @@ export function ImagingAnalysisDialog({
               onClick={() => setOverlayMode(false)}
               className={`px-3 py-1.5 text-[11px] font-semibold rounded transition-colors ${
                 !overlayMode
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-slate-200"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
               Original
@@ -154,8 +155,8 @@ export function ImagingAnalysisDialog({
               onClick={() => setOverlayMode(true)}
               className={`px-3 py-1.5 text-[11px] font-semibold rounded transition-colors ${
                 overlayMode
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-800 text-slate-400 hover:text-slate-200"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
               Overlay
@@ -165,15 +166,15 @@ export function ImagingAnalysisDialog({
       </div>
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-between px-5 py-2.5 bg-slate-900 border-t border-slate-700 shrink-0 gap-4">
-        {/* Legend */}
+      <div className="flex items-center justify-between px-5 py-2.5 bg-card border-t border-border shrink-0 gap-4">
+        {/* Legend — BraTS standard class colors */}
         <div
           className={`flex items-center gap-4 flex-wrap transition-opacity ${
             segResult ? "opacity-100" : "opacity-40"
           }`}
         >
           {LEGEND.map(({ label, color }) => (
-            <div key={label} className="flex items-center gap-1.5 text-[11px] text-slate-300">
+            <div key={label} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
               <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${color}`} />
               {label}
             </div>
@@ -183,9 +184,9 @@ export function ImagingAnalysisDialog({
         {/* Right: metadata + action */}
         <div className="flex items-center gap-3 shrink-0">
           {error ? (
-            <span className="text-[11px] text-red-400">{error}</span>
+            <span className="text-[11px] text-destructive">{error}</span>
           ) : segResult ? (
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-muted-foreground">
               Slice {segResult.input.slice_index} · {segResult.model.architecture}
             </span>
           ) : null}
@@ -195,7 +196,7 @@ export function ImagingAnalysisDialog({
               type="button"
               onClick={handleRunSegmentation}
               disabled={running}
-              className="px-3 py-1.5 text-[11px] font-semibold rounded border border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-[11px] font-semibold rounded border border-border text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ↺ Re-run
             </button>
@@ -204,7 +205,7 @@ export function ImagingAnalysisDialog({
               type="button"
               onClick={handleRunSegmentation}
               disabled={running}
-              className="px-4 py-1.5 text-[12px] font-bold rounded bg-blue-600 text-white hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-1.5 text-[12px] font-bold rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               ▶ Run Segmentation
             </button>
