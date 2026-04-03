@@ -63,6 +63,9 @@ class Visit(Base):
     # Relationships
     patient: Mapped["Patient"] = relationship()
     intake_session: Mapped[Optional["ChatSession"]] = relationship()
+    steps: Mapped[list["VisitStep"]] = relationship(
+        "VisitStep", back_populates="visit", order_by="VisitStep.step_order"
+    )
 
     __table_args__ = (
         Index("ix_visits_status", "status"),

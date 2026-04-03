@@ -20,6 +20,7 @@ from .medical_record import MedicalRecord
 from .imaging import Imaging, ImageGroup
 from .chat import ChatSession, ChatMessage
 from .visit import Visit, VisitStatus
+from .visit_step import VisitStep, StepStatus
 from .case_thread import CaseThread, CaseMessage
 from .department import Department
 from .user import User, UserRole
@@ -50,6 +51,8 @@ __all__ = [
     # Visit models
     "Visit",
     "VisitStatus",
+    "VisitStep",
+    "StepStatus",
     # Case thread models
     "CaseThread",
     "CaseMessage",
