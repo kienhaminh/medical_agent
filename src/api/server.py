@@ -87,6 +87,24 @@ async def lifespan(app: FastAPI):
             await session.commit()
             logger.info("Seeded %d default users", len(default_users))
 
+    # Seed rooms if none exist (2 rooms per department for demo)
+    from ..models.room import Room
+    async with AsyncSessionLocal() as session:
+        room_count_result = await session.execute(select(func.count(Room.id)))
+        if (room_count_result.scalar() or 0) == 0:
+            all_depts_result = await session.execute(select(Department))
+            depts = all_depts_result.scalars().all()
+            room_counter = 100
+            for dept in depts:
+                for _ in range(2):
+                    room_counter += 1
+                    session.add(Room(
+                        room_number=str(room_counter),
+                        department_name=dept.name,
+                    ))
+            await session.commit()
+            logger.info("Seeded rooms for %d departments", len(depts))
+
     # Startup: Discover skills
     await discover_skills_on_startup()
 
