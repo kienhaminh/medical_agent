@@ -6,6 +6,8 @@ import type { ActiveForm } from "@/components/reception/form-input-bar";
 import { createSseParser } from "@/lib/sse";
 
 const INTAKE_SESSION_KEY = "intake_session";
+const VISITOR_ID_KEY = "visitor_id";
+const VISITOR_LAST_ACTIVITY_KEY = "visitor_last_activity";
 
 interface StoredSession {
   sessionId: number;
@@ -40,14 +42,15 @@ function writeStoredSession(sessionId: number): void {
 
 function clearStoredSession(): void {
   localStorage.removeItem(INTAKE_SESSION_KEY);
+  localStorage.removeItem(VISITOR_ID_KEY);
+  localStorage.removeItem(VISITOR_LAST_ACTIVITY_KEY);
 }
 
 export interface FormSubmissionInfo {
   title: string;
-  formType: "multi_field" | "yes_no" | "question";
-  sectionCount: number;
+  formType: "fields" | "question" | "yes_no";
   fieldCount: number;
-  /** For question forms: the selected answer(s). */
+  sectionCount: number;
   answer?: string;
 }
 
@@ -88,25 +91,17 @@ export function useIntakeChat() {
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [triageStatus, setTriageStatus] = useState<TriageStatus | null>(null);
   const [activeForm, setActiveForm] = useState<ActiveForm | null>(null);
-  /** Human-readable activity label shown while the agent works (e.g. "Searching patient records"). */
   const [activity, setActivity] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, triageStatus]);
 
-  // Auto-start: trigger the agent on fresh sessions so it immediately shows the
-  // registration form without requiring the patient to type anything first.
   useEffect(() => {
     const stored = readStoredSession();
-    if (!stored) {
-      // Small delay so the component is fully mounted before streaming starts.
-      const timer = setTimeout(() => {
-        sendMessage(undefined, "start", true);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
+    if (!stored) return;
     setSessionId(stored.sessionId);
 
     fetch(`/api/chat/sessions/${stored.sessionId}/messages`)
@@ -123,7 +118,7 @@ export function useIntakeChat() {
         const restored: ChatMessage[] = data
           .filter(
             (m: { role: string }) =>
-              m.role === "user" || m.role === "assistant"
+              m.role === "user" || m.role === "assistant",
           )
           .map((m: { id: number; role: string; content: string }) => ({
             id: String(m.id),
@@ -139,7 +134,11 @@ export function useIntakeChat() {
       });
   }, []);
 
-  const sendMessage = async (e?: React.FormEvent, directMessage?: string, silent = false) => {
+  const sendMessage = async (
+    e?: React.FormEvent,
+    directMessage?: string,
+    silent = false,
+  ) => {
     e?.preventDefault();
     const content = (directMessage ?? input).trim();
     if (!content || isLoading) return;
@@ -162,6 +161,9 @@ export function useIntakeChat() {
       { id: assistantId, role: "assistant", content: "" },
     ]);
 
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -172,6 +174,7 @@ export function useIntakeChat() {
           session_id: sessionId,
           mode: "intake",
         }),
+        signal: abortController.signal,
       });
 
       if (!response.ok) throw new Error("Failed to send message");
@@ -181,16 +184,26 @@ export function useIntakeChat() {
       if (!reader) throw new Error("Response body is not readable");
 
       let accumulated = "";
+      let currentAssistantId = assistantId;
+      let needsNewMessage = false;
       const processSseChunk = createSseParser((parsed) => {
         if (typeof parsed.chunk === "string") {
+          if (needsNewMessage) {
+            needsNewMessage = false;
+            setIsLoading(true);
+            accumulated = "";
+            currentAssistantId = (Date.now() + Math.random()).toString();
+            setMessages((prev) => [
+              ...prev,
+              { id: currentAssistantId, role: "assistant", content: "" },
+            ]);
+          }
           if (activity) setActivity(null);
           accumulated += parsed.chunk;
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantId
-                ? { ...msg, content: accumulated }
-                : msg
-            )
+              msg.id === currentAssistantId ? { ...msg, content: accumulated } : msg,
+            ),
           );
         }
 
@@ -215,25 +228,32 @@ export function useIntakeChat() {
           const formRequest = parsed.form_request as ActiveForm;
           setActiveForm(formRequest);
           setActivity(null);
-
-          const formMsg =
-            formRequest.schema?.message ||
-            formRequest.schema?.title ||
-            "Please fill out the form below.";
-          accumulated = formMsg;
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantId
-                ? { ...msg, content: formMsg }
-                : msg
-            )
-          );
+          setIsLoading(false);
+          if (!accumulated) {
+            const formMsg =
+              formRequest.message ||
+              formRequest.title ||
+              formRequest.question ||
+              "Please fill out the form below.";
+            accumulated = formMsg;
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === currentAssistantId
+                  ? { ...msg, content: formMsg }
+                  : msg,
+              ),
+            );
+          }
+          needsNewMessage = true;
         }
 
         if (parsed.tool_result && typeof parsed.tool_result === "object") {
           const toolResult = parsed.tool_result as Record<string, unknown>;
           const resultText = toolResult.result;
-          if (typeof resultText === "string" && resultText.includes("Triage completed")) {
+          if (
+            typeof resultText === "string" &&
+            resultText.includes("Triage completed")
+          ) {
             const deptMatch = resultText.match(/Auto-routed to:\s*([^(]+)/);
             const confMatch = resultText.match(/confidence:\s*([\d.]+)/);
             if (deptMatch) {
@@ -256,8 +276,8 @@ export function useIntakeChat() {
         prev.map((msg) =>
           msg.id === assistantId
             ? { ...msg, content: "Connection error. Please try again." }
-            : msg
-        )
+            : msg,
+        ),
       );
     } finally {
       setIsLoading(false);
@@ -267,16 +287,11 @@ export function useIntakeChat() {
 
   const handleFormSubmitted = (answers?: Record<string, string>) => {
     if (activeForm) {
-      const schema = activeForm.schema;
-      const sections = schema.sections ?? [];
-      const fieldCount = sections.reduce((sum, s) => sum + s.fields.length, 0);
+      const fieldCount = activeForm.fields?.length ?? 0;
 
-      // Build a human-readable answer summary for question/yes_no forms.
       let answer: string | undefined;
-      if (schema.form_type === "question" && answers) {
+      if (activeForm.form_type === "question" && answers) {
         answer = answers.choices || answers.choice || undefined;
-      } else if (schema.form_type === "yes_no" && answers) {
-        answer = answers.confirmed === "true" ? "Confirmed" : "Cancelled";
       }
 
       const submissionMsg: ChatMessage = {
@@ -284,9 +299,8 @@ export function useIntakeChat() {
         role: "user",
         content: "",
         formSubmission: {
-          title: schema.title || "Form",
-          formType: schema.form_type,
-          sectionCount: sections.length,
+          title: activeForm.title || activeForm.question || "Form",
+          formType: activeForm.form_type,
           fieldCount,
           answer,
         },
@@ -297,12 +311,16 @@ export function useIntakeChat() {
   };
 
   const handleNewChat = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
     clearStoredSession();
     setMessages([]);
     setInput("");
     setSessionId(null);
     setTriageStatus(null);
     setActiveForm(null);
+    setIsLoading(false);
+    setActivity(null);
   };
 
   return {

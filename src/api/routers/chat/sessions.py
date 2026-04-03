@@ -8,7 +8,7 @@ from src.models import get_db, ChatSession, ChatMessage
 from ...models import (
     ChatSessionResponse, ChatMessageResponse,
 )
-from ...dependencies import get_or_create_agent
+from ...dependencies import get_agent
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -131,7 +131,7 @@ async def clear_history(user_id: str = "default"):
     try:
         # This clears the in-memory context of the agent
         # It does NOT clear the database chat sessions
-        agent = get_or_create_agent(user_id)
+        agent = get_agent()
         if hasattr(agent, 'context'):
             agent.context.clear()
             return {"message": f"Chat history cleared for user {user_id}", "status": "ok"}

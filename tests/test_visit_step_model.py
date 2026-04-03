@@ -22,5 +22,6 @@ def test_step_status_enum_values():
 
 
 def test_visit_step_exported_from_models():
-    from src.models import VisitStep
+    from src.models import VisitStep, StepStatus
     assert VisitStep is not None
+    assert StepStatus is not None

@@ -1,73 +1,21 @@
 "use client";
 
-import { Brain, Loader2, Terminal, Sparkles, Search } from "lucide-react";
+import { useState } from "react";
+import { Brain, Terminal, Sparkles, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { ThinkingProgress } from "./thinking-progress";
 import { ToolCallLog } from "./tool-call-log";
 import { cn } from "@/lib/utils";
 import type {
   AgentActivity,
   AgentProcessContainerProps,
-  LogItem,
-  ToolCall,
 } from "@/types/agent-ui";
 
-const ACTIVITY_CONFIG: Record<
-  AgentActivity,
-  {
-    icon: React.ComponentType<{ className?: string }>;
-    label: string;
-    color: string;
-    bgColor: string;
-    borderColor: string;
-    shadowColor: string;
-    glowColor: string;
-  }
-> = {
-  thinking: {
-    icon: Brain,
-    label: "Thinking",
-    color: "text-purple-500",
-    bgColor: "bg-purple-500/10",
-    borderColor: "border-purple-500/50",
-    shadowColor: "shadow-purple-500/25",
-    glowColor: "bg-purple-500",
-  },
-  tool_calling: {
-    icon: Terminal,
-    label: "Executing Tools",
-    color: "text-green-500",
-    bgColor: "bg-green-500/10",
-    borderColor: "border-green-500/50",
-    shadowColor: "shadow-green-500/25",
-    glowColor: "bg-green-500",
-  },
-  analyzing: {
-    icon: Sparkles,
-    label: "Analyzing",
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/50",
-    shadowColor: "shadow-primary/25",
-    glowColor: "bg-primary",
-  },
-  searching: {
-    icon: Search,
-    label: "Searching",
-    color: "text-blue-500",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/50",
-    shadowColor: "shadow-blue-500/25",
-    glowColor: "bg-blue-500",
-  },
-  processing: {
-    icon: Sparkles,
-    label: "Processing",
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/50",
-    shadowColor: "shadow-primary/25",
-    glowColor: "bg-primary",
-  },
+const ACTIVITY_LABELS: Record<AgentActivity, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
+  thinking: { icon: Brain, label: "Thinking" },
+  tool_calling: { icon: Terminal, label: "Using tools" },
+  analyzing: { icon: Sparkles, label: "Analyzing" },
+  searching: { icon: Search, label: "Searching" },
+  processing: { icon: Sparkles, label: "Processing" },
 };
 
 export function AgentProcessContainer({
@@ -80,6 +28,8 @@ export function AgentProcessContainer({
   activityDetails,
   tokenUsage,
 }: AgentProcessContainerProps) {
+  const [expanded, setExpanded] = useState(false);
+
   const hasContent = !!(
     reasoning ||
     (toolCalls && toolCalls.length > 0) ||
@@ -90,139 +40,72 @@ export function AgentProcessContainer({
 
   if (!hasContent && !showLoading) return null;
 
-  const isActive = showLoading;
-  const activityConfig =
-    isActive && currentActivity ? ACTIVITY_CONFIG[currentActivity] : null;
-
-  // Default state (finished or no specific activity)
-  const defaultConfig = {
-    icon: Brain,
-    label: "Thought Process",
-    color: "text-muted-foreground",
-    bgColor: "bg-muted",
-    borderColor: "border-transparent",
-    shadowColor: "shadow-transparent",
-    glowColor: "bg-transparent",
-  };
-
-  const config = activityConfig || defaultConfig;
-  const Icon = config.icon;
+  const activity = currentActivity ? ACTIVITY_LABELS[currentActivity] : null;
+  const ActivityIcon = activity?.icon ?? Brain;
+  const activityLabel = activity?.label ?? "Working";
 
   return (
-    <div className="mb-2 w-full max-w-4xl relative group">
-      {isActive && (
-        <div
-          className={cn(
-            "absolute -inset-0.5 rounded-lg blur opacity-20 transition-all duration-1000 animate-pulse",
-            config.glowColor
-          )}
-        />
-      )}
+    <div className="space-y-1">
+      {/* Status row */}
       <div
         className={cn(
-          "relative rounded-lg overflow-hidden border transition-all duration-500",
-          isActive
-            ? cn("bg-card/50", config.borderColor)
-            : "bg-card/50 border-border/50"
+          "flex items-center gap-2 text-xs text-muted-foreground",
+          hasContent && "cursor-pointer hover:text-foreground transition-colors"
         )}
+        onClick={hasContent ? () => setExpanded((v) => !v) : undefined}
       >
-        <div
-          className={cn(
-            "w-full flex items-center gap-3 p-2 text-xs transition-all duration-200 rounded-lg",
-            "bg-muted/30"
-          )}
-        >
-          <div
-            className={cn(
-              "p-1.5 rounded-md transition-colors relative",
-              isActive
-                ? `${config.bgColor} ${config.color}`
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {isActive ? (
-              <>
-                <Icon className="w-3.5 h-3.5 relative z-10" />
-                <span
-                  className={cn(
-                    "absolute inset-0 rounded-md opacity-50 animate-pulse",
-                    config.bgColor
-                  )}
-                />
-              </>
-            ) : (
-              <Icon className="w-3.5 h-3.5" />
-            )}
-          </div>
-
-          <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
-            <div className="flex items-center gap-2 w-full">
+        {showLoading ? (
+          <>
+            {/* Animated dots */}
+            <div className="flex items-center gap-0.5">
               <span
-                className={cn(
-                  "font-medium",
-                  isActive ? config.color : "text-foreground/80"
-                )}
-              >
-                {isActive ? config.label : "Thought Process"}
-              </span>
-
-              {isActive && (
-                <div className="flex gap-0.5 ml-1">
-                  <div
-                    className={`w-0.5 h-0.5 ${config.color} rounded-full animate-bounce`}
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <div
-                    className={`w-0.5 h-0.5 ${config.color} rounded-full animate-bounce`}
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <div
-                    className={`w-0.5 h-0.5 ${config.color} rounded-full animate-bounce`}
-                    style={{ animationDelay: "300ms" }}
-                  />
-                </div>
-              )}
+                className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "0ms", animationDuration: "1.2s" }}
+              />
+              <span
+                className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "200ms", animationDuration: "1.2s" }}
+              />
+              <span
+                className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "400ms", animationDuration: "1.2s" }}
+              />
             </div>
-
-            {isActive && activityDetails && (
-              <span className="text-[10px] text-muted-foreground truncate w-full text-left">
-                {activityDetails}
+            <ActivityIcon className="w-3 h-3" />
+            <span>{activityLabel}</span>
+            {activityDetails && (
+              <span className="truncate max-w-[280px] opacity-60">— {activityDetails}</span>
+            )}
+          </>
+        ) : hasContent ? (
+          <>
+            {expanded ? (
+              <ChevronDown className="w-3 h-3" />
+            ) : (
+              <ChevronRight className="w-3 h-3" />
+            )}
+            <Brain className="w-3 h-3" />
+            <span>Thought process</span>
+            {tokenUsage && (
+              <span className="opacity-50 ml-1">
+                · {tokenUsage.total_tokens.toLocaleString()} tokens
               </span>
             )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isActive && (
-              <Loader2 className={cn("w-3 h-3 animate-spin", config.color)} />
-            )}
-          </div>
-        </div>
-
-        {hasContent && (
-          <div className="px-3 pb-3 pt-1 space-y-3 border-t border-border/30 mt-1">
-            {(reasoning || (logs && logs.length > 0)) && (
-              <ThinkingProgress reasoning={reasoning || ""} logs={logs} />
-            )}
-            {toolCalls && toolCalls.length > 0 && (
-              <ToolCallLog toolCalls={toolCalls} />
-            )}
-            {tokenUsage && (
-              <div className="text-[10px] text-muted-foreground flex items-center gap-2 pt-2 border-t border-border/30">
-                <span className="font-medium">Tokens:</span>
-                <span>{tokenUsage.total_tokens.toLocaleString()}</span>
-                <span className="text-muted-foreground/30 mx-1">|</span>
-                <span className="text-muted-foreground/70">
-                  Prompt: {tokenUsage.prompt_tokens.toLocaleString()}
-                </span>
-                <span className="text-muted-foreground/30 mx-1">|</span>
-                <span className="text-muted-foreground/70">
-                  Completion: {tokenUsage.completion_tokens.toLocaleString()}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
+          </>
+        ) : null}
       </div>
+
+      {/* Expandable content */}
+      {hasContent && expanded && (
+        <div className="ml-2 pl-3 border-l border-border/50 space-y-3 py-2">
+          {(reasoning || (logs && logs.length > 0)) && (
+            <ThinkingProgress reasoning={reasoning || ""} logs={logs} />
+          )}
+          {toolCalls && toolCalls.length > 0 && (
+            <ToolCallLog toolCalls={toolCalls} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

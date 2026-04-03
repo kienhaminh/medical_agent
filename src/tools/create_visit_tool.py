@@ -13,6 +13,7 @@ from src.models.visit import Visit, VisitStatus
 from src.models.patient import Patient
 from src.models.chat import ChatSession
 from src.tools.registry import ToolRegistry
+from src.tools.form_request_registry import current_session_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -62,19 +63,29 @@ def create_visit(patient_id: int) -> str:
         next_num = int(last_id.split("-")[-1]) + 1 if last_id else 1
         visit_id = f"{prefix}{next_num:03d}"
 
-        # Create chat session
-        session = ChatSession(
-            title=f"Intake - {visit_id}",
-        )
-        db.add(session)
-        db.flush()
+        # Reuse the current intake chat session if available, otherwise create one.
+        # current_session_id_var is set by the SSE endpoint before the agent runs.
+        current_session_id = current_session_id_var.get(None)
+        if current_session_id:
+            existing_session = db.execute(
+                select(ChatSession).where(ChatSession.id == current_session_id)
+            ).scalar_one_or_none()
+            intake_session_id = existing_session.id if existing_session else None
+        else:
+            intake_session_id = None
+
+        if not intake_session_id:
+            new_session = ChatSession(title=f"Intake - {visit_id}")
+            db.add(new_session)
+            db.flush()
+            intake_session_id = new_session.id
 
         # Create visit
         visit = Visit(
             visit_id=visit_id,
             patient_id=patient_id,
             status=VisitStatus.INTAKE.value,
-            intake_session_id=session.id,
+            intake_session_id=intake_session_id,
         )
         db.add(visit)
         db.commit()

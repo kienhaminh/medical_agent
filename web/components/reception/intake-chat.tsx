@@ -5,10 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Brain } from "lucide-react";
 import type { Visit } from "@/lib/api";
 import { FormInputBar, type ActiveForm } from "@/components/reception/form-input-bar";
 import { createSseParser } from "@/lib/sse";
+
+const TOOL_LABELS: Record<string, string> = {
+  create_visit: "Setting up your visit…",
+  complete_triage: "Routing you to the right department…",
+  check_patient: "Checking our records…",
+  compare_patient: "Checking our records…",
+  register_patient: "Registering your details…",
+  ask_user_input: "Preparing a form…",
+};
 
 interface ChatMessage {
   id: string;
@@ -26,6 +35,8 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeForm, setActiveForm] = useState<ActiveForm | null>(null);
+  const [activityStatus, setActivityStatus] = useState<string | null>(null);
+  const [isThinking, setIsThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +53,8 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
     const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", content };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
+    setIsThinking(true);
+    setActivityStatus(null);
 
     const assistantId = (Date.now() + 1).toString();
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
@@ -55,6 +68,7 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
           patient_id: patientId,
           session_id: visit.intake_session_id,
           stream: true,
+          mode: "intake",
         }),
       });
 
@@ -69,6 +83,8 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
       const processSseChunk = createSseParser((parsed) => {
         if (typeof parsed.chunk === "string") {
           accumulated += parsed.chunk;
+          setIsThinking(false);
+          setActivityStatus(null);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantId ? { ...msg, content: accumulated } : msg
@@ -76,9 +92,33 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
           );
         }
 
+        if (typeof parsed.reasoning === "string" && parsed.reasoning) {
+          setIsThinking(true);
+          setActivityStatus(null);
+        }
+
+        if (parsed.tool_call && typeof parsed.tool_call === "object") {
+          const toolCall = parsed.tool_call as { tool?: string };
+          const label = (toolCall.tool && TOOL_LABELS[toolCall.tool]) || "Working on it…";
+          setIsThinking(false);
+          setActivityStatus(label);
+        }
+
+        if (parsed.tool_result) {
+          setActivityStatus(null);
+          setIsThinking(true);
+        }
+
+        if (parsed.done) {
+          setIsThinking(false);
+          setActivityStatus(null);
+        }
+
         if (parsed.form_request && typeof parsed.form_request === "object") {
           const formRequest = parsed.form_request as ActiveForm;
           setActiveForm(formRequest);
+          setIsThinking(false);
+          setActivityStatus(null);
           const formMsg =
             formRequest.schema?.message ||
             formRequest.schema?.title ||
@@ -107,6 +147,8 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
       );
     } finally {
       setIsLoading(false);
+      setIsThinking(false);
+      setActivityStatus(null);
     }
   };
 
@@ -136,23 +178,50 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
                 }`}
               >
                 {msg.content || (
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  isLoading && msg.role === "assistant" ? (
+                    <div className="flex flex-col gap-1.5">
+                      {activityStatus ? (
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          {activityStatus}
+                        </span>
+                      ) : isThinking ? (
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <Brain className="w-3.5 h-3.5" />
+                          <span className="flex gap-0.5">
+                            {[0, 200, 400].map((delay) => (
+                              <span
+                                key={delay}
+                                className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce"
+                                style={{ animationDelay: `${delay}ms`, animationDuration: "1.2s" }}
+                              />
+                            ))}
+                          </span>
+                        </span>
+                      ) : (
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  ) : (
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  )
                 )}
               </div>
             </div>
           ))}
+          {activeForm && visit.intake_session_id && (
+            <div className="mt-2">
+              <FormInputBar
+                activeForm={activeForm}
+                sessionId={visit.intake_session_id}
+                onSubmitted={() => setActiveForm(null)}
+              />
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-      {activeForm && visit.intake_session_id ? (
-        <div className="p-3 border-t border-border/50">
-          <FormInputBar
-            activeForm={activeForm}
-            sessionId={visit.intake_session_id}
-            onSubmitted={() => setActiveForm(null)}
-          />
-        </div>
-      ) : (
+      {!activeForm ? (
         <form onSubmit={sendMessage} className="p-3 border-t border-border/50 flex gap-2">
           <Input
             value={input}

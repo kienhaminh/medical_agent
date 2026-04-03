@@ -1,182 +1,160 @@
-"""ask_user_input — dynamic multi-field form tool.
+"""ask_user — flexible agent-defined form tool.
 
-Lets the agent generate a form schema on the fly (title, sections, fields)
-and present it to the patient. The patient fills it out and submits.
+The agent specifies either a list of fields (structured form) or a set of
+choices (inline question buttons). Each field can declare a db_field so PII
+is saved privately without the agent ever seeing the values.
 
-Privacy contract: PII fields are stored in the vault; the tool returns
-opaque IDs only. Non-PII field values are returned as-is.
+Blocks the agent until the patient submits the form.
+The backend resolves the asyncio.Event, unblocking this tool, which returns
+the processed result string to the agent.
 
 Registered at import time with scope="global".
 """
 import asyncio
 import logging
 import uuid
+from typing import Optional
 
 from src.tools.form_request_registry import form_registry, current_session_id_var
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
-FORM_TIMEOUT_SECONDS = 300.0
-
-
-def _normalize_sections(sections: list[dict]) -> tuple[list[dict], list[str]]:
-    """Normalize agent-provided sections into canonical form.
-
-    Ensures each field has ``field_type`` (from ``type`` alias),
-    ``required`` defaults to True, and collects all field names.
-
-    Returns (normalized_sections, all_field_names).
-    """
-    normalized: list[dict] = []
-    all_field_names: list[str] = []
-
-    for section in sections:
-        norm_fields: list[dict] = []
-        for f in section.get("fields", []):
-            field: dict = {
-                "name": f["name"],
-                "label": f["label"],
-                "field_type": f.get("field_type") or f.get("type", "text"),
-                "required": f.get("required", True),
-            }
-            if "options" in f:
-                field["options"] = f["options"]
-            if "placeholder" in f:
-                field["placeholder"] = f["placeholder"]
-            norm_fields.append(field)
-            all_field_names.append(f["name"])
-        normalized.append({
-            "label": section.get("label", ""),
-            "fields": norm_fields,
-        })
-
-    return normalized, all_field_names
+# Maximum seconds to wait for patient form submission before timing out.
+_FORM_TIMEOUT_SECONDS = 900  # 15 minutes
 
 
 async def ask_user_input(
-    title: str,
-    sections: list[dict],
+    title: str = "",
+    fields: Optional[list[dict]] = None,
     message: str = "",
+    choices: Optional[list[str]] = None,
+    allow_multiple: bool = False,
 ) -> str:
-    """Collect structured information from the patient via an interactive form.
+    """Show a form or question to the patient and return immediately.
 
-    The form replaces the chat input bar until the patient submits it.
+    The patient responds at their own pace. The backend saves PII privately
+    and automatically triggers the next agent turn once the patient submits.
 
-    PRIVACY: This tool NEVER returns raw personal information. It returns
-    opaque IDs and non-sensitive field values only.
-
-    If the form contains patient identity fields (first_name, last_name,
-    dob, gender), the system automatically creates or looks up the patient
-    record and returns a patient_id.
+    Use `fields` for structured data collection (text inputs, selects, etc).
+    Use `choices` for simple single/multi-choice questions (inline buttons).
+    Exactly one of `fields` or `choices` must be provided.
 
     Args:
-        title: Form heading displayed to the patient (e.g. "New Patient Registration").
-        sections: List of section objects. Each section has:
-            - "label" (str): Section heading shown to the patient (e.g. "Personal Info").
-            - "fields" (list[dict]): Fields in this section. Each field has:
-                - "name" (str): Machine-readable identifier in snake_case.
-                - "label" (str): Human-readable label shown to the patient.
-                - "type" (str): One of "text", "date", "select", "textarea".
-                - "required" (bool, optional): Whether the field must be filled. Default true.
-                - "placeholder" (str, optional): Placeholder hint text.
-                - "options" (list[str], optional): Choices for "select" type fields.
-        message: Optional helper text displayed below the title.
+        title:          Heading shown to the patient. For choice questions,
+                        this is the question text (e.g. "Do you have insurance?").
+        fields:         List of field definitions for structured forms. Each field:
+                            - "name"        (str, required): snake_case key
+                            - "label"       (str, required): human-readable label
+                            - "type"        (str, required): "text" | "email" | "date" |
+                                             "select" | "textarea" | "number"
+                            - "required"    (bool, default true)
+                            - "db_field"    (str, optional): "patient.<col>" or
+                                             "intake.<col>" — saved as PII, never
+                                             returned to the agent
+                            - "placeholder" (str, optional)
+                            - "options"     (list[str], optional): for "select" type
+        message:        Optional helper text shown below the title (fields forms only).
+        choices:        List of button labels for inline choice questions
+                        (e.g. ["Yes", "No"] or ["Emergency", "Routine", "Follow-up"]).
+        allow_multiple: When True, patient can select multiple choices before
+                        submitting (choices mode only).
 
     Returns:
-        A status string with opaque identifiers. Examples:
-            "form_completed. patient_id=42, is_new=true, intake_id=abc-123"
-            "form_completed. fields_collected=allergy_info,preferred_language"
-            "form_timeout" (if patient does not respond within 5 minutes)
-            "Error: <message>" (on failure)
+        Processed result string once the patient submits (blocks until then).
+        "Error: ..."   — if neither fields nor choices provided, no session, or timeout.
 
-    Example:
+    --- Field form example (patient identification) ---
         ask_user_input(
-            title="New Patient Registration",
-            message="Welcome! Please fill out your details below.",
-            sections=[
-                {
-                    "label": "Personal Info",
-                    "fields": [
-                        {"name": "first_name", "label": "First Name", "type": "text", "required": true, "placeholder": "Jane"},
-                        {"name": "last_name", "label": "Last Name", "type": "text", "required": true, "placeholder": "Doe"},
-                        {"name": "dob", "label": "Date of Birth", "type": "date", "required": true},
-                        {"name": "gender", "label": "Gender", "type": "select", "options": ["male", "female", "other"]}
-                    ]
-                },
-                {
-                    "label": "Contact",
-                    "fields": [
-                        {"name": "phone", "label": "Phone Number", "type": "text", "placeholder": "+1 555 000 0000"},
-                        {"name": "email", "label": "Email Address", "type": "text", "placeholder": "jane@example.com"},
-                        {"name": "address", "label": "Home Address", "type": "textarea", "placeholder": "123 Main St, City, State"}
-                    ]
-                },
-                {
-                    "label": "Insurance",
-                    "fields": [
-                        {"name": "insurance_provider", "label": "Insurance Provider", "type": "text", "placeholder": "e.g. Blue Cross"},
-                        {"name": "policy_id", "label": "Policy / Member ID", "type": "text"}
-                    ]
-                },
-                {
-                    "label": "Emergency Contact",
-                    "fields": [
-                        {"name": "emergency_contact_name", "label": "Contact Name", "type": "text"},
-                        {"name": "emergency_contact_relationship", "label": "Relationship", "type": "select", "options": ["spouse", "parent", "sibling", "friend", "other"]},
-                        {"name": "emergency_contact_phone", "label": "Contact Phone", "type": "text"}
-                    ]
-                }
+            title="Let's Get Started",
+            message="We need a few details to look you up.",
+            fields=[
+                {"name": "first_name", "label": "First Name", "type": "text",
+                 "db_field": "patient.first_name", "placeholder": "Jane"},
+                {"name": "last_name",  "label": "Last Name",  "type": "text",
+                 "db_field": "patient.last_name",  "placeholder": "Doe"},
+                {"name": "dob",        "label": "Date of Birth", "type": "date",
+                 "db_field": "patient.dob"},
+                {"name": "gender",     "label": "Gender", "type": "select",
+                 "db_field": "patient.gender",
+                 "options": ["male", "female", "other"]},
             ]
         )
-    """
-    if not sections:
-        return "Error: sections list cannot be empty"
 
-    normalized_sections, all_field_names = _normalize_sections(sections)
+    --- Choice question example ---
+        ask_user_input(
+            title="Do you have health insurance?",
+            choices=["Yes", "No"],
+        )
+    """
+    has_fields = bool(fields)
+    has_choices = bool(choices)
+
+    if not has_fields and not has_choices:
+        return "Error: provide either fields (structured form) or choices (question buttons)"
+
+    session_id = current_session_id_var.get()
+    queue = form_registry.get_session_queue(session_id)
+    if queue is None:
+        logger.warning("ask_user called with no session queue (session_id=%s)", session_id)
+        return "Error: no active patient session"
 
     form_id = str(uuid.uuid4())
-    session_id = current_session_id_var.get()
+
+    if has_choices:
+        payload = {
+            "id": form_id,
+            "form_type": "question",
+            "question": title,
+            "choices": choices,
+            "allow_multiple": allow_multiple,
+        }
+    else:
+        # Normalize fields — ensure required defaults to True if not specified.
+        normalized_fields = []
+        for f in fields:  # type: ignore[union-attr]
+            field: dict = {
+                "name": f["name"],
+                "label": f["label"],
+                "type": f.get("type", "text"),
+                "required": f.get("required", True),
+            }
+            if "db_field" in f:
+                field["db_field"] = f["db_field"]
+            if "placeholder" in f:
+                field["placeholder"] = f["placeholder"]
+            if "options" in f:
+                field["options"] = f["options"]
+            normalized_fields.append(field)
+
+        payload = {
+            "id": form_id,
+            "form_type": "fields",
+            "title": title,
+            "message": message,
+            "fields": normalized_fields,
+        }
+
+    template = "_dynamic_question" if has_choices else "_dynamic_input"
+    field_names = [f["name"] for f in normalized_fields] if not has_choices else None
 
     event = asyncio.Event()
-    form_registry.register_form(
-        form_id, event, "_dynamic_input", field_names=all_field_names,
+    form_registry.register_form(form_id, event, template, field_names)
+
+    await queue.put({"type": "form_request", "payload": payload})
+
+    logger.info(
+        "Form shown: form_id=%s form_type=%s session_id=%s — awaiting response",
+        form_id, payload["form_type"], session_id,
     )
 
     try:
-        queue = form_registry.get_session_queue(session_id)
-        if queue is None:
-            logger.warning(
-                "ask_user_input called with no session queue (session_id=%s)",
-                session_id,
-            )
-        else:
-            await queue.put({
-                "type": "form_request",
-                "payload": {
-                    "id": form_id,
-                    "template": "_dynamic_input",
-                    "schema": {
-                        "title": title,
-                        "form_type": "multi_field",
-                        "message": message,
-                        "sections": normalized_sections,
-                    },
-                },
-            })
-
-        try:
-            await asyncio.wait_for(event.wait(), timeout=FORM_TIMEOUT_SECONDS)
-        except asyncio.TimeoutError:
-            logger.info(
-                "Form timed out: form_id=%s session_id=%s", form_id, session_id,
-            )
-            return "form_timeout"
-
+        await asyncio.wait_for(event.wait(), timeout=_FORM_TIMEOUT_SECONDS)
         result = form_registry.get_form_result(form_id)
-        logger.info("Form completed: form_id=%s result=%s", form_id, result)
-        return result or "form_error"
-
+        return result or "form_completed"
+    except asyncio.TimeoutError:
+        logger.warning("Form timed out: form_id=%s session_id=%s", form_id, session_id)
+        return "Error: form response timed out"
     finally:
         form_registry.cleanup_form(form_id)
 

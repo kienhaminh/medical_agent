@@ -8,7 +8,7 @@ from typing import Optional
 from . import celery_app
 from src.models import AsyncSessionLocal, ChatMessage, ChatSession, Patient, MedicalRecord
 from src.config.settings import load_config
-from ..api.dependencies import get_or_create_agent
+from ..api.dependencies import get_agent
 from ..agent.stream_processor import StreamProcessor
 import logging
 from sqlalchemy import select
@@ -151,7 +151,7 @@ async def _process_message_async(
                     chat_history.append({"role": msg.role, "content": msg.content})
 
             # 4. Get agent and process message
-            user_agent = get_or_create_agent(user_id)
+            user_agent = get_agent()
             stream = await user_agent.process_message(
                 user_message=context_message.strip(),
                 stream=True,
@@ -373,7 +373,7 @@ If there is limited information available, acknowledge this and provide what sum
 Be concise but thorough. Use bullet points and clear formatting."""
 
             # 5. Get agent and process message
-            agent = get_or_create_agent("health_summary_generator")
+            agent = get_agent()
 
             # Process the message with streaming
             stream = await agent.process_message(

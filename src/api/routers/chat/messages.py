@@ -12,12 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal, VitalSign
+from src.models.visit import Visit as VisitModel
 from src.config.settings import load_config
 from ...models import (
     ChatRequest, ChatResponse, ChatTaskResponse, TaskStatusResponse,
     FormResponseRequest,
 )
-from ...dependencies import get_or_create_agent, get_intake_agent
+from ...dependencies import get_agent, get_intake_agent
 from src.tools.form_request_registry import form_registry, current_session_id_var
 from src.forms.vault import save_intake, identify_patient
 from src.forms.field_classification import PII_FIELDS, SAFE_FIELDS, PATIENT_IDENTITY_FIELDS
@@ -86,7 +87,7 @@ async def _run_agent_background(
                 if patient:
                     context_message = (
                         f"Context: Patient {patient.name} "
-                        f"(DOB: {patient.dob}, Gender: {patient.gender}).\n\n"
+                        f"(DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}).\n\n"
                     )
                     if record_id:
                         result = await db.execute(
@@ -117,7 +118,7 @@ async def _run_agent_background(
             ]
 
             # Run agent
-            user_agent = get_or_create_agent(user_id)
+            user_agent = get_agent()
             stream = await user_agent.process_message(
                 user_message=context_message.strip(),
                 stream=True,
@@ -402,7 +403,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         if request.mode == "intake":
             user_agent = get_intake_agent()
         else:
-            user_agent = get_or_create_agent(request.user_id)
+            user_agent = get_agent()
 
         # Fetch patient info if provided
         patient = None
@@ -412,7 +413,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             result = await db.execute(select(Patient).where(Patient.id == request.patient_id))
             patient = result.scalar_one_or_none()
             if patient:
-                context_message = f"Context: Patient {patient.name} (DOB: {patient.dob}, Gender: {patient.gender}).\n\n"
+                context_message = f"Context: Patient {patient.name} (DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}).\n\n"
 
                 if request.record_id:
                     # Fetch specific record
@@ -430,6 +431,20 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                             context_message += f"Metadata: {record.summary}\n"
 
                 context_message += f"User Query: {request.message}"
+
+        # For intake sessions, inject visit context so the agent retains visit/patient IDs
+        # across separate requests (tool call results are not preserved in chat history).
+        if request.mode == "intake" and session:
+            visit_result = await db.execute(
+                select(VisitModel).where(VisitModel.intake_session_id == session.id)
+            )
+            intake_visit = visit_result.scalar_one_or_none()
+            if intake_visit:
+                context_message = (
+                    f"[Session context: Visit DB ID={intake_visit.id}, "
+                    f"Visit ID={intake_visit.visit_id}, "
+                    f"patient_id={intake_visit.patient_id}]\n\n"
+                ) + context_message
 
         # Load chat history if session exists
         chat_history = []

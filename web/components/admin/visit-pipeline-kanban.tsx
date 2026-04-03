@@ -15,7 +15,7 @@ interface VisitPipelineKanbanProps {
 
 /** Column definitions for the Kanban pipeline. */
 const PIPELINE_COLUMNS = [
-  { status: "intake", label: "Intake", color: "hsl(var(--primary))" },
+  { status: "intake", label: "Intake", color: "#3b82f6" },
   { status: "auto_routed", label: "Routing", color: "#a855f7" },
   { status: "pending_review", label: "Needs Review", color: "#f59e0b" },
   { status: "routed", label: "Routed", color: "#14b8a6" },
@@ -38,10 +38,9 @@ export function VisitPipelineKanban({
         return (
           <div
             key={col.status}
-            className="flex flex-col rounded-xl border min-w-[220px] w-[220px] shrink-0"
+            className="flex flex-col rounded-xl border border-border min-w-[220px] w-[220px] shrink-0"
             style={{
               background: `${col.color}06`,
-              borderColor: `${col.color}20`,
             }}
           >
             {/* Column header */}
@@ -58,7 +57,6 @@ export function VisitPipelineKanban({
                 style={{
                   color: col.color,
                   background: `${col.color}20`,
-                  borderColor: `${col.color}30`,
                 }}
               >
                 {visits.length}

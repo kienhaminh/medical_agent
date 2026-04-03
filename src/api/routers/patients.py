@@ -18,8 +18,6 @@ from ..models import (
     RecordResponse, TextRecordCreate, HealthSummaryResponse,
     ImagingResponse, ImagingCreate, ImageGroupCreate, ImageGroupResponse
 )
-from ..dependencies import get_or_create_agent
-
 logger = logging.getLogger(__name__)
 
 # Load configuration

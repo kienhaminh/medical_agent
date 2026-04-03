@@ -1,5 +1,6 @@
 "use client";
 
+import { Sparkles } from "lucide-react";
 import { AgentProcessContainer } from "./agent-process-container";
 import { AnswerContent } from "./answer-content";
 import type { AgentMessageProps } from "@/types/agent-ui";
@@ -18,18 +19,17 @@ export function AgentMessage({
   tokenUsage,
 }: AgentMessageProps) {
   // Show thinking box only during active streaming
-  // Once streaming completes, hide the thinking box to keep the UI clean
   const shouldShowThinking = Boolean(isLatest && isLoading);
 
   return (
-    <div className="flex gap-4">
-      {/* Message Content */}
-      <div className="flex-1 space-y-1">
-        {/* Agent Process Container (Thinking Box)
-            - Shows only during active streaming
-            - Automatically hides when streaming completes
-            - Displays reasoning, tool calls, logs, and progress
-        */}
+    <div className="flex gap-3 px-1">
+      {/* Avatar */}
+      <div className="shrink-0 w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mt-0.5">
+        <Sparkles className="w-3.5 h-3.5 text-primary" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 space-y-2 min-w-0">
         {shouldShowThinking && (
           <AgentProcessContainer
             reasoning={reasoning}
@@ -43,11 +43,6 @@ export function AgentMessage({
           />
         )}
 
-        {/* Answer Content
-            - Appears as content streams in
-            - Updates progressively during streaming
-            - Remains visible after streaming completes
-        */}
         {content && (
           <AnswerContent
             content={content}

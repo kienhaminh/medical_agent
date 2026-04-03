@@ -1,10 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Send } from "lucide-react";
+import { ArrowUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   input: string;
@@ -22,53 +21,43 @@ export function ChatInput({
   onKeyDown,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const canSubmit = input.trim() && !isLoading;
 
   return (
-    <div className="relative z-10 border-t border-border/50 bg-card/30 backdrop-blur-xl">
-      <div className="container mx-auto px-6 py-5 max-w-4xl">
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div className="relative">
+    <div className="relative z-10 border-t border-border/40 bg-background/80 backdrop-blur-sm">
+      <div className="container mx-auto px-6 py-4 max-w-3xl">
+        <form onSubmit={onSubmit}>
+          <div className="relative flex items-end gap-2 rounded-2xl border border-border/60 bg-card px-4 py-3 focus-within:border-border transition-colors">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Ask a medical question or describe a case... (Enter to send, Shift+Enter for new line)"
-              className="min-h-[80px] max-h-[200px] resize-none pr-16 text-sm"
+              placeholder="Ask a question or describe a case…"
+              className="flex-1 min-h-[24px] max-h-[160px] resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
               disabled={isLoading}
+              rows={1}
             />
-            <div className="absolute right-3 bottom-3">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!input.trim() || isLoading}
-                className="gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Processing
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Send
-                  </>
-                )}
-              </Button>
-            </div>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className={cn(
+                "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150",
+                canSubmit
+                  ? "bg-foreground text-background hover:opacity-80"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              {isLoading ? (
+                <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <ArrowUp className="w-4 h-4" />
+              )}
+            </button>
           </div>
-
-          <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span>AI Ready</span>
-            </div>
-            <Separator orientation="vertical" className="h-3" />
-            <span>Powered by Advanced LLM</span>
-            <Separator orientation="vertical" className="h-3" />
-            <span className="text-yellow-500">⚠ Verify medical information</span>
-          </div>
+          <p className="mt-2 text-center text-[11px] text-muted-foreground/40">
+            AI can make mistakes — always verify medical information
+          </p>
         </form>
       </div>
     </div>

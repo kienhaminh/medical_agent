@@ -50,11 +50,6 @@ def get_agent() -> LangGraphAgent:
     return _agent
 
 
-def get_or_create_agent(user_id: str = None) -> LangGraphAgent:
-    """Compatibility shim — user_id is ignored, returns the global agent."""
-    return _agent
-
-
 def get_intake_agent() -> LangGraphAgent:
     """Return the intake-mode agent (patient-facing system prompt)."""
     return _intake_agent

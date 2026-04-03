@@ -260,20 +260,22 @@ export default function PatientIntakePage() {
               </div>
             )}
 
+            {activeForm && sessionId && (
+              <div className="mt-2">
+                <FormInputBar
+                  activeForm={activeForm}
+                  sessionId={sessionId}
+                  onSubmitted={handleFormSubmitted}
+                />
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
 
         {/* Bottom bar */}
-        {activeForm && sessionId ? (
-          <div className="py-4 border-t border-border/50">
-            <FormInputBar
-              activeForm={activeForm}
-              sessionId={sessionId}
-              onSubmitted={handleFormSubmitted}
-            />
-          </div>
-        ) : (
+        {!activeForm && (
           <form
             onSubmit={sendMessage}
             className="py-4 border-t border-border/50 flex gap-2"

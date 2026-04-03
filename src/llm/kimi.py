@@ -20,7 +20,7 @@ class KimiProvider(LangChainAdapter):
     def __init__(
         self,
         api_key: str,
-        model: str = "kimi-k2-thinking",
+        model: str = "kimi-k2.5",
         base_url: str = "https://api.moonshot.ai/v1",
         max_tokens: int = 4096,
         temperature: float = 0.3,

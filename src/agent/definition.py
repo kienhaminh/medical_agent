@@ -139,6 +139,10 @@ class LangGraphAgent:
                         if usage["total_tokens"] > 0:
                             yield {"type": "usage", "usage": usage}
 
+                    reasoning = (chunk.additional_kwargs or {}).get("reasoning_content", "")
+                    if reasoning:
+                        yield {"type": "reasoning", "content": reasoning}
+
                     if hasattr(chunk, "content") and chunk.content:
                         yield {"type": "content", "content": chunk.content}
 

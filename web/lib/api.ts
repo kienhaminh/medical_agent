@@ -385,6 +385,87 @@ export async function deleteChatSession(sessionId: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete chat session");
 }
 
+// ===== Direct Streaming Chat (no Celery/Redis required) =====
+
+export type DirectStreamEvent =
+  | { type: "session"; session_id: number }
+  | StreamEvent;
+
+/**
+ * Stream a chat message directly via POST SSE, bypassing Celery/Redis.
+ * Parses SSE from /api/chat and normalizes events into StreamEvent shape.
+ */
+export async function* streamChatDirect(data: {
+  message: string;
+  patient_id?: number | null;
+  session_id?: number | null;
+  user_id?: string;
+  signal?: AbortSignal;
+}): AsyncGenerator<DirectStreamEvent> {
+  const { signal, ...body } = data;
+  const res = await fetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, stream: true }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to send message");
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+
+        let parsed: Record<string, unknown>;
+        try { parsed = JSON.parse(raw); } catch { continue; }
+
+        if (parsed.session_id !== undefined) {
+          yield { type: "session", session_id: parsed.session_id as number };
+        } else if (parsed.done) {
+          yield { type: "done" };
+          return;
+        } else if (parsed.error) {
+          yield { type: "error", message: parsed.error as string };
+          return;
+        } else if (parsed.chunk !== undefined) {
+          yield { type: "content", content: parsed.chunk as string };
+        } else if (parsed.tool_call) {
+          const tc = parsed.tool_call as Record<string, unknown>;
+          yield { type: "tool_call", id: tc.id as string, tool: tc.tool as string, args: tc.args };
+        } else if (parsed.tool_result) {
+          const tr = parsed.tool_result as Record<string, unknown>;
+          yield { type: "tool_result", id: tr.id as string, result: tr.result as string };
+        } else if (parsed.reasoning !== undefined) {
+          yield { type: "reasoning", content: parsed.reasoning as string };
+        } else if (parsed.log !== undefined) {
+          yield { type: "log", content: parsed.log };
+        } else if (parsed.usage) {
+          yield { type: "usage", usage: parsed.usage };
+        }
+      }
+    }
+  } finally {
+    reader.cancel();
+  }
+}
+
 // ===== New Task-Based Chat Methods =====
 
 export interface SendMessageRequest {

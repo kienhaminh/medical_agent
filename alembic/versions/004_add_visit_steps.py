@@ -21,7 +21,7 @@ def upgrade() -> None:
         sa.Column("step_order", sa.Integer(), nullable=False),
         sa.Column("department", sa.String(50), sa.ForeignKey("departments.name"), nullable=True),
         sa.Column("label", sa.String(200), nullable=False),
-        sa.Column("description", sa.String(500), nullable=True),
+        sa.Column("description", sa.Text(), nullable=True),
         sa.Column("room", sa.String(100), nullable=True),
         sa.Column(
             "status",

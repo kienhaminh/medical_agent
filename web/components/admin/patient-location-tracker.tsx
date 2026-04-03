@@ -27,7 +27,7 @@ type SortDir = "asc" | "desc";
 
 /** Status-to-color mapping for badges. */
 const STATUS_BADGE_COLORS: Record<string, string> = {
-  intake: "hsl(var(--primary))",
+  intake: "#3b82f6",
   auto_routed: "#a855f7",
   pending_review: "#f59e0b",
   routed: "#14b8a6",

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { RefObject, useRef, useState } from "react";
+import React, { RefObject, useRef } from "react";
+import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sparkles, Send, FileText, Stethoscope, Zap, Pill, RotateCcw } from "lucide-react";
 import { AgentMessage } from "@/components/agent/agent-message";
@@ -29,7 +30,7 @@ const QUICK_PROMPTS = [
 
 function EcgLine() {
   return (
-    <svg viewBox="0 0 320 60" className="w-full max-w-[240px] h-[48px]" fill="none">
+    <svg viewBox="0 0 320 60" className="w-full max-w-[240px] h-[48px] text-primary" fill="none">
       <style>{`
         @keyframes ecg-loop {
           0%   { stroke-dashoffset: 700; }
@@ -38,7 +39,17 @@ function EcgLine() {
           100% { stroke-dashoffset: -700; opacity: 0; }
         }
         .ecg-path { stroke-dasharray: 700; animation: ecg-loop 3s ease-in-out infinite; }
+        .ecg-stop-fade { stop-color: currentColor; stop-opacity: 0; }
+        .ecg-stop-solid { stop-color: currentColor; stop-opacity: 1; }
       `}</style>
+      <defs>
+        <linearGradient id="ecgGradChat" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   className="ecg-stop-fade" />
+          <stop offset="30%"  className="ecg-stop-solid" />
+          <stop offset="70%"  className="ecg-stop-solid" />
+          <stop offset="100%" className="ecg-stop-fade" />
+        </linearGradient>
+      </defs>
       <path
         className="ecg-path"
         d="M0 30 L40 30 L55 30 L65 8 L72 52 L80 30 L95 30 L105 30 L112 18 L118 42 L124 30 L160 30 L170 30 L178 12 L185 48 L192 30 L210 30 L220 30 L228 20 L234 40 L240 30 L280 30 L320 30"
@@ -47,14 +58,6 @@ function EcgLine() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <defs>
-        <linearGradient id="ecgGradChat" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%"   stopColor="hsl(var(--primary))" stopOpacity="0" />
-          <stop offset="30%"  stopColor="hsl(var(--primary))" />
-          <stop offset="70%"  stopColor="hsl(var(--primary))" />
-          <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-        </linearGradient>
-      </defs>
     </svg>
   );
 }
@@ -88,7 +91,6 @@ export function AiChatMode({
   onResetChat,
 }: AiChatModeProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [focused, setFocused] = useState(false);
   const isEmpty = messages.length === 0;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -186,27 +188,23 @@ export function AiChatMode({
       <div className="shrink-0 border-t border-border/50 p-3">
         <form onSubmit={handleSendMessage}>
           <div
-            className="relative rounded-xl border transition-all duration-200"
-            style={{
-              borderColor: focused ? "hsl(var(--primary)/0.45)" : "hsl(var(--border)/0.7)",
-              boxShadow: focused ? "0 0 0 3px hsl(var(--primary)/0.07), 0 0 16px hsl(var(--primary)/0.05)" : "none",
-              background: "hsl(var(--card)/0.5)",
-            }}
+            className={cn(
+              "relative rounded-xl border border-primary/25 bg-card/50 transition-all duration-200",
+              "focus-within:border-primary/60 focus-within:ring-[3px] focus-within:ring-primary/[0.08]",
+              "focus-within:shadow-[0_0_16px_hsl(var(--primary)/0.06)]"
+            )}
           >
             <textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
               placeholder="Ask about diagnosis, treatment, or patient history..."
               disabled={isLoading}
               rows={2}
               className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-foreground
                          placeholder:text-muted-foreground/35 focus:outline-none disabled:opacity-50
-                         leading-relaxed"
-              style={{ maxHeight: 180 }}
+                         leading-relaxed max-h-[180px]"
             />
 
             <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-2.5">
@@ -228,13 +226,12 @@ export function AiChatMode({
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                style={{
-                  background: input.trim() && !isLoading
-                    ? "hsl(var(--primary))"
-                    : "hsl(var(--muted))",
-                  boxShadow: input.trim() && !isLoading ? "0 2px 10px hsl(var(--primary)/0.3)" : "none",
-                }}
+                className={cn(
+                  "w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed",
+                  input.trim() && !isLoading
+                    ? "bg-primary shadow-[0_2px_10px_hsl(var(--primary)/0.3)]"
+                    : "bg-muted"
+                )}
               >
                 <Send className="w-3.5 h-3.5 text-white" />
               </button>

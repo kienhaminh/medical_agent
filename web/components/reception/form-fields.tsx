@@ -15,8 +15,11 @@ import { cn } from "@/lib/utils";
 export interface FormFieldDef {
   name: string;
   label: string;
-  field_type: "text" | "date" | "select" | "textarea";
-  required: boolean;
+  /** New tool sends "type"; legacy sends "field_type". Both accepted. */
+  type?: "text" | "email" | "date" | "select" | "textarea" | "number";
+  field_type?: "text" | "email" | "date" | "select" | "textarea" | "number";
+  required?: boolean;
+  db_field?: string;
   options?: string[];
   placeholder?: string;
 }
@@ -30,6 +33,7 @@ interface FieldProps {
 
 export function FormFieldInput({ field, value, onChange, error }: FieldProps) {
   const id = `form-field-${field.name}`;
+  const fieldType = field.type ?? field.field_type ?? "text";
 
   return (
     <div className="space-y-1">
@@ -38,9 +42,9 @@ export function FormFieldInput({ field, value, onChange, error }: FieldProps) {
         {field.required && <span className="text-red-400 ml-0.5">*</span>}
       </Label>
 
-      {field.field_type === "select" ? (
+      {fieldType === "select" ? (
         <Select value={value} onValueChange={(v) => onChange(field.name, v)}>
-          <SelectTrigger id={id} className={cn("h-8 text-sm", error && "border-red-400")}>
+          <SelectTrigger id={id} className={cn("h-8 text-sm bg-background", error && "border-red-400")}>
             <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
           </SelectTrigger>
           <SelectContent>
@@ -51,23 +55,23 @@ export function FormFieldInput({ field, value, onChange, error }: FieldProps) {
             ))}
           </SelectContent>
         </Select>
-      ) : field.field_type === "textarea" ? (
+      ) : fieldType === "textarea" ? (
         <Textarea
           id={id}
           value={value}
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.placeholder}
           rows={2}
-          className={cn("text-sm resize-none", error && "border-red-400")}
+          className={cn("text-sm resize-none bg-background", error && "border-red-400")}
         />
       ) : (
         <Input
           id={id}
-          type={field.field_type === "date" ? "date" : "text"}
+          type={fieldType === "date" ? "date" : fieldType === "number" ? "number" : fieldType === "email" ? "email" : "text"}
           value={value}
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.placeholder}
-          className={cn("h-8 text-sm", error && "border-red-400")}
+          className={cn("h-8 text-sm bg-background", error && "border-red-400")}
         />
       )}
 

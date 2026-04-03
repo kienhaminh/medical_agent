@@ -125,9 +125,9 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
 
     # Determine model: env var > yaml > default based on provider
     if provider == "openai":
-        default_model = "gpt-4o"
+        default_model = "gpt-5.4-mini"
     elif provider == "kimi":
-        default_model = "kimi-k2-thinking"
+        default_model = "kimi-k2.5"
     elif provider == "gemini":
         default_model = "gemini-2.5-pro"
     else:

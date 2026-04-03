@@ -10,8 +10,6 @@ import {
   type ExtendedHospitalStats,
 } from "@/lib/api";
 
-export type AdminTab = "overview" | "patient-flow";
-
 const POLL_INTERVAL = 30_000;
 
 const DEFAULT_STATS: ExtendedHospitalStats = {
@@ -26,7 +24,6 @@ const DEFAULT_STATS: ExtendedHospitalStats = {
 };
 
 export function useAdminDashboard() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [departments, setDepartments] = useState<DepartmentInfo[]>([]);
   const [visits, setVisits] = useState<VisitListItem[]>([]);
   const [stats, setStats] = useState<ExtendedHospitalStats>(DEFAULT_STATS);
@@ -70,24 +67,11 @@ export function useAdminDashboard() {
     visitsByStatus[visit.status].push(visit);
   }
 
-  // Department visits map
-  const departmentVisits: Record<string, VisitListItem[]> = {};
-  visits
-    .filter((v) => v.status === "in_department" && v.current_department)
-    .forEach((v) => {
-      const dept = v.current_department!;
-      if (!departmentVisits[dept]) departmentVisits[dept] = [];
-      departmentVisits[dept].push(v);
-    });
-
   return {
-    activeTab,
-    setActiveTab,
     departments,
     visits,
     stats,
     visitsByStatus,
-    departmentVisits,
     loading,
     error,
     lastUpdated,
