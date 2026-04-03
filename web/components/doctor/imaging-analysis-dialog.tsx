@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X } from "lucide-react";
 import type { Imaging } from "@/lib/api";
 import { runSegmentation } from "@/lib/api";
@@ -28,6 +28,25 @@ export function ImagingAnalysisDialog({
   const [overlayMode, setOverlayMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+
+  const onSegmentationCompleteRef = useRef(onSegmentationComplete);
+  useEffect(() => { onSegmentationCompleteRef.current = onSegmentationComplete; });
+
+  // Preload overlay image to prevent flicker on toggle
+  const successResult =
+    imaging?.segmentation_result?.status === "success"
+      ? imaging.segmentation_result
+      : null;
+
+  useEffect(() => {
+    if (successResult) {
+      const img = new window.Image();
+      img.src = successResult.artifacts.overlay_image.url;
+    }
+  }, [successResult]);
+
   // Reset state when imaging changes
   useEffect(() => {
     setRunning(false);
@@ -38,11 +57,11 @@ export function ImagingAnalysisDialog({
   // Escape key closes dialog
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, []);
 
   const handleRunSegmentation = useCallback(async () => {
     if (!imaging) return;
@@ -50,21 +69,18 @@ export function ImagingAnalysisDialog({
     setError(null);
     try {
       const updated = await runSegmentation(patientId, imaging.id);
-      onSegmentationComplete(updated);
+      onSegmentationCompleteRef.current(updated);
       setOverlayMode(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Segmentation failed");
     } finally {
       setRunning(false);
     }
-  }, [imaging, patientId, onSegmentationComplete]);
+  }, [imaging, patientId]);
 
   if (!imaging) return null;
 
-  const segResult =
-    imaging.segmentation_result?.status === "success"
-      ? imaging.segmentation_result
-      : null;
+  const segResult = successResult;
 
   const imageUrl =
     overlayMode && segResult
@@ -72,7 +88,12 @@ export function ImagingAnalysisDialog({
       : imaging.preview_url;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Imaging analysis: ${imaging.title}`}
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-slate-900 border-b border-slate-700 shrink-0">
         <div className="flex items-center gap-3">
