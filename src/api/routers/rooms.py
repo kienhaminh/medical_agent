@@ -12,6 +12,8 @@ from src.models.visit import Visit
 router = APIRouter(prefix="/api/rooms", tags=["Rooms"])
 
 
+# _build_response is used by create_room and assign_room (single-room endpoints).
+# list_rooms uses its own inline batch join to avoid N+1 queries.
 async def _build_response(room: Room, db: AsyncSession) -> RoomResponse:
     """Build RoomResponse, joining patient name from visit if occupied."""
     patient_name = None

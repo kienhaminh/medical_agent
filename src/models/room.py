@@ -15,4 +15,4 @@ class Room(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     room_number: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     department_name: Mapped[str] = mapped_column(String(50), ForeignKey("departments.name"), index=True)
-    current_visit_id: Mapped[Optional[int]] = mapped_column(ForeignKey("visits.id"))
+    current_visit_id: Mapped[Optional[int]] = mapped_column(ForeignKey("visits.id"), unique=True)
