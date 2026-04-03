@@ -117,7 +117,7 @@ export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoad
         {tab === "overview" && <OverviewTab visit={selectedVisit} />}
         {tab === "visit" && <VisitTab visit={selectedVisit} visitBrief={visitBrief} briefLoading={briefLoading} />}
         {tab === "records" && <RecordsTab records={patient.records} />}
-        {tab === "imaging" && <ImagingTab imaging={patient.imaging} patientId={patient.id} />}
+        {tab === "imaging" && <ImagingTab key={patient.id} imaging={patient.imaging} patientId={patient.id} />}
       </div>
     </div>
   );

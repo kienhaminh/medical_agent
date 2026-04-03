@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import type { Imaging } from "@/lib/api";
 import { runSegmentation } from "@/lib/api";
@@ -87,7 +88,7 @@ export function ImagingAnalysisDialog({
       ? segResult.artifacts.overlay_image.url
       : imaging.preview_url;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -210,6 +211,7 @@ export function ImagingAnalysisDialog({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
