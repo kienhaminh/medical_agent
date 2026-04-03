@@ -43,15 +43,13 @@ def test_height_cm_not_in_unknown_fields():
 
 
 def test_intake_submission_nullable_columns():
-    """email and dropped fields must be Optional on the model."""
+    """Dropped fields must be Optional on the model."""
     from src.models.intake_submission import IntakeSubmission
     from typing import get_args
     hints = IntakeSubmission.__annotations__
 
     nullable_fields = [
-        "email", "address", "insurance_provider", "policy_id",
-        "emergency_contact_name", "emergency_contact_relationship",
-        "emergency_contact_phone",
+        "symptoms", "extra_data",
     ]
     for field in nullable_fields:
         assert field in hints, f"Missing annotation for {field}"

@@ -1,4 +1,4 @@
-"""Tests for ask_user tool — form request handler for reception agent."""
+"""Tests for ask_user_input tool — agent-defined form/choice handler."""
 import asyncio
 import pytest
 from src.tools.form_request_registry import FormRequestRegistry, current_session_id_var
@@ -14,9 +14,9 @@ def reset_registry():
 
 
 @pytest.mark.asyncio
-async def test_ask_user_returns_confirm_result():
-    """ask_user blocks until resolved, then returns the stored result."""
-    from src.tools.ask_user_tool import ask_user
+async def test_ask_user_input_blocks_until_resolved():
+    """ask_user_input blocks until the form is resolved, then returns the result."""
+    from src.tools.ask_user_input_tool import ask_user_input
 
     session_id = 99
     side_queue = asyncio.Queue()
@@ -32,14 +32,17 @@ async def test_ask_user_returns_confirm_result():
 
     asyncio.create_task(resolve_after_delay())
 
-    result = await ask_user("confirm_visit")
+    result = await ask_user_input(
+        title="Confirm your visit",
+        choices=["Yes", "No"],
+    )
     assert result == "confirmed"
 
 
 @pytest.mark.asyncio
-async def test_ask_user_puts_form_request_on_queue():
-    """ask_user must push a form_request event to the session queue."""
-    from src.tools.ask_user_tool import ask_user
+async def test_ask_user_input_puts_form_request_on_queue():
+    """ask_user_input pushes a form_request event to the session queue."""
+    from src.tools.ask_user_input_tool import ask_user_input
 
     session_id = 100
     side_queue = asyncio.Queue()
@@ -51,20 +54,23 @@ async def test_ask_user_puts_form_request_on_queue():
         await asyncio.sleep(0.02)
         item = await side_queue.get()
         assert item["type"] == "form_request"
-        assert item["payload"]["template"] == "patient_intake"
+        assert "id" in item["payload"]
         form_id = item["payload"]["id"]
-        reg.resolve_form(form_id, "intake_completed. patient_id=1, intake_id=v-abc")
+        reg.resolve_form(form_id, "intake_completed. patient_id=1")
 
     asyncio.create_task(resolve_immediately())
-    result = await ask_user("patient_intake")
+    result = await ask_user_input(
+        title="Tell us about yourself",
+        fields=[{"name": "first_name", "label": "First name", "type": "text"}],
+    )
     assert result.startswith("intake_completed")
 
 
 @pytest.mark.asyncio
-async def test_ask_user_unknown_template_returns_error():
-    """ask_user returns error for unknown template."""
-    from src.tools.ask_user_tool import ask_user
+async def test_ask_user_input_requires_fields_or_choices():
+    """ask_user_input returns an error when neither fields nor choices is provided."""
+    from src.tools.ask_user_input_tool import ask_user_input
 
     current_session_id_var.set(None)
-    result = await ask_user("nonexistent_template")
+    result = await ask_user_input(title="Missing both")
     assert result.startswith("Error:")

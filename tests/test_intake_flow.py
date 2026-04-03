@@ -278,6 +278,7 @@ def test_complete_triage_high_confidence_auto_routes():
         _scalar(mock_visit),     # visit lookup
         _scalars_all(depts),     # departments
         _scalar_val(0),          # max queue_position = 0 → assign 1
+        _scalar(None),           # empty_room lookup → no room available
     )
 
     with patch("src.tools.complete_triage_tool.SessionLocal", mock_cls):
@@ -336,6 +337,7 @@ def test_complete_triage_normalizes_department_label():
         _scalar(mock_visit),
         _scalars_all(depts),
         _scalar_val(2),  # existing queue depth = 2 → assign 3
+        _scalar(None),   # empty_room lookup → no room available
     )
 
     with patch("src.tools.complete_triage_tool.SessionLocal", mock_cls):
@@ -508,6 +510,7 @@ def _mock_complete_triage_call(visit_db_id, department):
         _scalar(mock_visit),
         _scalars_all(depts),
         _scalar_val(0),  # queue empty → position 1
+        _scalar(None),   # empty_room lookup → no room available
     )
     return mock_cls, mock_db, mock_visit
 
