@@ -559,6 +559,21 @@ async def complete_visit_step(
     if not step:
         raise HTTPException(status_code=404, detail="Step not found")
 
+    if step.status == StepStatus.DONE.value:
+        raise HTTPException(status_code=400, detail="Step is already completed")
+
+    # If staff force-completes a pending step, close the currently active step first
+    if step.status == StepStatus.PENDING.value:
+        active_result = await db.execute(
+            select(VisitStep)
+            .where(VisitStep.visit_id == visit_id)
+            .where(VisitStep.status == StepStatus.ACTIVE.value)
+        )
+        active = active_result.scalar_one_or_none()
+        if active:
+            active.status = StepStatus.DONE.value
+            active.completed_at = now
+
     step.status = StepStatus.DONE.value
     step.completed_at = now
 
