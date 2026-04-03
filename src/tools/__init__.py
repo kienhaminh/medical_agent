@@ -26,6 +26,7 @@ from . import differential_diagnosis_tool
 from . import create_order_tool
 from . import shift_handoff_tool
 from . import ask_user_input_tool
+from . import set_itinerary_tool
 
 # Patient tools (vault-mediated)
 from . import deposit_patient_tool
@@ -44,6 +45,7 @@ from .differential_diagnosis_tool import generate_differential_diagnosis
 from .create_order_tool import create_order
 from .shift_handoff_tool import generate_shift_handoff
 from .ask_user_input_tool import ask_user_input
+from .set_itinerary_tool import set_itinerary
 from .deposit_patient_tool import deposit_patient
 from .check_patient_tool import check_patient
 from .compare_patient_tool import compare_patient
@@ -68,4 +70,5 @@ __all__ = [
     "check_patient",
     "compare_patient",
     "register_patient",
+    "set_itinerary",
 ]
