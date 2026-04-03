@@ -265,3 +265,36 @@ class RoomResponse(BaseModel):
     department_name: str
     current_visit_id: Optional[int]
     patient_name: Optional[str]
+
+
+# --- Visit tracking schemas ---
+
+class StepResponse(BaseModel):
+    id: int
+    step_order: int
+    label: str
+    description: Optional[str] = None
+    room: Optional[str] = None
+    department: Optional[str] = None
+    status: str
+    completed_at: Optional[str] = None
+
+
+class OrderSummary(BaseModel):
+    order_name: str
+    order_type: str
+    status: str
+
+
+class VisitTrackResponse(BaseModel):
+    visit_id: str
+    patient_name: str
+    status: str
+    urgency_level: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    assigned_doctor: Optional[str] = None
+    current_department: Optional[str] = None
+    queue_position: Optional[int] = None
+    clinical_notes: Optional[str] = None
+    steps: list[StepResponse] = []
+    orders: list[OrderSummary] = []

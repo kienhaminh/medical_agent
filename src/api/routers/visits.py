@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models import get_db, Visit, Patient, ChatSession, VisitStep
 from src.models.visit_step import StepStatus
 from src.models.visit import VisitStatus, AUTO_ROUTE_THRESHOLD
-from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse
+from ..models import VisitCreate, VisitResponse, VisitListResponse, VisitDetailResponse, VisitRouteUpdate, VisitTransferRequest, ClinicalNotesUpdate, DDxResponse, DiagnosisItem, HandoffResponse, VisitTrackResponse, StepResponse, OrderSummary
 from src.tools.differential_diagnosis_tool import generate_differential_diagnosis as _ddx_fn
 from src.tools.shift_handoff_tool import generate_shift_handoff as _handoff_fn
 from src.models.department import Department
@@ -309,6 +309,7 @@ async def check_in_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
     )
     max_pos = max_pos_result.scalar() or 0
     visit.queue_position = max_pos + 1
+    await _advance_steps(db, visit.id, visit.current_department)
     await db.commit()
     await db.refresh(visit)
 
@@ -319,6 +320,10 @@ async def check_in_visit(visit_id: int, db: AsyncSession = Depends(get_db)):
             "current_department": visit.current_department,
             "queue_position": visit.queue_position,
             "status": visit.status,
+        })
+        await event_bus.emit_to_room(visit.current_department, WSEventType.STEP_UPDATED, {
+            "visit_id": visit.visit_id,
+            "new_department": visit.current_department,
         })
 
     return _visit_to_response(visit)
@@ -420,6 +425,7 @@ async def transfer_visit(visit_id: int, transfer: VisitTransferRequest, db: Asyn
 
     visit.current_department = transfer.target_department
     visit.queue_position = max_pos + 1
+    await _advance_steps(db, visit.id, transfer.target_department)
     await db.commit()
     await db.refresh(visit)
 
@@ -441,6 +447,10 @@ async def transfer_visit(visit_id: int, transfer: VisitTransferRequest, db: Asyn
     # Queue position updates for both departments
     await event_bus.emit_to_room(source_dept, WSEventType.QUEUE_UPDATED, {"department": source_dept})
     await event_bus.emit_to_room(transfer.target_department, WSEventType.QUEUE_UPDATED, {"department": transfer.target_department})
+    await event_bus.emit_to_room(transfer.target_department, WSEventType.STEP_UPDATED, {
+        "visit_id": visit.visit_id,
+        "new_department": transfer.target_department,
+    })
 
     return _visit_to_response(visit)
 
@@ -470,3 +480,105 @@ async def update_clinical_notes(visit_id: int, data: ClinicalNotesUpdate, db: As
         )
 
     return _visit_to_response(visit)
+
+
+@router.get("/api/visits/{visit_id}/track", response_model=VisitTrackResponse)
+async def get_visit_track(visit_id: int, db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns all tracking data for a visit in one call.
+
+    No authentication required. Used by /track/[visitId] frontend page.
+    """
+    result = await db.execute(select(Visit).where(Visit.id == visit_id))
+    visit = result.scalar_one_or_none()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Visit not found")
+
+    patient_result = await db.execute(select(Patient).where(Patient.id == visit.patient_id))
+    patient = patient_result.scalar_one_or_none()
+
+    steps_result = await db.execute(
+        select(VisitStep)
+        .where(VisitStep.visit_id == visit_id)
+        .order_by(VisitStep.step_order)
+    )
+    steps = [
+        StepResponse(
+            id=s.id,
+            step_order=s.step_order,
+            label=s.label,
+            description=s.description,
+            room=s.room,
+            department=s.department,
+            status=s.status,
+            completed_at=s.completed_at.isoformat() if s.completed_at else None,
+        )
+        for s in steps_result.scalars().all()
+    ]
+
+    from src.models.order import Order
+    orders_result = await db.execute(select(Order).where(Order.visit_id == visit_id))
+    orders = [
+        OrderSummary(order_name=o.order_name, order_type=o.order_type, status=o.status)
+        for o in orders_result.scalars().all()
+    ]
+
+    return VisitTrackResponse(
+        visit_id=visit.visit_id,
+        patient_name=patient.name if patient else "Unknown",
+        status=visit.status,
+        urgency_level=visit.urgency_level,
+        chief_complaint=visit.chief_complaint,
+        assigned_doctor=visit.assigned_doctor,
+        current_department=visit.current_department,
+        queue_position=visit.queue_position,
+        clinical_notes=visit.clinical_notes,
+        steps=steps,
+        orders=orders,
+    )
+
+
+@router.patch("/api/visits/{visit_id}/steps/{step_id}/complete")
+async def complete_visit_step(
+    visit_id: int,
+    step_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """Staff override: mark a specific itinerary step as done.
+
+    Auto-activates the next pending step by step_order.
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    result = await db.execute(
+        select(VisitStep)
+        .where(VisitStep.id == step_id)
+        .where(VisitStep.visit_id == visit_id)
+    )
+    step = result.scalar_one_or_none()
+    if not step:
+        raise HTTPException(status_code=404, detail="Step not found")
+
+    step.status = StepStatus.DONE.value
+    step.completed_at = now
+
+    next_result = await db.execute(
+        select(VisitStep)
+        .where(VisitStep.visit_id == visit_id)
+        .where(VisitStep.status == StepStatus.PENDING.value)
+        .order_by(VisitStep.step_order)
+        .limit(1)
+    )
+    next_step = next_result.scalar_one_or_none()
+    if next_step:
+        next_step.status = StepStatus.ACTIVE.value
+
+    await db.commit()
+
+    await event_bus.emit_to_room(
+        step.department or "all",
+        WSEventType.STEP_UPDATED,
+        {"visit_id": visit_id, "step_id": step_id, "status": "done"},
+    )
+
+    return {"status": "ok", "step_id": step_id}
