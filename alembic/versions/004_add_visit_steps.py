@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("room", sa.String(100), nullable=True),
         sa.Column(
             "status",
-            sa.Enum("pending", "active", "done", name="stepstatus"),
+            sa.Enum("pending", "active", "done", name="stepstatus", create_type=True),
             nullable=False,
             server_default="pending",
         ),
@@ -36,4 +36,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("visit_steps")
-    op.execute("DROP TYPE IF EXISTS stepstatus")
+    sa.Enum(name="stepstatus").drop(op.get_bind(), checkfirst=True)
