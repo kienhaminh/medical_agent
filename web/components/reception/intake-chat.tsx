@@ -10,7 +10,7 @@ import type { Visit } from "@/lib/api";
 import { FormInputBar, type ActiveForm } from "@/components/reception/form-input-bar";
 import { createSseParser } from "@/lib/sse";
 
-const TRACK_LINK_PATTERN = /\/track\/(VIS-[\d]+-[\d]+)/;
+const TRACK_LINK_PATTERN = /(?:\/track\/)?(VIS-[\d]+-[\d]+)/;
 
 function extractTrackingLink(content: string): string | null {
   const match = content.match(TRACK_LINK_PATTERN);

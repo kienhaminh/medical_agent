@@ -9,6 +9,9 @@ export async function GET(
     `${backendUrl}/api/visits/${params.visitId}/track`,
     { cache: "no-store" }
   );
+  if (!res.ok) {
+    return NextResponse.json(null, { status: res.status });
+  }
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });
 }
