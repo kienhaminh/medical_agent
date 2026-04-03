@@ -213,6 +213,83 @@ async def test_complete_triage_assigns_empty_room(db_session):
 
 
 @pytest.mark.asyncio
+async def test_complete_visit_clears_room(client, seeded_dept, db_session):
+    """Completing a visit unassigns its room."""
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from src.models.room import Room
+    from datetime import date
+
+    patient = Patient(name="Alice", dob=date(1985, 3, 15), gender="F")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-COMPLETE-001",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="sore throat",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    room = Room(room_number="101", department_name="ent", current_visit_id=visit.id)
+    db_session.add(room)
+    await db_session.commit()
+
+    response = await client.patch(f"/api/visits/{visit.id}/complete")
+    assert response.status_code == 200
+
+    await db_session.refresh(room)
+    assert room.current_visit_id is None
+
+
+@pytest.mark.asyncio
+async def test_transfer_visit_clears_old_room(client, db_session):
+    """Transferring a visit unassigns its current room."""
+    from src.models.patient import Patient
+    from src.models.visit import Visit, VisitStatus
+    from src.models.room import Room
+    from src.models.department import Department
+    from datetime import date
+
+    ent = Department(name="ent", label="ENT", capacity=4, is_open=True, color="#6366f1", icon="Ear")
+    cardio = Department(name="cardiology", label="Cardiology", capacity=4, is_open=True, color="#e11d48", icon="Heart")
+    db_session.add_all([ent, cardio])
+    await db_session.flush()
+
+    patient = Patient(name="Bob", dob=date(1975, 7, 20), gender="M")
+    db_session.add(patient)
+    await db_session.flush()
+
+    visit = Visit(
+        visit_id="VIS-TRANSFER-001",
+        patient_id=patient.id,
+        status=VisitStatus.IN_DEPARTMENT.value,
+        current_department="ent",
+        queue_position=1,
+        chief_complaint="dizziness",
+    )
+    db_session.add(visit)
+    await db_session.flush()
+
+    room = Room(room_number="103", department_name="ent", current_visit_id=visit.id)
+    db_session.add(room)
+    await db_session.commit()
+
+    response = await client.post(
+        f"/api/visits/{visit.id}/transfer",
+        json={"target_department": "cardiology", "reason": "needs cardiac workup"},
+    )
+    assert response.status_code == 200
+
+    await db_session.refresh(room)
+    assert room.current_visit_id is None
+
+
+@pytest.mark.asyncio
 async def test_patch_room_assign_visit_already_in_another_room(client, seeded_dept, db_session):
     from src.models.patient import Patient
     from src.models.visit import Visit, VisitStatus
