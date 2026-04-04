@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, ZoomIn, ZoomOut } from "lucide-react";
 import type { Imaging } from "@/lib/api";
 import { runSegmentation } from "@/lib/api";
 
@@ -20,6 +20,12 @@ const LEGEND = [
   { label: "Enhancing Tumor (ET)", color: "bg-blue-500" },
 ];
 
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 10;
+const ZOOM_STEP = 1.3;
+
+const RESET_VIEW = { zoom: 1, x: 0, y: 0 };
+
 export function ImagingAnalysisDialog({
   imaging,
   patientId,
@@ -29,6 +35,15 @@ export function ImagingAnalysisDialog({
   const [running, setRunning] = useState(false);
   const [overlayMode, setOverlayMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState(RESET_VIEW);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Stable ref to current view — used in non-passive wheel handler
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; });
+
+  const imageAreaRef = useRef<HTMLDivElement>(null);
+  const dragStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
 
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; });
@@ -49,11 +64,12 @@ export function ImagingAnalysisDialog({
     }
   }, [successResult]);
 
-  // Reset state when imaging changes
+  // Reset all state when imaging changes
   useEffect(() => {
     setRunning(false);
     setOverlayMode(false);
     setError(null);
+    setView(RESET_VIEW);
   }, [imaging?.id]);
 
   // Escape key closes dialog
@@ -63,6 +79,30 @@ export function ImagingAnalysisDialog({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Non-passive wheel listener for zoom toward cursor
+  useEffect(() => {
+    const el = imageAreaRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      const v = viewRef.current;
+      const rect = el.getBoundingClientRect();
+      // Cursor position relative to container center
+      const cx = e.clientX - rect.left - rect.width / 2;
+      const cy = e.clientY - rect.top - rect.height / 2;
+      const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
+      const scale = newZoom / v.zoom;
+      setView({
+        zoom: newZoom,
+        x: cx + scale * (v.x - cx),
+        y: cy + scale * (v.y - cy),
+      });
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
   }, []);
 
   const handleRunSegmentation = useCallback(async () => {
@@ -83,6 +123,7 @@ export function ImagingAnalysisDialog({
   if (!imaging) return null;
 
   const segResult = successResult;
+  const isDefaultView = view.zoom === 1 && view.x === 0 && view.y === 0;
 
   const imageUrl =
     overlayMode && segResult
@@ -120,12 +161,37 @@ export function ImagingAnalysisDialog({
       </div>
 
       {/* Image area */}
-      <div className="flex-1 min-h-0 relative bg-black flex items-center justify-center">
+      <div
+        ref={imageAreaRef}
+        className="flex-1 min-h-0 relative bg-black overflow-hidden flex items-center justify-center select-none"
+        style={{ cursor: isDragging ? "grabbing" : "grab" }}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          setIsDragging(true);
+          dragStart.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+        }}
+        onMouseMove={(e) => {
+          if (!isDragging) return;
+          setView((v) => ({
+            ...v,
+            x: dragStart.current.vx + (e.clientX - dragStart.current.x),
+            y: dragStart.current.vy + (e.clientY - dragStart.current.y),
+          }));
+        }}
+        onMouseUp={() => setIsDragging(false)}
+        onMouseLeave={() => setIsDragging(false)}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
           alt={imaging.title}
-          className="max-h-full max-w-full object-contain"
+          draggable={false}
+          className="max-h-full max-w-full object-contain pointer-events-none"
+          style={{
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+            transformOrigin: "center",
+            transition: isDragging ? "none" : "transform 0.05s ease-out",
+          }}
         />
 
         {/* Spinner overlay while running */}
@@ -136,7 +202,39 @@ export function ImagingAnalysisDialog({
           </div>
         )}
 
-        {/* Original / Overlay toggle */}
+        {/* Zoom controls — bottom-left */}
+        <div className="absolute bottom-4 left-4 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setView((v) => ({ ...v, zoom: Math.max(MIN_ZOOM, v.zoom / ZOOM_STEP) }))}
+            className="p-1.5 rounded bg-card/80 border border-border text-muted-foreground hover:text-foreground transition-colors backdrop-blur-sm"
+            aria-label="Zoom out"
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setView(RESET_VIEW)}
+            className={`px-2 py-1 text-[11px] font-semibold rounded border transition-colors backdrop-blur-sm ${
+              isDefaultView
+                ? "bg-card/80 border-border text-muted-foreground"
+                : "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+            }`}
+            aria-label="Reset zoom"
+          >
+            {Math.round(view.zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            onClick={() => setView((v) => ({ ...v, zoom: Math.min(MAX_ZOOM, v.zoom * ZOOM_STEP) }))}
+            className="p-1.5 rounded bg-card/80 border border-border text-muted-foreground hover:text-foreground transition-colors backdrop-blur-sm"
+            aria-label="Zoom in"
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Original / Overlay toggle — bottom-right */}
         {segResult && !running && (
           <div className="absolute bottom-4 right-4 flex gap-1">
             <button
