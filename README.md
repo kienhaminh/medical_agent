@@ -22,7 +22,7 @@ Patient Intake → AI Triage → Department Queue → Doctor Workspace → Disch
 - **Doctor Workspace** — 3-zone layout: patient queue, clinical notes editor (SOAP), and AI assistant panel
 - **One-patient-at-a-time rule** — Doctors are warned if they try to accept a second patient while one is active
 - **Clinical AI Assistant** — Ask about diagnosis, treatment options, or patient history; runs differential diagnosis on demand
-- **MRI Brain Tumour Segmentation** — Sends up to four MRI modalities (T1, T1ce, T2, FLAIR) to a BraTS segmentation MCP server; renders a colour-coded overlay inline in the chat panel
+- **MRI Brain Tumour Segmentation** — Sends up to four MRI modalities (T1, T1ce, T2, FLAIR) to a segmentation MCP server; renders a colour-coded overlay inline in the chat panel
 - **JWT Authentication** — Role-based access for patient, doctor, and admin personas
 - **Semantic Search** — pgvector embeddings for patient record search
 
@@ -35,7 +35,7 @@ Patient Intake → AI Triage → Department Queue → Doctor Workspace → Disch
 | Agent | LangGraph, Kimi K2 / OpenAI GPT-4o |
 | Database | PostgreSQL 16 + pgvector (Docker) |
 | Cache / Pub-Sub | Redis 7 (Docker) |
-| Segmentation | BraTS MCP server (Docker, CPU), `segment_brats_from_link` tool |
+| Segmentation | MRI Segmentation MCP server (Docker, CPU) |
 | Auth | JWT (python-jose) |
 
 ## Project Structure
@@ -176,7 +176,7 @@ With a patient selected, type in the AI chat panel:
 Please perform MRI segmentation on [patient name]'s brain scan.
 ```
 
-The agent calls `segment_patient_image(patient_id, imaging_id?)` which sends available MRI modalities (T1, T1ce, T2, FLAIR) to the BraTS MCP server and renders a colour-coded overlay with findings directly in the chat.
+The agent calls `segment_patient_image(patient_id, imaging_id?)` which sends available MRI modalities (T1, T1ce, T2, FLAIR) to the segmentation MCP server and renders a colour-coded overlay with findings directly in the chat.
 
 To target a specific modality:
 
@@ -225,7 +225,7 @@ black src/
 ┌─────────────┐     ┌────────────────┐
 │  Tool       │     │  Segmentation  │
 │  Registry   │     │  MCP Server    │
-│  (DDx, …)   │     │  (BraTS/Docker)│
+│  (DDx, …)   │     │  (Docker)      │
 └─────────────┘     └────────────────┘
 ```
 
