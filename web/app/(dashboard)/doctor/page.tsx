@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDoctorWorkspace } from "./use-doctor-workspace";
 import { DoctorHeader } from "@/components/doctor/doctor-header";
 import { PatientListPanel } from "@/components/doctor/patient-list-panel";
@@ -36,6 +36,17 @@ export default function DoctorPage() {
     listDepartments().then(setDepartments).catch(() => {});
   }, []);
 
+  const handleTranscribed = useCallback(
+    (text: string) => {
+      const timestamp = new Date().toLocaleString();
+      const entry = `[${timestamp}] Recording transcript:\n${text}`;
+      workspace.handleNotesChange(
+        workspace.clinicalNotes ? `${workspace.clinicalNotes}\n\n${entry}` : entry,
+      );
+    },
+    [workspace.clinicalNotes, workspace.handleNotesChange],
+  );
+
   // Only show patients in this doctor's department
   const departmentVisits = user?.department
     ? workspace.queueVisits.filter((v) => v.current_department === user.department)
@@ -53,16 +64,6 @@ export default function DoctorPage() {
     <div className="flex flex-col h-full overflow-hidden bg-background">
       {/* Header */}
       <DoctorHeader
-        searchQuery={workspace.searchQuery}
-        searchResults={workspace.searchResults}
-        searchLoading={workspace.searchLoading}
-        onSearch={workspace.handleSearch}
-        onSelectPatient={(patient) => {
-          const visit = workspace.queueVisits.find(
-            (v) => v.patient_id === patient.id,
-          );
-          if (visit) workspace.selectVisit(visit);
-        }}
         selectedPatientName={workspace.selectedPatient?.name}
         bellItems={bellItems}
         unreadCount={unreadCount}
@@ -80,6 +81,9 @@ export default function DoctorPage() {
             loading={workspace.queueLoading}
             selectedVisitId={workspace.selectedVisit?.id ?? null}
             onSelectVisit={workspace.selectVisit}
+            onAcceptPatient={(visit) =>
+              workspace.handleAcceptPatient(visit, user?.name ?? "", myPatients.length)
+            }
             wsEvents={wsEvents}
           />
         </div>
@@ -94,35 +98,28 @@ export default function DoctorPage() {
           onNotesChange={workspace.handleNotesChange}
           notesSaving={workspace.notesSaving}
           notesSaved={workspace.notesSaved}
-          onDraftWithAI={workspace.draftSoapNote}
-          draftingNote={workspace.draftingNote}
           ddxDiagnoses={workspace.ddxDiagnoses}
           ddxLoading={workspace.ddxLoading}
-          onGenerateDdx={workspace.generateDdx}
           departments={departments}
           onDischarge={workspace.handleDischarge}
           onTransfer={workspace.handleTransfer}
-          onSaveNotes={() => {}}
+          onSaveNotes={workspace.handleSaveNotes}
           onEndShift={workspace.openShiftHandoff}
         />
 
         {/* Zone C: AI Assistant */}
         <DoctorAiPanel
           messages={workspace.chatMessages}
-          input={workspace.chatInput}
-          setInput={workspace.setChatInput}
           isLoading={workspace.chatLoading}
           currentActivity={workspace.currentActivity}
           activityDetails={workspace.activityDetails}
           handleSendMessage={workspace.handleChatSubmit}
           messagesEndRef={workspace.messagesEndRef}
-          wsEvents={wsEvents}
           patientName={workspace.selectedPatient?.name}
-          width={workspace.aiWidth}
-          setWidth={workspace.setAiWidth}
-          isResizing={workspace.isResizing}
-          setIsResizing={workspace.setIsResizing}
           onResetChat={workspace.handleResetChat}
+          onStopAgent={workspace.handleStopAgent}
+          visitId={workspace.selectedVisit?.id}
+          onTranscribed={handleTranscribed}
         />
       </div>
 

@@ -462,7 +462,8 @@ async def update_clinical_notes(visit_id: int, data: ClinicalNotesUpdate, db: As
     visit = result.scalar_one_or_none()
     if not visit:
         raise HTTPException(status_code=404, detail="Visit not found")
-    visit.clinical_notes = data.clinical_notes
+    if data.clinical_notes is not None:
+        visit.clinical_notes = data.clinical_notes
     if data.assigned_doctor is not None:
         visit.assigned_doctor = data.assigned_doctor
     await db.commit()

@@ -512,6 +512,7 @@ export interface SendMessageRequest {
   user_id?: string;
   patient_id?: number | null;
   record_id?: number | null;
+  visit_id?: number | null;
   session_id?: number | null;
 }
 
@@ -626,6 +627,15 @@ export function streamMessageUpdates(
   return () => {
     eventSource.close();
   };
+}
+
+/**
+ * Cancel a running agent task for a message.
+ */
+export async function cancelMessage(messageId: number): Promise<void> {
+  await fetch(`${API_BASE_URL}/chat/messages/${messageId}/cancel`, {
+    method: "POST",
+  });
 }
 
 /**
@@ -848,10 +858,10 @@ export async function routeVisit(
   return response.json();
 }
 
-export async function listActiveVisits(): Promise<VisitListItem[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/visits?exclude_status=completed`
-  );
+export async function listActiveVisits(department?: string): Promise<VisitListItem[]> {
+  const params = new URLSearchParams({ exclude_status: "completed", limit: "500" });
+  if (department) params.set("department", department);
+  const response = await fetch(`${API_BASE_URL}/visits?${params}`);
   if (!response.ok) throw new Error("Failed to fetch active visits");
   return response.json();
 }
@@ -961,6 +971,19 @@ export async function getVisitsByDepartment(
   if (status) params.set("status", status);
   const response = await fetch(`${API_BASE_URL}/visits?${params}`);
   if (!response.ok) throw new Error("Failed to fetch department visits");
+  return response.json();
+}
+
+export async function assignVisitDoctor(visitId: number, doctorName: string): Promise<Visit> {
+  const response = await fetch(`${API_BASE_URL}/visits/${visitId}/notes`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ assigned_doctor: doctorName }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to assign doctor");
+  }
   return response.json();
 }
 

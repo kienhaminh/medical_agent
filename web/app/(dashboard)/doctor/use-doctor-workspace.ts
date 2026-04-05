@@ -6,9 +6,11 @@ import {
   getPatient,
   searchPatients,
   saveClinicalNotes,
+  assignVisitDoctor,
   completeVisit,
   transferVisit,
   sendChatMessage,
+  cancelMessage,
   streamMessageUpdates,
   getSessionMessages,
   getVisitBrief,
@@ -124,7 +126,6 @@ export function useDoctorWorkspace() {
 
   // AI chat state
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
-  const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [currentActivity, setCurrentActivity] = useState<AgentActivity | null>(null);
   const [activityDetails, setActivityDetails] = useState("");
@@ -132,7 +133,10 @@ export function useDoctorWorkspace() {
   const chatSessionIdRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const cancelStreamRef = useRef<(() => void) | null>(null);
+  const streamingMessageIdRef = useRef<number | null>(null);
   const selectVisitTokenRef = useRef(0);
+  // Maps in-flight tool call id → tool name so tool_result can look up which tool completed
+  const toolCallMapRef = useRef<Map<string, string>>(new Map());
 
   // Differential diagnosis state
   const [ddxDiagnoses, setDdxDiagnoses] = useState<DiagnosisItem[]>([]);
@@ -147,14 +151,11 @@ export function useDoctorWorkspace() {
   const [handoffCount, setHandoffCount] = useState(0);
   const [handoffLoading, setHandoffLoading] = useState(false);
 
-  // AI panel state
-  const [aiWidth, setAiWidth] = useState(420);
-  const [isResizing, setIsResizing] = useState(false);
 
-  // Fetch active visits queue
+  // Fetch active visits queue — scoped to the doctor's department to avoid pagination limits
   const fetchQueue = useCallback(async () => {
     try {
-      const visits = await listActiveVisits();
+      const visits = await listActiveVisits(user?.department ?? undefined);
       // Filter to in_department visits only
       const inDepartment = visits.filter((v) => v.status === "in_department");
       setQueueVisits(inDepartment);
@@ -163,7 +164,7 @@ export function useDoctorWorkspace() {
     } finally {
       setQueueLoading(false);
     }
-  }, []);
+  }, [user?.department]);
 
   useEffect(() => {
     fetchQueue();
@@ -275,6 +276,41 @@ export function useDoctorWorkspace() {
     [selectedVisit]
   );
 
+  // Immediate save (clears debounce timer and saves now)
+  const handleSaveNotes = useCallback(async () => {
+    if (!selectedVisit) return;
+    if (notesTimerRef.current) clearTimeout(notesTimerRef.current);
+    setNotesSaving(true);
+    try {
+      await saveClinicalNotes(selectedVisit.id, clinicalNotes);
+      setNotesSaved(true);
+      toast.success("Notes saved");
+    } catch {
+      toast.error("Failed to save notes");
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [selectedVisit, clinicalNotes]);
+
+  // Accept a waiting room patient — assigns the current doctor and opens the workspace
+  const handleAcceptPatient = useCallback(
+    async (visit: VisitListItem, currentDoctorName: string, myPatientsCount: number) => {
+      if (myPatientsCount > 0) {
+        toast.warning("Finish with your current patient before accepting a new one.");
+        return;
+      }
+      try {
+        await assignVisitDoctor(visit.id, currentDoctorName);
+        toast.success(`Accepted ${visit.patient_name}`);
+        await fetchQueue();
+        await selectVisit(visit);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to accept patient");
+      }
+    },
+    [fetchQueue, selectVisit]
+  );
+
   // Quick actions
   const handleDischarge = useCallback(async () => {
     if (!selectedVisit) return;
@@ -314,8 +350,23 @@ export function useDoctorWorkspace() {
     setChatLoading(false);
     setCurrentActivity(null);
     setActivityDetails("");
+    setDdxLoading(false);
     cancelStreamRef.current?.();
     cancelStreamRef.current = null;
+    streamingMessageIdRef.current = null;
+    toolCallMapRef.current.clear();
+  }
+
+  async function handleStopAgent() {
+    const messageId = streamingMessageIdRef.current;
+    clearChatLoadingState();
+    if (messageId !== null) {
+      try {
+        await cancelMessage(messageId);
+      } catch {
+        // Best-effort — local state is already cleared
+      }
+    }
   }
 
   const handleResetChat = useCallback(() => {
@@ -324,7 +375,6 @@ export function useDoctorWorkspace() {
     setChatMessages([]);
     setChatSessionId(null);
     chatSessionIdRef.current = null;
-    setChatInput("");
     clearChatLoadingState();
     if (selectedPatient) {
       clearPatientSession(selectedPatient.id);
@@ -362,9 +412,46 @@ export function useDoctorWorkspace() {
     } else if (event.type === "tool_call") {
       setCurrentActivity("tool_calling");
       setActivityDetails(`Using tool: ${event.tool}`);
+      toolCallMapRef.current.set(event.id, event.tool);
+      if (event.tool === "generate_differential_diagnosis") {
+        setDdxLoading(true);
+      }
+      if (event.tool === "save_clinical_note" && event.args?.note_content) {
+        setClinicalNotes(event.args.note_content as string);
+        setNotesSaved(false);
+      }
+      setChatMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, toolCalls: [...(msg.toolCalls ?? []), { id: event.id, tool: event.tool, args: event.args ?? {}, result: null }] }
+            : msg
+        )
+      );
     } else if (event.type === "tool_result") {
       setCurrentActivity("analyzing");
       setActivityDetails("Processing tool result...");
+      const toolName = toolCallMapRef.current.get(event.id);
+      if (toolName === "generate_differential_diagnosis") {
+        try {
+          const parsed = JSON.parse(event.result);
+          if (Array.isArray(parsed.diagnoses)) {
+            setDdxDiagnoses(parsed.diagnoses);
+          }
+        } catch {}
+        setDdxLoading(false);
+        toolCallMapRef.current.delete(event.id);
+      }
+      if (toolName === "save_clinical_note") {
+        setNotesSaved(true);
+        toolCallMapRef.current.delete(event.id);
+      }
+      setChatMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId
+            ? { ...msg, toolCalls: (msg.toolCalls ?? []).map((tc) => tc.id === event.id ? { ...tc, result: event.result } : tc) }
+            : msg
+        )
+      );
     } else if (event.type === "reasoning") {
       setCurrentActivity("thinking");
       setActivityDetails("Reasoning...");
@@ -388,12 +475,10 @@ export function useDoctorWorkspace() {
     }
   }
 
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || chatLoading) return;
+  const handleChatSubmit = async (message: string) => {
+    if (!message.trim() || chatLoading) return;
 
-    const userInput = chatInput.trim();
-    setChatInput("");
+    const userInput = message.trim();
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -410,6 +495,7 @@ export function useDoctorWorkspace() {
       const response = await sendChatMessage({
         message: userInput,
         patient_id: selectedPatient?.id,
+        visit_id: selectedVisit?.id,
         session_id: chatSessionIdRef.current,
       });
 
@@ -439,6 +525,7 @@ export function useDoctorWorkspace() {
         () => clearChatLoadingState()
       );
       cancelStreamRef.current = cancel;
+      streamingMessageIdRef.current = response.message_id;
     } catch {
       toast.error("Failed to send message");
       clearChatLoadingState();
@@ -488,6 +575,7 @@ export function useDoctorWorkspace() {
       const response = await sendChatMessage({
         message: prompt,
         patient_id: selectedPatient.id,
+        visit_id: selectedVisit?.id,
         session_id: chatSessionIdRef.current,
       });
 
@@ -517,6 +605,7 @@ export function useDoctorWorkspace() {
         () => clearChatLoadingState()
       );
       cancelStreamRef.current = cancel;
+      streamingMessageIdRef.current = response.message_id;
     } catch {
       toast.error("Failed to draft SOAP note");
       clearChatLoadingState();
@@ -567,32 +656,27 @@ export function useDoctorWorkspace() {
     notesSaving,
     notesSaved,
     handleNotesChange,
+    handleSaveNotes,
     // Actions
+    handleAcceptPatient,
     handleDischarge,
     handleTransfer,
     // AI Chat
     chatMessages,
-    chatInput,
-    setChatInput,
     chatLoading,
     currentActivity,
     activityDetails,
     chatSessionId,
     messagesEndRef,
     handleChatSubmit,
+    handleStopAgent,
     handleResetChat,
     // DDx
     ddxDiagnoses,
     ddxLoading,
-    generateDdx,
     // SOAP draft
     draftSoapNote,
     draftingNote,
-    // AI Panel
-    aiWidth,
-    setAiWidth,
-    isResizing,
-    setIsResizing,
     // Shift handoff
     handoffOpen,
     setHandoffOpen,

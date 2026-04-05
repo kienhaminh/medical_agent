@@ -79,6 +79,7 @@ class ChatRequest(BaseModel):
     stream: Optional[bool] = False
     patient_id: Optional[int] = None
     record_id: Optional[int] = None
+    visit_id: Optional[int] = None
     session_id: Optional[int] = None
     mode: Optional[str] = None
 
@@ -173,7 +174,7 @@ class VisitTransferRequest(BaseModel):
 
 class ClinicalNotesUpdate(BaseModel):
     """Request body for updating clinical notes on a visit."""
-    clinical_notes: str
+    clinical_notes: Optional[str] = None
     assigned_doctor: Optional[str] = None
 
 class VisitResponse(BaseModel):

@@ -14,6 +14,7 @@ interface PatientListPanelProps {
   loading: boolean;
   selectedVisitId: number | null;
   onSelectVisit: (visit: VisitListItem) => void;
+  onAcceptPatient: (visit: VisitListItem) => void;
   wsEvents: WSEvent[];
 }
 
@@ -31,14 +32,15 @@ function PatientCard({
   visit,
   selected,
   onSelect,
+  onAccept,
 }: {
   visit: VisitListItem;
   selected: boolean;
   onSelect: () => void;
+  onAccept?: () => void;
 }) {
   return (
-    <button
-      onClick={onSelect}
+    <div
       className={cn(
         "w-full text-left px-3 py-2 rounded-md transition-colors",
         selected
@@ -46,20 +48,30 @@ function PatientCard({
           : "hover:bg-muted/50 border border-transparent",
       )}
     >
-      <div className="flex items-center gap-2 mb-0.5">
-        <UrgencyDot level={visit.urgency_level} />
-        <span className="text-sm font-medium truncate flex-1">{visit.patient_name}</span>
-        {visit.wait_minutes !== undefined && (
-          <span className="text-[10px] text-muted-foreground shrink-0 flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5" />
-            {visit.wait_minutes}m
-          </span>
+      <button onClick={onSelect} className="w-full text-left">
+        <div className="flex items-center gap-2 mb-0.5">
+          <UrgencyDot level={visit.urgency_level} />
+          <span className="text-sm font-medium truncate flex-1">{visit.patient_name}</span>
+          {visit.wait_minutes !== undefined && (
+            <span className="text-[10px] text-muted-foreground shrink-0 flex items-center gap-0.5">
+              <Clock className="h-2.5 w-2.5" />
+              {visit.wait_minutes}m
+            </span>
+          )}
+        </div>
+        {visit.chief_complaint && (
+          <p className="text-xs text-muted-foreground truncate pl-4">{visit.chief_complaint}</p>
         )}
-      </div>
-      {visit.chief_complaint && (
-        <p className="text-xs text-muted-foreground truncate pl-4">{visit.chief_complaint}</p>
+      </button>
+      {onAccept && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onAccept(); }}
+          className="mt-1.5 ml-4 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+        >
+          + Accept Patient
+        </button>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -95,6 +107,7 @@ export function PatientListPanel({
   loading,
   selectedVisitId,
   onSelectVisit,
+  onAcceptPatient,
   wsEvents,
 }: PatientListPanelProps) {
   return (
@@ -145,6 +158,7 @@ export function PatientListPanel({
                       visit={visit}
                       selected={visit.id === selectedVisitId}
                       onSelect={() => onSelectVisit(visit)}
+                      onAccept={() => onAcceptPatient(visit)}
                     />
                   ))}
                 </div>
