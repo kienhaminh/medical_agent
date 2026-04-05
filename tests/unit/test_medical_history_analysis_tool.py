@@ -287,4 +287,5 @@ class TestAnalyzeMedicalHistory:
         from src.tools.medical_history_analysis_tool import analyze_medical_history
         analyze_medical_history(patient_id=1)
         assert "A" * 3000 not in captured["prompt"]
-        assert "A" * 1500 in captured["prompt"]
+        assert "A" * 1500 in captured["prompt"]       # truncated content is present
+        assert "A" * 1501 not in captured["prompt"]   # content was not left longer than 1500

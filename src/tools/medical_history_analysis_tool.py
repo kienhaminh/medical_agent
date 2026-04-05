@@ -278,23 +278,26 @@ def analyze_medical_history(
             .order_by(Imaging.created_at)
         ).scalars().all()
 
-    # Build prompt sections (empty string = section omitted)
-    focus_instruction = (
-        f"\nPay particular clinical attention to: {focus_area}.\n"
-        if focus_area else ""
-    )
+        # Build prompt inside session while ORM objects are still attached,
+        # preventing DetachedInstanceError on lazy-loaded attributes.
+        # Escape braces in focus_area to avoid KeyError in .format().
+        safe_focus = focus_area.replace("{", "{{").replace("}", "}}") if focus_area else None
+        focus_instruction = (
+            f"\nPay particular clinical attention to: {safe_focus}.\n"
+            if safe_focus else ""
+        )
 
-    prompt = HISTORY_ANALYSIS_PROMPT.format(
-        name=patient.name,
-        age=_patient_age(patient.dob),
-        gender=patient.gender,
-        records_section=_build_records_section(records),
-        vitals_section=_build_vitals_section(vitals),
-        medications_section=_build_medications_section(medications),
-        allergies_section=_build_allergies_section(allergies),
-        imaging_section=_build_imaging_section(imaging),
-        focus_instruction=focus_instruction,
-    )
+        prompt = HISTORY_ANALYSIS_PROMPT.format(
+            name=patient.name,
+            age=_patient_age(patient.dob),
+            gender=patient.gender,
+            records_section=_build_records_section(records),
+            vitals_section=_build_vitals_section(vitals),
+            medications_section=_build_medications_section(medications),
+            allergies_section=_build_allergies_section(allergies),
+            imaging_section=_build_imaging_section(imaging),
+            focus_instruction=focus_instruction,
+        )
 
     try:
         return _call_llm(prompt)
