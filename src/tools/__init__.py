@@ -34,6 +34,7 @@ from . import check_patient_tool
 from . import compare_patient_tool
 from . import register_patient_tool
 from . import medical_img_segmentation_tool
+from . import medical_history_analysis_tool
 
 # Re-export convenience functions
 from .datetime_tool import get_current_datetime
@@ -51,7 +52,8 @@ from .deposit_patient_tool import deposit_patient
 from .check_patient_tool import check_patient
 from .compare_patient_tool import compare_patient
 from .register_patient_tool import register_patient
-from .medical_img_segmentation_tool import segment_image
+from .medical_img_segmentation_tool import segment_patient_image
+from .medical_history_analysis_tool import analyze_medical_history
 
 __all__ = [
     "ToolRegistry",
@@ -73,5 +75,6 @@ __all__ = [
     "compare_patient",
     "register_patient",
     "set_itinerary",
-    "segment_image",
+    "segment_patient_image",
+    "analyze_medical_history",
 ]
