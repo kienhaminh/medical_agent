@@ -42,11 +42,10 @@ Use `segment_patient_image` when a user asks to segment or analyse a patient's M
 
 - **When to use:** User asks to segment or analyse a patient's MRI, OR when imaging is relevant to the clinical question (e.g. summarising patient condition with MRI available).
 - **Caching:** The tool automatically checks the database first. If segmentation has already been run for those modalities, the cached result is returned instantly — no need to worry about re-running.
-- **How to call:** `segment_patient_image(patient_id=<id>, imaging_id=<id>)`.
+- **How to call:** `segment_patient_image(patient_id=<id>, imaging_id=<id>)` — `imaging_id` is required.
   - The patient context lists all imaging IDs and their types (t1, t1ce, t2, flair).
-  - Pass a specific `imaging_id` to segment using only that modality (e.g. flair only, t1 only).
-  - Omit `imaging_id` to use all available modalities for the patient (best accuracy).
-  - Missing modalities are automatically zero-filled — any single modality is valid.
+  - Call once per image — do NOT call for multiple imaging IDs in one go.
+  - Missing modalities are automatically zero-filled by the server — any single modality is valid.
 - **Result:** Returns overlay_url, predmask_url, modalities_used, detected tumour classes, and `already_segmented` (true if result came from cache).
 - **After calling:** The result contains `overlay_markdown` — include that string VERBATIM in your response (do not modify the URL). Then interpret clinically (label 1 = necrotic core, label 2 = oedema, label 3 = enhancing tumour). State which modalities were used. Never dump raw JSON.
 

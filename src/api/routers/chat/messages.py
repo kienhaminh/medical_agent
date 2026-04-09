@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, MedicalRecord, ChatSession, ChatMessage, AsyncSessionLocal, VitalSign
+from src.models.imaging import Imaging
 from src.models.visit import Visit as VisitModel
 from src.config.settings import load_config
 from ...models import (
@@ -52,6 +53,7 @@ async def _run_agent_background(
     user_message: str,
     patient_id: Optional[int] = None,
     record_id: Optional[int] = None,
+    visit_id: Optional[int] = None,
 ) -> None:
     """Run agent in an asyncio background task.
 
@@ -87,8 +89,27 @@ async def _run_agent_background(
                 if patient:
                     context_message = (
                         f"Context: Patient {patient.name} "
-                        f"(DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}).\n\n"
+                        f"(DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}"
                     )
+                    if visit_id:
+                        visit_result = await db.execute(
+                            select(VisitModel).where(VisitModel.id == visit_id)
+                        )
+                        visit = visit_result.scalar_one_or_none()
+                        if visit:
+                            context_message += (
+                                f", visit_id={visit.id}, chief_complaint=\"{visit.chief_complaint}\""
+                            )
+                    context_message += ").\n\n"
+                    imaging_result = await db.execute(
+                        select(Imaging).where(Imaging.patient_id == patient.id).order_by(Imaging.created_at.asc())
+                    )
+                    bg_imaging = imaging_result.scalars().all()
+                    if bg_imaging:
+                        imaging_lines = ", ".join(
+                            f"imaging_id={img.id} ({img.image_type})" for img in bg_imaging
+                        )
+                        context_message += f"Patient Imaging: [{imaging_lines}].\n"
                     if record_id:
                         result = await db.execute(
                             select(MedicalRecord).where(MedicalRecord.id == record_id)
@@ -415,6 +436,16 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             if patient:
                 context_message = f"Context: Patient {patient.name} (DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}).\n\n"
 
+                imaging_result = await db.execute(
+                    select(Imaging).where(Imaging.patient_id == patient.id).order_by(Imaging.created_at.asc())
+                )
+                patient_imaging = imaging_result.scalars().all()
+                if patient_imaging:
+                    imaging_lines = ", ".join(
+                        f"imaging_id={img.id} ({img.image_type})" for img in patient_imaging
+                    )
+                    context_message += f"Patient Imaging: [{imaging_lines}].\n"
+
                 if request.record_id:
                     # Fetch specific record
                     result = await db.execute(select(MedicalRecord).where(MedicalRecord.id == request.record_id))
@@ -670,7 +701,7 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
         await db.commit()
         await db.refresh(assistant_msg)
 
-        # 4. Dispatch asyncio background task (no Celery/Redis required)
+        # 4. Dispatch asyncio background task
         bg_task = asyncio.create_task(_run_agent_background(
             message_id=assistant_msg.id,
             session_id=session.id,
@@ -678,6 +709,7 @@ async def send_chat_message(request: ChatRequest, db: AsyncSession = Depends(get
             user_message=request.message,
             patient_id=request.patient_id,
             record_id=request.record_id,
+            visit_id=request.visit_id,
         ))
         broadcast.register_task(assistant_msg.id, bg_task)
 
@@ -720,7 +752,6 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
         if message.content:
             content_preview = message.content[:100] + "..." if len(message.content) > 100 else message.content
 
-        # Map DB status to Celery-compatible status strings for API compatibility
         status_map = {
             "pending": "PENDING",
             "streaming": "STARTED",
@@ -728,11 +759,11 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
             "error": "FAILURE",
             "interrupted": "FAILURE",
         }
-        celery_status = status_map.get(message.status or "pending", "PENDING")
+        task_status = status_map.get(message.status or "pending", "PENDING")
 
         return TaskStatusResponse(
             task_id=task_id,
-            status=celery_status,
+            status=task_status,
             message_id=message.id,
             content_preview=content_preview,
             error=message.error_message,
@@ -743,6 +774,28 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting task status: {str(e)}")
+
+
+@router.post("/api/chat/messages/{message_id}/cancel")
+async def cancel_message(message_id: int, db: AsyncSession = Depends(get_db)):
+    """Cancel a running background agent task for a message."""
+    cancelled = broadcast.cancel_task(message_id)
+
+    # Mark message as interrupted in DB regardless of whether task was found
+    # (it may have already completed but the client doesn't know yet)
+    async with AsyncSessionLocal() as cancel_db:
+        result = await cancel_db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+        msg = result.scalar_one_or_none()
+        if msg and msg.status not in ("completed", "error", "interrupted"):
+            msg.status = "interrupted"
+            msg.error_message = "Cancelled by user"
+            msg.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            await cancel_db.commit()
+
+    # Notify subscribers so the SSE stream closes
+    await broadcast.publish(message_id, {"type": "done"})
+
+    return {"cancelled": cancelled, "message_id": message_id}
 
 
 @router.get("/api/chat/messages/{message_id}/stream")

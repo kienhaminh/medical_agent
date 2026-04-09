@@ -1,36 +1,42 @@
 "use client";
 
-import React, { RefObject, useRef } from "react";
-import { cn } from "@/lib/utils";
+import React, { RefObject, useCallback, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Send, FileText, Stethoscope, Zap, Pill, RotateCcw } from "lucide-react";
+import { Sparkles, UserRound, FileText, Stethoscope, Zap, Pill } from "lucide-react";
 import { AgentMessage } from "@/components/agent/agent-message";
 import { UserMessage } from "@/components/agent/user-message";
+import { ChatInputArea, type ChatInputAreaHandle } from "./chat-input-area";
 import type { AgentActivity, Message } from "@/types/agent-ui";
 import { MessageRole } from "@/types/enums";
 
+const QUICK_PROMPTS = [
+  { icon: FileText, label: "Summarize", text: "Summarize this patient's medical history and current condition." },
+  { icon: Stethoscope, label: "Differential", text: "What are the top differential diagnoses based on the current presentation?" },
+  { icon: Zap, label: "Treatment", text: "Suggest a treatment plan based on the patient's records." },
+  { icon: Pill, label: "Drug check", text: "Check for potential drug interactions in the current medication list." },
+];
+
 interface AiChatModeProps {
   messages: Message[];
-  input: string;
-  setInput: (input: string) => void;
   isLoading: boolean;
   currentActivity?: AgentActivity | null;
   activityDetails?: string;
-  handleSendMessage: (e: React.FormEvent) => void;
+  handleSendMessage: (message: string) => void;
+  onStopAgent?: () => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onResetChat?: () => void;
+  hasPatient?: boolean;
+  visitId?: number;
+  onTranscribed?: (text: string) => void;
 }
-
-const QUICK_PROMPTS = [
-  { icon: FileText,    label: "Summarize",    text: "Summarize this patient's medical history and current condition." },
-  { icon: Stethoscope, label: "Differential", text: "What are the top differential diagnoses based on the current presentation?" },
-  { icon: Zap,         label: "Treatment",    text: "Suggest a treatment plan based on the patient's records." },
-  { icon: Pill,        label: "Drug check",   text: "Check for potential drug interactions in the current medication list." },
-];
 
 function EcgLine() {
   return (
-    <svg viewBox="0 0 320 60" className="w-full max-w-[240px] h-[48px] text-primary" fill="none">
+    <svg
+      viewBox="0 0 320 60"
+      className="w-full max-w-[240px] h-[48px] text-primary"
+      fill="none"
+    >
       <style>{`
         @keyframes ecg-loop {
           0%   { stroke-dashoffset: 700; }
@@ -44,9 +50,9 @@ function EcgLine() {
       `}</style>
       <defs>
         <linearGradient id="ecgGradChat" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%"   className="ecg-stop-fade" />
-          <stop offset="30%"  className="ecg-stop-solid" />
-          <stop offset="70%"  className="ecg-stop-solid" />
+          <stop offset="0%" className="ecg-stop-fade" />
+          <stop offset="30%" className="ecg-stop-solid" />
+          <stop offset="70%" className="ecg-stop-solid" />
           <stop offset="100%" className="ecg-stop-fade" />
         </linearGradient>
       </defs>
@@ -62,48 +68,45 @@ function EcgLine() {
   );
 }
 
-function ThinkingIndicator({ activity }: { activity?: AgentActivity | null }) {
-  return (
-    <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-primary/20 bg-primary/5 w-fit">
-      <style>{`
-        @keyframes blink { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
-      `}</style>
-      <div className="flex gap-1">
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="block w-1 h-1 rounded-full bg-primary"
-            style={{ animation: `blink 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-        ))}
-      </div>
-      <span className="text-[11px] text-primary font-mono">{activity ?? "Processing..."}</span>
-    </div>
-  );
-}
-
 export function AiChatMode({
   messages,
-  input,
-  setInput,
   isLoading,
   currentActivity,
   activityDetails,
   handleSendMessage,
+  onStopAgent,
   messagesEndRef,
   onResetChat,
+  hasPatient = true,
+  visitId,
+  onTranscribed,
 }: AiChatModeProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isEmpty = messages.length === 0;
+  const chatInputRef = useRef<ChatInputAreaHandle>(null);
+  // Increment to signal ChatInputArea to clear its input
+  const [resetKey, setResetKey] = useState(0);
+  const lastMessageId = messages[messages.length - 1]?.id;
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage(e);
-    }
-  };
+  const handleReset = useCallback(() => {
+    setResetKey((k) => k + 1);
+    onResetChat?.();
+  }, [onResetChat]);
 
-  const injectPrompt = (text: string) => {
-    setInput(text);
-    textareaRef.current?.focus();
-  };
+  if (!hasPatient) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 items-center justify-center gap-3 select-none p-6">
+        <div className="w-9 h-9 rounded-xl bg-muted/50 border border-border/50 flex items-center justify-center">
+          <UserRound className="w-4.5 h-4.5 text-muted-foreground/40" />
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-sm font-medium text-foreground/50">No patient selected</p>
+          <p className="text-[11px] text-muted-foreground/40 leading-relaxed">
+            Select a patient from the list to start chatting with the AI assistant.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -122,26 +125,23 @@ export function AiChatMode({
                   System Ready
                 </p>
               </div>
-
               <div className="text-center space-y-1 max-w-[200px]">
                 <p className="text-sm font-medium text-foreground/70">Clinical AI Assistant</p>
                 <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
                   Ask about diagnosis, treatment, or patient history
                 </p>
               </div>
-
-              <div className="grid grid-cols-2 gap-1.5 w-full max-w-[260px]">
+              <div className="grid grid-cols-2 gap-1.5">
                 {QUICK_PROMPTS.map(({ icon: Icon, label, text }) => (
                   <button
                     key={label}
-                    onClick={() => injectPrompt(text)}
-                    className="group flex flex-col items-start gap-1.5 rounded-lg border border-border/50 bg-muted/20 px-3 py-2.5 text-left
-                               transition-all hover:border-primary/30 hover:bg-primary/5"
+                    onClick={() => chatInputRef.current?.inject(text)}
+                    className="flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/50 bg-muted/20
+                               text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/30
+                               hover:bg-primary/5 transition-all duration-150"
                   >
-                    <Icon className="w-3.5 h-3.5 text-muted-foreground/60 group-hover:text-primary transition-colors" />
-                    <span className="text-[10px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
-                      {label}
-                    </span>
+                    <Icon className="w-3 h-3 shrink-0" />
+                    {label}
                   </button>
                 ))}
               </div>
@@ -149,10 +149,9 @@ export function AiChatMode({
           )}
 
           {/* Message list */}
-          {messages.map((message, index) => (
+          {messages.map((message) => (
             <div
               key={message.id}
-              style={{ animationDelay: `${index * 40}ms` }}
               className="animate-in fade-in slide-in-from-bottom-2 duration-300"
             >
               {message.role === MessageRole.USER ? (
@@ -165,80 +164,31 @@ export function AiChatMode({
                   logs={message.logs}
                   timestamp={message.timestamp}
                   isLoading={isLoading}
-                  isLatest={message.id === messages[messages.length - 1]?.id}
-                  currentActivity={message.id === messages[messages.length - 1]?.id ? currentActivity : null}
-                  activityDetails={message.id === messages[messages.length - 1]?.id ? activityDetails : undefined}
+                  isLatest={message.id === lastMessageId}
+                  currentActivity={message.id === lastMessageId ? currentActivity : null}
+                  activityDetails={message.id === lastMessageId ? activityDetails : undefined}
                   patientReferences={message.patientReferences}
                 />
               )}
             </div>
           ))}
 
-          {isLoading && messages.length > 0 && (
-            <div className="animate-in fade-in duration-300">
-              <ThinkingIndicator activity={currentActivity} />
-            </div>
-          )}
-
           <div ref={messagesEndRef} className="h-1" />
         </div>
       </ScrollArea>
 
-      {/* Input bar */}
-      <div className="shrink-0 border-t border-border/50 p-3">
-        <form onSubmit={handleSendMessage}>
-          <div
-            className={cn(
-              "relative rounded-xl border border-primary/25 bg-card/50 transition-all duration-200",
-              "focus-within:border-primary/60 focus-within:ring-[3px] focus-within:ring-primary/[0.08]",
-              "focus-within:shadow-[0_0_16px_hsl(var(--primary)/0.06)]"
-            )}
-          >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about diagnosis, treatment, or patient history..."
-              disabled={isLoading}
-              rows={2}
-              className="w-full resize-none bg-transparent px-3.5 pt-3 pb-10 text-sm text-foreground
-                         placeholder:text-muted-foreground/35 focus:outline-none disabled:opacity-50
-                         leading-relaxed max-h-[180px]"
-            />
-
-            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground/30 font-mono select-none">
-                  ↵ send · ⇧↵ newline
-                </span>
-                {!isEmpty && onResetChat && (
-                  <button
-                    type="button"
-                    onClick={onResetChat}
-                    className="flex items-center gap-1 text-[10px] text-muted-foreground/35 hover:text-muted-foreground/70 transition-colors font-mono"
-                  >
-                    <RotateCcw className="w-2.5 h-2.5" />
-                    reset
-                  </button>
-                )}
-              </div>
-              <button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                className={cn(
-                  "w-7 h-7 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed",
-                  input.trim() && !isLoading
-                    ? "bg-primary shadow-[0_2px_10px_hsl(var(--primary)/0.3)]"
-                    : "bg-muted"
-                )}
-              >
-                <Send className="w-3.5 h-3.5 text-white" />
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
+      {/* Input — isolated component so typing never re-renders the message list */}
+      <ChatInputArea
+        ref={chatInputRef}
+        hasMessages={!isEmpty}
+        isLoading={isLoading}
+        onSubmit={handleSendMessage}
+        onStop={onStopAgent}
+        onReset={handleReset}
+        visitId={visitId}
+        onTranscribed={onTranscribed}
+        resetKey={resetKey}
+      />
     </div>
   );
 }

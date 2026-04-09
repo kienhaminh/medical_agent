@@ -51,8 +51,8 @@ export function QuickActionsBar({
   }
 
   return (
-    <div className="sticky bottom-0 z-20 border-t border-border bg-card/80 backdrop-blur-xl px-6 py-3">
-      <div className="flex items-center justify-end gap-3">
+    <div className="sticky bottom-0 z-20 border-t border-border bg-card/80 backdrop-blur-xl px-4 h-14 flex items-center">
+      <div className="flex items-center justify-end gap-3 w-full">
         {/* Save Notes */}
         <Button
           variant="outline"

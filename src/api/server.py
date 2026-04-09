@@ -81,8 +81,8 @@ async def lifespan(app: FastAPI):
         user_count = await session.execute(select(func.count(User.id)))
         if (user_count.scalar() or 0) == 0:
             default_users = [
-                # Cardiology matches seeded in-department visits (Walter Kim, Robert Fitzgerald) for demo queue.
-                User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="cardiology"),
+                # Neurology matches seeded in-department visits (e.g. Ahmed Hassan) for demo queue.
+                User(username="doctor", password_hash=hash_password("doctor123"), name="Dr. Sarah Chen", role="doctor", department="neurology"),
                 User(username="admin", password_hash=hash_password("admin123"), name="System Admin", role="admin"),
             ]
             for user in default_users:
@@ -176,4 +176,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
+        reload_dirs=["src"],
+        reload_excludes=["src/tools/medical_img_segmentation_tool.py"],
     )

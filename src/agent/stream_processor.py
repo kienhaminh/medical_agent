@@ -1,9 +1,6 @@
 """Shared stream processor for agent event accumulation.
 
-Both the SSE endpoint (messages.py) and Celery task (agent_tasks.py) consume
-the agent's event stream identically: accumulate content, tool calls, logs,
-and usage. This module provides that shared logic so neither consumer
-needs to know the event schema.
+Accumulates content, tool calls, logs, and usage from the agent's event stream.
 """
 
 import json

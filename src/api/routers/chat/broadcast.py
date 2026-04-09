@@ -51,3 +51,12 @@ def is_running(message_id: int) -> bool:
     """Return True if a background task is actively processing message_id."""
     task = _tasks.get(message_id)
     return task is not None and not task.done()
+
+
+def cancel_task(message_id: int) -> bool:
+    """Cancel a running background task. Returns True if task was found and cancelled."""
+    task = _tasks.get(message_id)
+    if task and not task.done():
+        task.cancel()
+        return True
+    return False

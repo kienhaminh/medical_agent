@@ -33,13 +33,17 @@ class ImagingResponse(BaseModel):
     patient_id: int
     title: str
     image_type: str
-    # JPG preview URL for display
+    # JPG preview URL for display (original upload — never modified after upload)
     preview_url: str
     # Original .nii.gz file URL/path
     original_url: str
     group_id: Optional[int] = None
     # Raw JSON payload from MCP segmentation (null if not yet segmented)
     segmentation_result: Optional[dict] = None
+    # Axial slice index pinned after first segmentation run (null = not yet segmented)
+    slice_index: Optional[int] = None
+    # NIfTI-extracted preview aligned to segmentation slice/orientation (null if not yet segmented)
+    aligned_preview_url: Optional[str] = None
     created_at: str
 
 class ImageGroupResponse(BaseModel):
@@ -68,7 +72,7 @@ class HealthSummaryResponse(BaseModel):
     health_summary: Optional[str] = None
     health_summary_updated_at: Optional[str] = None
     status: str = "pending"  # 'pending' | 'generating' | 'completed' | 'error'
-    task_id: Optional[str] = None  # Celery task ID for async tracking
+    task_id: Optional[str] = None  # Background task ID for async tracking
 
 
 

@@ -1,13 +1,19 @@
 # Default configuration for AI Agent
 
 # Provider Configuration
-provider: openai  # Options: openai, kimi, gemini
+# Overridden by AI_PROVIDER env var (set in .env)
+provider: kimi  # Options: openai, kimi, gemini
 
-# Model Configuration
-# For openai: gpt-4o, gpt-4o-mini, o3
-# For kimi: kimi-k2-thinking, kimi-k2-5, kimi-k1-5
-# For gemini: gemini-2.5-pro, gemini-2.0-flash
-model: gpt-4o
+# Per-provider model configuration — single source of truth for models
+# MODEL env var overrides the active provider's model at runtime
+providers:
+  openai:
+    model: gpt-5.4-mini
+  kimi:
+    model: kimi-k2.5
+    temperature: 1  # kimi-k2.5 only supports temperature=1
+  gemini:
+    model: gemini-2.5-pro
 max_tokens: 4096
 temperature: 0.3
 

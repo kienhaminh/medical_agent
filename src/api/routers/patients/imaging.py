@@ -1,17 +1,25 @@
 """Patient imaging operations."""
 import logging
 import shutil
+import time
 import uuid
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
 from fastapi import APIRouter, HTTPException, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, Imaging, ImageGroup
-from src.tools.medical_img_segmentation_tool import _call_segmentation_mcp
+from src.tools.medical_img_segmentation_tool import (
+    _call_segmentation_mcp,
+    _rewrite_for_mcp,
+    _MODALITY_PARAM,
+)
 from src.utils.upload_storage import (
     local_path_from_public_url,
+    normalize_docker_urls,
     patient_imaging_dir,
     public_url_for_rel,
 )
@@ -21,7 +29,55 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
 
 
+def _extract_aligned_preview(nii_path: Path, slice_idx: int, out_path: Path) -> bool:
+    """Extract an axial slice from a NIfTI volume and save it as a new JPEG.
+
+    Saves to out_path — never overwrites the original upload preview.
+    Orientation and normalization are identical to the segmentation MCP server
+    so the aligned preview and the segmentation overlay are pixel-aligned:
+      - MCP: data.transpose(2,1,0)[z,:,:] == data[:,:,z].T  → shape (y,x)
+      - Normalization: non-zero pixels only, p1–p99 (matches MCP's _normalize_slice_u8)
+
+    Returns True on success, False on any error (non-fatal).
+    """
+    try:
+        import nibabel as nib  # optional dep — only needed at segment time
+
+        img = nib.load(str(nii_path))
+        data = np.asarray(img.dataobj)  # shape (x, y, z), lazy load
+        if slice_idx < 0 or slice_idx >= data.shape[2]:
+            logger.warning("slice_idx %d out of range for volume shape %s", slice_idx, data.shape)
+            return False
+
+        # Match MCP orientation: data.transpose(2,1,0)[z,:,:] == data[:,:,z].T → (y,x)
+        slice_yx = data[:, :, slice_idx].T.astype(np.float32)
+
+        # Match MCP normalization: non-zero pixels only, p1–p99
+        nz = slice_yx[slice_yx != 0]
+        if nz.size == 0:
+            normed = np.zeros(slice_yx.shape, dtype=np.uint8)
+        else:
+            lo, hi = float(np.percentile(nz, 1)), float(np.percentile(nz, 99))
+            if hi - lo < 1e-8:
+                lo, hi = float(nz.min()), float(nz.max())
+            if hi - lo < 1e-8:
+                normed = np.zeros(slice_yx.shape, dtype=np.uint8)
+            else:
+                normed = np.clip((slice_yx - lo) / (hi - lo) * 255, 0, 255).astype(np.uint8)
+
+        # Upscale to a standard display size so the preview is crisp in the UI.
+        # BraTS axial slices are 240×240 — too small without interpolation.
+        pil_img = Image.fromarray(normed, mode="L").resize((512, 512), Image.LANCZOS)
+        pil_img.convert("RGB").save(str(out_path), "JPEG", quality=90)
+        return True
+    except Exception:
+        logger.exception("Failed to extract aligned preview at slice %d from %s", slice_idx, nii_path)
+        return False
+
+
 def _imaging_to_response(i: Imaging) -> ImagingResponse:
+    seg = normalize_docker_urls(i.segmentation_result) if i.segmentation_result else i.segmentation_result
+    aligned_preview_url = seg.get("aligned_preview_url") if seg else None
     return ImagingResponse(
         id=i.id,
         patient_id=i.patient_id,
@@ -30,7 +86,9 @@ def _imaging_to_response(i: Imaging) -> ImagingResponse:
         original_url=i.original_url,
         preview_url=i.preview_url,
         group_id=i.group_id,
-        segmentation_result=i.segmentation_result,
+        segmentation_result=seg,
+        slice_index=i.slice_index,
+        aligned_preview_url=aligned_preview_url,
         created_at=i.created_at.isoformat(),
     )
 
@@ -101,13 +159,15 @@ async def upload_imaging_files(
         raise HTTPException(status_code=404, detail="Patient not found")
 
     pdir = patient_imaging_dir(patient_id)
-    stem = uuid.uuid4().hex
+    # Use image_type + short UUID so filenames are readable (e.g. flair_a1b2c3d4_preview.jpg)
+    uid = uuid.uuid4().hex[:8]
+    base = f"{image_type.lower()}_{uid}"
 
     prev_name = Path(preview.filename or "").name.lower()
     if prev_name.endswith((".jpg", ".jpeg")):
-        preview_filename = f"{stem}_preview.jpg"
+        preview_filename = f"{base}_preview.jpg"
     elif prev_name.endswith(".png"):
-        preview_filename = f"{stem}_preview.png"
+        preview_filename = f"{base}_preview.png"
     else:
         raise HTTPException(
             status_code=400,
@@ -116,9 +176,9 @@ async def upload_imaging_files(
 
     vol_name_lower = (volume.filename or "").lower()
     if vol_name_lower.endswith(".nii.gz"):
-        volume_filename = f"{stem}_volume.nii.gz"
+        volume_filename = f"{base}.nii.gz"
     elif vol_name_lower.endswith(".nii"):
-        volume_filename = f"{stem}_volume.nii"
+        volume_filename = f"{base}.nii"
     else:
         raise HTTPException(
             status_code=400,
@@ -267,10 +327,44 @@ async def segment_imaging(
     if not imaging_record:
         raise HTTPException(status_code=404, detail="Imaging record not found")
 
+    if imaging_record.image_type not in _MODALITY_PARAM:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Image type '{imaging_record.image_type}' is not supported for segmentation (must be t1, t1ce, t2, or flair)",
+        )
+
+    # Reuse the stored slice if available so re-runs always use the same slice.
+    # First run: -1 lets the MCP auto-select the most informative slice.
+    slice_idx = imaging_record.slice_index if imaging_record.slice_index is not None else -1
+
+    # Collect all modalities in the same group (or all patient images if no group).
+    # The BraTS segmentation model requires all 4 channels: t1, t1ce, t2, flair.
+    if imaging_record.group_id is not None:
+        group_result = await db.execute(
+            select(Imaging)
+            .where(Imaging.group_id == imaging_record.group_id)
+            .where(Imaging.patient_id == patient_id)
+        )
+    else:
+        group_result = await db.execute(
+            select(Imaging).where(Imaging.patient_id == patient_id)
+        )
+    group_images = group_result.scalars().all()
+
+    modality_urls = {
+        img.image_type: _rewrite_for_mcp(img.original_url)
+        for img in group_images
+        if img.image_type in _MODALITY_PARAM
+    }
+    # Ensure the requested record is always included.
+    if imaging_record.image_type in _MODALITY_PARAM:
+        modality_urls[imaging_record.image_type] = _rewrite_for_mcp(imaging_record.original_url)
+
     try:
         segmentation_payload = await _call_segmentation_mcp(
-            image_url=imaging_record.original_url,
+            modality_urls=modality_urls,
             patient_id=str(patient_id),
+            slice_index=slice_idx,
         )
     except Exception as exc:
         logger.exception("Segmentation MCP call failed for imaging %d", imaging_id)
@@ -279,7 +373,38 @@ async def segment_imaging(
             detail=f"Segmentation service error: {exc}",
         )
 
+    # Add cache-busting to overlay/predmask URLs so the browser always fetches the latest file.
+    ts = int(time.time())
+    artifacts = segmentation_payload.get("artifacts", {})
+    for key in ("overlay_image", "predmask_image", "json_summary"):
+        artifact = artifacts.get(key, {})
+        if "url" in artifact:
+            artifact["url"] = f"{artifact['url']}?v={ts}"
+    segmentation_payload["artifacts"] = artifacts
+
     imaging_record.segmentation_result = segmentation_payload
+    # Persist the slice used so future re-runs are deterministic.
+    if imaging_record.slice_index is None:
+        mcp_slice = segmentation_payload.get("input", {}).get("slice_index")
+        if mcp_slice is not None:
+            imaging_record.slice_index = mcp_slice
+
+    # Save aligned preview as a SEPARATE file — never touch the original preview_url.
+    # The aligned preview matches the MCP overlay's orientation/slice so the two tabs align.
+    # URL is embedded in segmentation_result so no schema migration is needed.
+    used_slice = imaging_record.slice_index
+    if used_slice is not None:
+        nii_path = local_path_from_public_url(imaging_record.original_url)
+        if nii_path and nii_path.is_file():
+            orig_stem = nii_path.stem.replace(".nii", "")  # handle .nii.gz double ext
+            aligned_filename = f"{orig_stem}_aligned_preview.jpg"
+            aligned_path = nii_path.parent / aligned_filename
+            if _extract_aligned_preview(nii_path, used_slice, aligned_path):
+                rel = f"patients/{imaging_record.patient_id}/{aligned_filename}"
+                aligned_url = f"{public_url_for_rel(rel)}?v={int(time.time())}"
+                segmentation_payload["aligned_preview_url"] = aligned_url
+                imaging_record.segmentation_result = segmentation_payload
+
     await db.commit()
     await db.refresh(imaging_record)
 

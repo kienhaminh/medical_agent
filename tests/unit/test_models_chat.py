@@ -1,6 +1,7 @@
 """Unit tests for Chat models."""
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from src.models import ChatSession, ChatMessage
 
@@ -39,10 +40,10 @@ async def test_create_chat_message(db_session, sample_chat_session):
 async def test_chat_session_messages_relationship(db_session, sample_chat_session, sample_chat_message):
     """Test session to messages relationship."""
     result = await db_session.execute(
-        select(ChatSession).where(ChatSession.id == sample_chat_session.id)
+        select(ChatSession).where(ChatSession.id == sample_chat_session.id).options(selectinload(ChatSession.messages))
     )
     session = result.scalar_one()
-    
+
     assert len(session.messages) >= 1
     assert session.messages[0].content == "Hello, I have a question"
 

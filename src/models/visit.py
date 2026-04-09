@@ -29,7 +29,7 @@ class Visit(Base):
     __tablename__ = "visits"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    visit_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    visit_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("patients.id"), index=True)
     status: Mapped[str] = mapped_column(
         Enum(VisitStatus, values_callable=lambda x: [e.value for e in x]),

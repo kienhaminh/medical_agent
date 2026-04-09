@@ -30,13 +30,10 @@ interface ClinicalWorkspaceProps {
   onNotesChange: (notes: string) => void;
   notesSaving: boolean;
   notesSaved: boolean;
-  onDraftWithAI?: () => void;
-  draftingNote: boolean;
 
   // DDx
   ddxDiagnoses: DiagnosisItem[];
   ddxLoading: boolean;
-  onGenerateDdx: () => void;
 
   // Quick actions
   departments: DepartmentInfo[];
@@ -117,9 +114,6 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
             saving={props.notesSaving}
             saved={props.notesSaved}
             disabled={!hasPatient}
-            onDraftWithAI={props.onDraftWithAI}
-            drafting={props.draftingNote}
-            visitId={props.selectedVisit?.id}
           />
         </CollapsiblePanel>
 
@@ -135,8 +129,6 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
           <DdxPanel
             diagnoses={props.ddxDiagnoses}
             loading={props.ddxLoading}
-            onGenerate={props.onGenerateDdx}
-            disabled={!hasPatient}
             chiefComplaint={props.selectedVisit?.chief_complaint || undefined}
           />
         </CollapsiblePanel>

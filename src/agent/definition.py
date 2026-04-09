@@ -155,10 +155,16 @@ class LangGraphAgent:
                 }
 
             elif event_type == "on_tool_end":
+                output = event.get("data", {}).get("output")
+                # LangGraph wraps tool output in a ToolMessage; extract .content
+                if hasattr(output, "content"):
+                    result_str = output.content if isinstance(output.content, str) else str(output.content)
+                else:
+                    result_str = str(output)
                 yield {
                     "type": "tool_result",
                     "id": event.get("run_id"),
-                    "result": str(event.get("data", {}).get("output")),
+                    "result": result_str,
                 }
 
             elif event_type == "on_chat_model_end":

@@ -7,8 +7,6 @@ import type { DiagnosisItem } from "@/lib/api";
 interface DdxPanelProps {
   diagnoses: DiagnosisItem[];
   loading: boolean;
-  onGenerate: () => void;
-  disabled?: boolean;
   chiefComplaint?: string;
 }
 
@@ -19,32 +17,23 @@ const LIKELIHOOD_STYLE: Record<string, string> = {
   Low: "text-slate-600 bg-slate-50 border-slate-200",
 };
 
-export function DdxPanel({ diagnoses, loading, onGenerate, disabled, chiefComplaint }: DdxPanelProps) {
+export function DdxPanel({ diagnoses, loading, chiefComplaint }: DdxPanelProps) {
   // Track which diagnosis row is expanded to show evidence/red flags
   const [expanded, setExpanded] = useState<number | null>(null);
 
   return (
     <div className="overflow-hidden">
-      {/* Generate button */}
-      <div className="flex items-center justify-between p-3 border-b border-border/50">
-        {chiefComplaint && (
-          <span className="text-xs text-muted-foreground truncate">
-            {chiefComplaint}
-          </span>
-        )}
-        <button
-          onClick={onGenerate}
-          disabled={disabled || loading}
-          className="text-xs px-2.5 py-1 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50 transition-colors ml-auto"
-        >
-          {loading ? "Generating..." : diagnoses.length ? "Refresh" : "Generate"}
-        </button>
-      </div>
+      {/* Chief complaint label */}
+      {chiefComplaint && (
+        <div className="px-3 py-2 border-b border-border/50">
+          <span className="text-xs text-muted-foreground truncate">{chiefComplaint}</span>
+        </div>
+      )}
 
       {/* Empty state — no diagnoses yet */}
       {diagnoses.length === 0 && !loading && (
         <p className="text-xs text-muted-foreground text-center py-6">
-          Click Generate to run differential diagnosis
+          Ask the AI assistant to generate a differential diagnosis
         </p>
       )}
 

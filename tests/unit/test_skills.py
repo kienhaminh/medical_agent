@@ -195,7 +195,7 @@ class TestSkillRegistry:
         )
         
         if os.path.exists(skills_dir):
-            count = clean_registry.discover_skills(skills_dir)
+            count = clean_registry.discover_skills([skills_dir])
             
             # Should discover at least the diagnosis skill (no DB deps)
             assert count >= 1

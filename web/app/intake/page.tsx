@@ -8,6 +8,7 @@ import { Loader2, Send, RotateCcw, CheckCircle2, MapPin, Clock, FileCheck } from
 import { AnswerContent } from "@/components/agent/answer-content";
 import { useIntakeChat, type FormSubmissionInfo } from "./use-intake-chat";
 import { FormInputBar } from "@/components/reception/form-input-bar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const SUGGESTIONS = [
   "Hi, I'd like to check in",
@@ -147,8 +148,9 @@ export default function PatientIntakePage() {
       </header>
 
       {/* Main content — always show chat, form replaces input bar */}
-      <div className="relative z-10 flex-1 flex flex-col min-h-0 max-w-3xl mx-auto w-full px-4">
-        <div className="flex-1 overflow-y-auto py-4">
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="max-w-3xl mx-auto w-full px-4 py-4">
           <div className="space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
@@ -272,13 +274,14 @@ export default function PatientIntakePage() {
 
             <div ref={messagesEndRef} />
           </div>
-        </div>
+          </div>
+        </ScrollArea>
 
         {/* Bottom bar */}
         {!activeForm && (
           <form
             onSubmit={sendMessage}
-            className="py-4 border-t border-border/50 flex gap-2"
+            className="max-w-3xl mx-auto w-full px-4 py-4 border-t border-border/50 flex gap-2"
           >
             <Input
               value={input}
@@ -299,5 +302,6 @@ export default function PatientIntakePage() {
         )}
       </div>
     </div>
+
   );
 }

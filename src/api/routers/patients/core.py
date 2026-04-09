@@ -11,8 +11,9 @@ from sqlalchemy import cast, or_, select, String as SAString
 from src.models import get_db, Patient, MedicalRecord, Imaging, ImageGroup
 from ...models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
-    RecordResponse, ImagingResponse
+    RecordResponse,
 )
+from ..patients.imaging import _imaging_to_response
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
@@ -132,19 +133,7 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
         gender=patient.gender,
         created_at=patient.created_at.isoformat(),
         records=formatted_records,
-        imaging=[
-            ImagingResponse(
-                id=i.id,
-                patient_id=i.patient_id,
-                title=i.title,
-                image_type=i.image_type,
-                original_url=i.original_url,
-                preview_url=i.preview_url,
-                group_id=i.group_id,
-                segmentation_result=i.segmentation_result,
-                created_at=i.created_at.isoformat(),
-            ) for i in imaging
-        ],
+        imaging=[_imaging_to_response(i) for i in imaging],
         image_groups=[
             {"id": g.id, "patient_id": g.patient_id, "name": g.name, "created_at": g.created_at.isoformat()}
             for g in image_groups

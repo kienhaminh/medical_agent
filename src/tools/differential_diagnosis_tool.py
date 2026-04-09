@@ -44,10 +44,15 @@ def generate_differential_diagnosis(
     chief_complaint: str,
     context: Optional[str] = None,
 ) -> str:
-    """Generate a ranked differential diagnosis list with ICD-10 codes.
+    """Query the EHR clinical decision support system for a patient-specific differential diagnosis.
+
+    ALWAYS call this tool when any differential diagnosis is requested.
+    This tool queries the patient's actual medical records and history in the EHR
+    to produce a ranked DDx with ICD-10 codes. It also updates the Differential
+    Diagnosis panel in the UI — answering directly instead bypasses the panel.
 
     Args:
-        patient_id: Patient's database ID (used for audit logging)
+        patient_id: Patient's database ID (from the context provided)
         chief_complaint: Patient's primary presenting complaint
         context: Additional clinical context (age, gender, history keywords)
 

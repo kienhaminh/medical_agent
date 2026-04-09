@@ -1,4 +1,4 @@
-"""Memory and Celery health routes."""
+"""Memory routes."""
 import logging
 from datetime import datetime
 
@@ -42,46 +42,3 @@ async def export_user_memories(user_id: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error exporting memories: {str(e)}")
-
-
-@router.get("/api/health/celery")
-async def check_celery_health():
-    """Check Celery worker health status."""
-    try:
-        from ....tasks import celery_app
-
-        # Get worker statistics
-        inspector = celery_app.control.inspect()
-
-        # Check active workers
-        active_workers = inspector.active()
-        registered_tasks = inspector.registered()
-
-        if not active_workers:
-            raise HTTPException(
-                status_code=503,
-                detail="No active Celery workers found. Please start workers with: ./start-celery-worker.sh"
-            )
-
-        # Count total workers
-        worker_count = len(active_workers) if active_workers else 0
-
-        # Count active tasks
-        active_task_count = sum(len(tasks) for tasks in active_workers.values()) if active_workers else 0
-
-        return {
-            "status": "healthy",
-            "workers": worker_count,
-            "active_tasks": active_task_count,
-            "registered_tasks": list(registered_tasks.values())[0] if registered_tasks else [],
-            "redis_url": celery_app.conf.broker_url,
-            "message": "Celery workers are running and accepting tasks"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Celery health check failed: {str(e)}"
-        )

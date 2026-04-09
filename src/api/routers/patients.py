@@ -1,9 +1,10 @@
+import asyncio
 import os
 import shutil
 import uuid
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
@@ -11,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import redis.asyncio as redis
 
-from src.models import get_db, Patient, MedicalRecord, Imaging, ImageGroup
+from src.models import get_db, AsyncSessionLocal, Patient, MedicalRecord, Imaging, ImageGroup
 from ...config.settings import load_config
+from ...agent.stream_processor import StreamProcessor
+from ...api.dependencies import get_agent
 from ..models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
     RecordResponse, TextRecordCreate, HealthSummaryResponse,
@@ -484,37 +487,172 @@ async def delete_imaging_record(
 @router.post("/api/patients/{patient_id}/generate-summary", response_model=HealthSummaryResponse)
 async def generate_health_summary(patient_id: int, db: AsyncSession = Depends(get_db)):
     """Dispatch background task to generate AI health summary for a patient.
-    
+
     Returns immediately with task_id and status. Client should poll or stream
     for updates using the /api/patients/{patient_id}/summary-stream endpoint.
     """
-    # Import task here to avoid circular imports
-    from ...tasks.agent_tasks import generate_patient_health_summary
-    
     # 1. Verify patient exists
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = result.scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
-    
-    # 2. Mark patient as pending and dispatch task
+
+    # 2. Mark patient as pending and assign a task_id
+    task_id = str(uuid.uuid4())
     patient.health_summary_status = "pending"
+    patient.health_summary_task_id = task_id
     await db.commit()
-    
-    # 3. Dispatch Celery task
-    task = generate_patient_health_summary.delay(patient_id=patient_id)
-    
-    # 4. Save task_id
-    patient.health_summary_task_id = task.id
-    await db.commit()
-    
+
+    # 3. Dispatch asyncio background task
+    asyncio.create_task(_generate_health_summary_background(patient_id=patient_id, task_id=task_id))
+
     return HealthSummaryResponse(
         patient_id=patient.id,
         health_summary=patient.health_summary or "",
         health_summary_updated_at=patient.health_summary_updated_at.isoformat() if patient.health_summary_updated_at else None,
         status=patient.health_summary_status or "pending",
-        task_id=task.id
+        task_id=task_id
     )
+
+
+async def _generate_health_summary_background(patient_id: int, task_id: str):
+    """Background coroutine to generate patient health summary and publish via Redis."""
+    redis_client = redis.from_url(config.redis_url)
+    channel = f"patient:health_summary:{patient_id}"
+    summary_content = ""
+
+    last_save_time = datetime.now(UTC)
+    chunk_count = 0
+    SAVE_INTERVAL_SECONDS = 5
+    SAVE_CHUNK_THRESHOLD = 20
+
+    save_error = None
+
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Patient).where(Patient.id == patient_id))
+            patient = result.scalar_one_or_none()
+            if not patient:
+                raise ValueError(f"Patient {patient_id} not found")
+
+            patient.health_summary_status = "generating"
+            await db.commit()
+            await redis_client.publish(channel, json.dumps({"type": "status", "status": "generating"}))
+
+            records_result = await db.execute(
+                select(MedicalRecord)
+                .where(MedicalRecord.patient_id == patient_id)
+                .order_by(MedicalRecord.created_at.desc())
+            )
+            records = records_result.scalars().all()
+
+            context_parts = [
+                "Patient Information:",
+                f"- Name: {patient.name}",
+                f"- Date of Birth: {patient.dob}",
+                f"- Gender: {patient.gender}",
+                f"- Patient ID: {patient.id}",
+                ""
+            ]
+
+            if records:
+                context_parts.append(f"Medical Records ({len(records)} total):")
+                for i, record in enumerate(records, 1):
+                    context_parts.append(f"\n--- Record {i} ({record.record_type.upper()}) ---")
+                    context_parts.append(f"Date: {record.created_at.strftime('%Y-%m-%d')}")
+                    if record.summary:
+                        context_parts.append(f"Summary: {record.summary}")
+                    if record.record_type == "text" and record.content:
+                        content = record.content[:2000] + "..." if len(record.content) > 2000 else record.content
+                        context_parts.append(f"Content:\n{content}")
+                    elif record.record_type in ["image", "pdf"]:
+                        context_parts.append(f"File: {os.path.basename(record.content)}")
+            else:
+                context_parts.append("No medical records available.")
+
+            patient_context = "\n".join(context_parts)
+
+            prompt = f"""Based on the following patient information and medical records, generate a comprehensive AI Health Summary.
+
+{patient_context}
+
+---
+
+Please generate a well-structured health summary in Markdown format that includes:
+1. **Overall Health Status** - A brief assessment of the patient's current health state
+2. **Key Health Indicators** - Important metrics and their status (if available from records)
+3. **Active Concerns** - Any ongoing health issues or concerns noted in records
+4. **Medical History Highlights** - Key points from the patient's medical history
+5. **Preventive Care Status** - Status of screenings and preventive measures (if mentioned)
+6. **Recommendations** - Suggested next steps or follow-up actions
+
+If there is limited information available, acknowledge this and provide what summary is possible based on available data.
+Be concise but thorough. Use bullet points and clear formatting."""
+
+            agent = get_agent()
+            stream = await agent.process_message(user_message=prompt, stream=True, chat_history=[])
+
+            summary_processor = StreamProcessor()
+            async for event in summary_processor.process(stream):
+                if isinstance(event, dict) and event.get("type") == "content":
+                    chunk_count += 1
+                    summary_content = summary_processor.result.content
+
+                    content_key = f"patient:health_summary:{patient_id}:content"
+                    await redis_client.set(content_key, summary_content, ex=3600)
+                    await redis_client.publish(channel, json.dumps({"type": "chunk", "content": event["content"]}))
+
+                    time_since_last_save = (datetime.now(UTC) - last_save_time).total_seconds()
+                    if time_since_last_save >= SAVE_INTERVAL_SECONDS or chunk_count >= SAVE_CHUNK_THRESHOLD:
+                        try:
+                            result = await db.execute(select(Patient).where(Patient.id == patient_id))
+                            patient = result.scalar_one_or_none()
+                            if patient:
+                                patient.health_summary = summary_content
+                                patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                                await db.commit()
+                            last_save_time = datetime.now(UTC)
+                            chunk_count = 0
+                        except Exception as save_ex:
+                            logger.error(f"Incremental save failed for patient {patient_id}: {save_ex}")
+
+                elif isinstance(event, dict) and event.get("type") in ("tool_call", "tool_result", "log"):
+                    await redis_client.publish(channel, json.dumps(event))
+
+            summary_content = summary_processor.result.content
+
+        async with AsyncSessionLocal() as final_db:
+            result = await final_db.execute(select(Patient).where(Patient.id == patient_id))
+            patient = result.scalar_one_or_none()
+            if patient:
+                patient.health_summary = summary_content
+                patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                patient.health_summary_status = "completed"
+                await final_db.commit()
+
+        await redis_client.publish(channel, json.dumps({"type": "done"}))
+        await redis_client.delete(f"patient:health_summary:{patient_id}:content")
+
+    except Exception as e:
+        save_error = e
+        logger.error(f"Error generating health summary for patient {patient_id}: {e}", exc_info=True)
+        try:
+            async with AsyncSessionLocal() as error_db:
+                result = await error_db.execute(select(Patient).where(Patient.id == patient_id))
+                patient = result.scalar_one_or_none()
+                if patient:
+                    if summary_content:
+                        patient.health_summary = summary_content
+                        patient.health_summary_updated_at = datetime.now(UTC).replace(tzinfo=None)
+                    patient.health_summary_status = "error"
+                    await error_db.commit()
+                await redis_client.delete(f"patient:health_summary:{patient_id}:content")
+                await redis_client.publish(channel, json.dumps({"type": "error", "message": str(e)}))
+        except Exception as final_error:
+            logger.error(f"Failed to save error state for patient {patient_id}: {final_error}", exc_info=True)
+
+    finally:
+        await redis_client.aclose()
 
 
 @router.get("/api/patients/{patient_id}/summary-stream")

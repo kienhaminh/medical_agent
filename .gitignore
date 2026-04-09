@@ -69,3 +69,6 @@ config/local.yaml
 uploads/
 segmentation-mcp/
 video/
+mock
+
+*.db

@@ -2,6 +2,7 @@
 import pytest
 from datetime import date
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from src.models import Patient, MedicalRecord
 
@@ -66,10 +67,10 @@ async def test_delete_patient(db_session, sample_patient):
 async def test_patient_records_relationship(db_session, sample_patient, sample_medical_record):
     """Test patient to medical records relationship."""
     result = await db_session.execute(
-        select(Patient).where(Patient.id == sample_patient.id)
+        select(Patient).where(Patient.id == sample_patient.id).options(selectinload(Patient.records))
     )
     patient = result.scalar_one()
-    
+
     # Check that patient has records
     assert len(patient.records) >= 1
     assert patient.records[0].content == "Patient reports headaches"

@@ -61,3 +61,33 @@ def public_url_from_filesystem_path(path_str: str) -> str | None:
         return public_url_for_rel(str(rel).replace("\\", "/"))
     except (ValueError, OSError):
         return None
+
+
+def normalize_docker_urls(obj: object) -> object:
+    """Recursively rewrite host.docker.internal URLs to the public uploads base.
+
+    The segmentation MCP container stores artifact URLs using its own
+    PUBLIC_UPLOAD_BASE_URL (typically http://host.docker.internal:8000/uploads).
+    Browsers cannot resolve that hostname, so we rewrite them to the equivalent
+    public URL before returning data to clients.
+    """
+    import re
+
+    _DOCKER_INTERNAL_RE = re.compile(
+        r"https?://host\.docker\.internal(?::\d+)?/uploads(/[^\s\"']*)"
+    )
+
+    def _rewrite(s: str) -> str:
+        # group(1) is everything after /uploads, e.g. /patients/1/foo.jpg
+        # public_uploads_base() already ends with /uploads
+        return _DOCKER_INTERNAL_RE.sub(
+            lambda m: public_uploads_base() + m.group(1), s
+        )
+
+    if isinstance(obj, str):
+        return _rewrite(obj)
+    if isinstance(obj, dict):
+        return {k: normalize_docker_urls(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [normalize_docker_urls(item) for item in obj]
+    return obj

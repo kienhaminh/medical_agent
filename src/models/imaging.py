@@ -2,9 +2,12 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+# Use JSONB on PostgreSQL for indexing support; fall back to JSON on SQLite (tests)
+_JSONB = JSON().with_variant(JSONB(), "postgresql")
 
 from .base import Base
 
@@ -28,7 +31,9 @@ class Imaging(Base):
     # Original .nii.gz file sent to the MCP segmentation server
     original_url: Mapped[str] = mapped_column(Text)
     # Full JSON payload returned by the segmentation MCP (null until segmentation runs)
-    segmentation_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    segmentation_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(_JSONB, nullable=True)
+    # Axial slice index used for the segmentation overlay (-1 = not yet set / auto-select)
+    slice_index: Mapped[Optional[int]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="imaging")

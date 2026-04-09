@@ -86,7 +86,7 @@ async def seeded_client(auth_db):
         password_hash=hash_password("pass123"),
         name="Dr. Test",
         role="doctor",
-        department="Cardiology",
+        department="neurology",
     )
     auth_db.add(user)
     await auth_db.commit()
@@ -113,7 +113,7 @@ async def test_login_success(seeded_client):
     assert data["user"]["username"] == "testdoc"
     assert data["user"]["name"] == "Dr. Test"
     assert data["user"]["role"] == "doctor"
-    assert data["user"]["department"] == "Cardiology"
+    assert data["user"]["department"] == "neurology"
 
 
 @pytest.mark.asyncio

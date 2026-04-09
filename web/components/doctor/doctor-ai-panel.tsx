@@ -1,101 +1,134 @@
 "use client";
 
-import React, { RefObject, useEffect, useRef, useState } from "react";
-import { Sparkles, GripVertical, Lightbulb, MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { AiInsightsMode } from "./ai-insights-mode";
+import React, { RefObject, useEffect, useReducer, useRef, useState } from "react";
+import { Sparkles, GripVertical, ChevronLeft } from "lucide-react";
 import { AiChatMode } from "./ai-chat-mode";
 import type { AgentActivity, Message } from "@/types/agent-ui";
-import type { WSEvent } from "@/lib/ws-events";
 
-type AiMode = "insights" | "chat";
+const COLLAPSE_THRESHOLD = 240;
+const DEFAULT_WIDTH = 420;
+const MAX_WIDTH = 800;
 
 interface DoctorAiPanelProps {
-  // Chat props
   messages: Message[];
-  input: string;
-  setInput: (input: string) => void;
   isLoading: boolean;
   currentActivity?: AgentActivity | null;
   activityDetails?: string;
-  handleSendMessage: (e: React.FormEvent) => void;
+  handleSendMessage: (message: string) => void;
   messagesEndRef: RefObject<HTMLDivElement | null>;
-
-  // Insights props
-  wsEvents: WSEvent[];
-
-  // Panel props
   patientName?: string;
-  width: number;
-  setWidth: (width: number) => void;
-  isResizing: boolean;
-  setIsResizing: (isResizing: boolean) => void;
   onResetChat?: () => void;
+  onStopAgent?: () => void;
+  visitId?: number;
+  onTranscribed?: (text: string) => void;
 }
-
-const MODE_TABS: { key: AiMode; label: string; icon: typeof Lightbulb }[] = [
-  { key: "insights", label: "Insights", icon: Lightbulb },
-  { key: "chat", label: "Chat", icon: MessageSquare },
-];
 
 export function DoctorAiPanel({
   messages,
-  input,
-  setInput,
   isLoading,
   currentActivity,
   activityDetails,
   handleSendMessage,
   messagesEndRef,
-  wsEvents,
   patientName,
-  width,
-  setWidth,
-  isResizing,
-  setIsResizing,
   onResetChat,
+  onStopAgent,
+  visitId,
+  onTranscribed,
 }: DoctorAiPanelProps) {
-  const [activeMode, setActiveMode] = useState<AiMode>("insights");
+  const [collapsed, setCollapsed] = useState(false);
+  // forceUpdate syncs React after drag ends — width lives in a ref during drag
+  const [, forceUpdate] = useReducer((x) => x + 1, 0);
+
   const panelRef = useRef<HTMLDivElement>(null);
-  const dragAnchorRef = useRef<number>(0);
+  const isResizingRef = useRef(false);
+  const dragAnchorRef = useRef(0);
+  // Source of truth for width — ref avoids React state updates every pixel
+  const widthRef = useRef(DEFAULT_WIDTH);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
-  // Capture right edge at drag start
-  const handleResizeStart = () => {
-    if (panelRef.current) {
-      dragAnchorRef.current = panelRef.current.getBoundingClientRect().right;
-    }
-    setIsResizing(true);
-  };
-
-  // Resize logic
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-      const nw = dragAnchorRef.current - e.clientX;
-      if (nw >= 300 && nw <= 800) setWidth(nw);
+    const cleanupDrag = () => {
+      isResizingRef.current = false;
+      overlayRef.current?.remove();
+      overlayRef.current = null;
+      if (panelRef.current) panelRef.current.style.willChange = "";
     };
-    const onUp = () => setIsResizing(false);
-    if (isResizing) {
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-    }
+
+    const onMove = (e: MouseEvent) => {
+      if (!isResizingRef.current || !panelRef.current) return;
+      const nw = dragAnchorRef.current - e.clientX;
+      if (nw < COLLAPSE_THRESHOLD) {
+        cleanupDrag();
+        widthRef.current = DEFAULT_WIDTH;
+        panelRef.current.style.width = `${DEFAULT_WIDTH}px`;
+        setCollapsed(true);
+        forceUpdate();
+        return;
+      }
+      if (nw <= MAX_WIDTH) {
+        widthRef.current = nw;
+        // Direct DOM mutation — zero React renders during drag
+        panelRef.current.style.width = `${nw}px`;
+      }
+    };
+
+    const onUp = () => {
+      if (!isResizingRef.current) return;
+      cleanupDrag();
+      // One re-render to commit final width into React's vdom
+      forceUpdate();
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
     return () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
-  }, [isResizing, setWidth, setIsResizing]);
+  }, []);
 
-  // Switch to chat mode when user asks AI from insights
-  const handleAskAi = (question: string) => {
-    setInput(question);
-    setActiveMode("chat");
+  const handleResizeStart = () => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    dragAnchorRef.current = panel.getBoundingClientRect().right;
+    panel.style.willChange = "width";
+
+    // Full-page overlay: captures all mouse events, prevents hover-state
+    // recalculations on all content, and keeps ew-resize cursor everywhere.
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;cursor:ew-resize;";
+    document.body.appendChild(overlay);
+    overlayRef.current = overlay;
+
+    isResizingRef.current = true;
   };
+
+  if (collapsed) {
+    return (
+      <div
+        className="relative flex flex-col h-full border-l border-border/50 shrink-0 w-10 bg-card/25 items-center justify-center group cursor-pointer"
+        onClick={() => setCollapsed(false)}
+        title="Show AI Assistant"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 rounded-md bg-primary/15 border border-primary/25 flex items-center justify-center">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <ChevronLeft className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={panelRef}
+      // widthRef.current is always the correct drag width — if a parent
+      // re-renders during drag this renders the right value, not stale state
+      style={{ width: widthRef.current }}
       className="relative flex flex-col h-full border-l border-border/50 overflow-hidden shrink-0 bg-card/25"
-      style={{ width }}
     >
       {/* ambient glow */}
       <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-primary/6 blur-3xl z-0" />
@@ -104,7 +137,8 @@ export function DoctorAiPanel({
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-[0.025]"
         style={{
-          backgroundImage: "radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)",
+          backgroundImage:
+            "radial-gradient(circle, hsl(var(--foreground)) 1px, transparent 1px)",
           backgroundSize: "20px 20px",
         }}
       />
@@ -123,13 +157,18 @@ export function DoctorAiPanel({
       {/* Header */}
       <div
         className="relative z-10 shrink-0 flex items-center justify-between px-4 h-14 border-b border-border/50"
-        style={{ background: "linear-gradient(90deg, hsl(var(--primary)/0.07) 0%, transparent 70%)" }}
+        style={{
+          background:
+            "linear-gradient(90deg, hsl(var(--primary)/0.07) 0%, transparent 70%)",
+        }}
       >
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-primary/15 border border-primary/25 flex items-center justify-center">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="text-sm font-semibold tracking-wide">AI Assistant</span>
+          <span className="text-sm font-semibold tracking-wide">
+            AI Assistant
+          </span>
         </div>
 
         {patientName && (
@@ -142,46 +181,21 @@ export function DoctorAiPanel({
         )}
       </div>
 
-      {/* Mode tabs */}
-      <div className="relative z-10 shrink-0 flex border-b border-border/50">
-        {MODE_TABS.map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveMode(key)}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors",
-              activeMode === key
-                ? "text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Mode content */}
+      {/* Chat */}
       <div className="relative z-10 flex-1 min-h-0 flex flex-col">
-        {activeMode === "insights" && (
-          <AiInsightsMode
-            onAskAi={handleAskAi}
-          />
-        )}
-
-        {activeMode === "chat" && (
-          <AiChatMode
-            messages={messages}
-            input={input}
-            setInput={setInput}
-            isLoading={isLoading}
-            currentActivity={currentActivity}
-            activityDetails={activityDetails}
-            handleSendMessage={handleSendMessage}
-            messagesEndRef={messagesEndRef}
-            onResetChat={onResetChat}
-          />
-        )}
+        <AiChatMode
+          messages={messages}
+          isLoading={isLoading}
+          currentActivity={currentActivity}
+          activityDetails={activityDetails}
+          handleSendMessage={handleSendMessage}
+          onStopAgent={onStopAgent}
+          messagesEndRef={messagesEndRef}
+          onResetChat={onResetChat}
+          hasPatient={!!patientName}
+          visitId={visitId}
+          onTranscribed={onTranscribed}
+        />
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-"""Consolidated idempotent seed — 10 patients with full clinical data.
+"""Consolidated idempotent seed — demo patients with full clinical data.
 
 Run:
     python -m scripts.db.seed.seed
@@ -6,6 +6,8 @@ Run:
 Idempotent: safe to run multiple times. Skips patients that already exist
 (matched by name + dob). Clears and re-seeds clinical data (allergies,
 medications, vitals, records, visits, imaging) for existing patients on each run.
+
+Also upserts the `doctor` demo user (neurology) so login matches neurology queue seed data.
 """
 import asyncio
 import logging
@@ -25,6 +27,8 @@ from src.models.vital_sign import VitalSign
 from src.models.visit import Visit, VisitStatus
 from src.models.chat import ChatSession
 from src.models.imaging import Imaging
+from src.models.user import User
+from src.utils.auth import hash_password
 from src.utils.upload_storage import local_path_from_public_url, public_url_for_rel, upload_root
 
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +70,78 @@ DEFAULT_BRATS_IMAGING = [
         "source_volume": "uploads/patients/369/brats369_flair.nii.gz",
         "preview_filename": "brats369_flair_preview.jpg",
         "volume_filename": "brats369_flair.nii.gz",
+    },
+]
+
+# BraTS20 Training 001 — 3 modalities (t1, t1ce, t2); used for Marcus Lindstrom (epilepsy/MTS).
+BRATS_001_IMAGING = [
+    {
+        "title": "BraTS20 Training 001 — T1",
+        "image_type": "t1",
+        "source_preview": "uploads/patients/001/brats001_t1_preview.jpg",
+        "source_volume": "uploads/patients/001/brats001_t1.nii.gz",
+        "preview_filename": "brats001_t1_preview.jpg",
+        "volume_filename": "brats001_t1.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 001 — T1CE",
+        "image_type": "t1ce",
+        "source_preview": "uploads/patients/001/brats001_t1ce_preview.jpg",
+        "source_volume": "uploads/patients/001/brats001_t1ce.nii.gz",
+        "preview_filename": "brats001_t1ce_preview.jpg",
+        "volume_filename": "brats001_t1ce.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 001 — T2",
+        "image_type": "t2",
+        "source_preview": "uploads/patients/001/brats001_t2_preview.jpg",
+        "source_volume": "uploads/patients/001/brats001_t2.nii.gz",
+        "preview_filename": "brats001_t2_preview.jpg",
+        "volume_filename": "brats001_t2.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 001 — FLAIR",
+        "image_type": "flair",
+        "source_preview": "uploads/patients/001/brats001_flair_preview.jpg",
+        "source_volume": "uploads/patients/001/brats001_flair.nii.gz",
+        "preview_filename": "brats001_flair_preview.jpg",
+        "volume_filename": "brats001_flair.nii.gz",
+    },
+]
+
+# BraTS20 Training 002 — 4 modalities; used for Ahmed Hassan (Alzheimer's/neurology).
+BRATS_002_IMAGING = [
+    {
+        "title": "BraTS20 Training 002 — T1",
+        "image_type": "t1",
+        "source_preview": "uploads/patients/002/brats002_t1_preview.jpg",
+        "source_volume": "uploads/patients/002/brats002_t1.nii.gz",
+        "preview_filename": "brats002_t1_preview.jpg",
+        "volume_filename": "brats002_t1.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 002 — T1CE",
+        "image_type": "t1ce",
+        "source_preview": "uploads/patients/002/brats002_t1ce_preview.jpg",
+        "source_volume": "uploads/patients/002/brats002_t1ce.nii.gz",
+        "preview_filename": "brats002_t1ce_preview.jpg",
+        "volume_filename": "brats002_t1ce.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 002 — T2",
+        "image_type": "t2",
+        "source_preview": "uploads/patients/002/brats002_t2_preview.jpg",
+        "source_volume": "uploads/patients/002/brats002_t2.nii.gz",
+        "preview_filename": "brats002_t2_preview.jpg",
+        "volume_filename": "brats002_t2.nii.gz",
+    },
+    {
+        "title": "BraTS20 Training 002 — FLAIR",
+        "image_type": "flair",
+        "source_preview": "uploads/patients/002/brats002_flair_preview.jpg",
+        "source_volume": "uploads/patients/002/brats002_flair.nii.gz",
+        "preview_filename": "brats002_flair_preview.jpg",
+        "volume_filename": "brats002_flair.nii.gz",
     },
 ]
 
@@ -117,6 +193,15 @@ O: BP 125/80. Weight 79.8kg. Peripheral pulses intact. Monofilament sensation in
 A: T2DM well-controlled. No micro/macrovascular complications identified.
 P: Continue current regimen. Fasting lipids, HbA1c, U&E in 3 months. Annual diabetic eye screen completed. Flu vaccine administered.""",
                 "created_at_offset_days": 30,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — initial T2DM diagnosis (handover)",
+                "content": """S: Initial presentation 2020 with fatigue, polydipsia, weight loss. Random glucose 14.2 mmol/L.
+O: HbA1c 9.1%. BMI 30. No ketonaemia. Fundoscopy normal at diagnosis.
+A: New T2DM — symptomatic hyperglycaemia.
+P: Metformin started and uptitrated. Dietitian and annual complication screening arranged.""",
+                "created_at_offset_days": 420,
             },
         ],
         "visit": {
@@ -173,14 +258,27 @@ A: 10-year CVD risk 18% (QRISK3). Hypertension not at target. Mild CKD precursor
 P: Intensify antihypertensive. Target BP <130/80. DASH diet. Reduce alcohol. Repeat ACR in 6 months.""",
                 "created_at_offset_days": 60,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior review — routine hypertension monitoring (GP)",
+                "content": """S: Mateo reports good adherence to medications. Home BP diary: average 142/88 over 2 weeks before today's review. No chest pain, leg swelling, or visual disturbance.
+O: Clinic BP 146/90 (day 1 of diary period). eGFR 74, K+ 4.2. No proteinuria on dipstick.
+A: Essential hypertension — suboptimal control on dual therapy prior to recent uptitration.
+P: Optimise lifestyle weight 2kg target. Repeat ambulatory BP if clinic-office disparity persists. Cardiology co-care if LV strain progresses on ECG.""",
+                "created_at_offset_days": 365,
+            },
         ],
         "visit": {
-            "status": VisitStatus.AUTO_ROUTED,
+            "status": VisitStatus.IN_DEPARTMENT,
             "chief_complaint": "Morning headaches and elevated home BP readings",
             "urgency_level": "routine",
+            "current_department": "internal_medicine",
+            "assigned_doctor": "Dr. Patel",
+            "clinical_notes": "Stage 2 hypertension workup under Internal Medicine. Antihypertensive titration and CV risk review. Brain MRI sample imaging linked for portal demo.",
             "routing_suggestion": [{"department": "cardiology", "confidence": 0.88}],
             "confidence": 0.88,
         },
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "Eleanor Price",
@@ -225,6 +323,15 @@ O: BP 118/74. Affect subdued but appropriate. PHQ-9 score 11 (moderate depressio
 A: CIPN stable. Moderate depression on background of bereavement. Duloxetine provides dual benefit (neuropathy + mood).
 P: Uptitrate duloxetine to 90mg if tolerated. Refer to psychology/grief counselling. Safety net: emergency contact arranged.""",
                 "created_at_offset_days": 14,
+            },
+            {
+                "record_type": "text",
+                "summary": "Oncology survivorship — year 3 post-mastectomy review",
+                "content": """S: Routine oncology review three years after completing FEC-T and radiotherapy. Reports mild arthralgia on anastrozole but tolerating treatment.
+O: Examination unremarkable. Tumour markers within institutional normal range. Bone density: osteopenia noted — calcium and vitamin D started.
+A: Hormone-sensitive breast cancer — adjuvant endocrine therapy ongoing without recurrence signals.
+P: Continue anastrozole. Routine mammographic surveillance. Rheumatology symptoms monitored.""",
+                "created_at_offset_days": 400,
             },
         ],
         "visit": {
@@ -274,6 +381,15 @@ O: PEFR 82% predicted. Spirometry: FEV1/FVC 0.74 (mild obstruction), post-bronch
 A: Moderate persistent asthma — partially controlled on ICS/LABA. Consider biologics if further exacerbations.
 P: Add montelukast 10mg ON. Allergen avoidance advice. Written asthma action plan updated. Refer to respiratory if two further exacerbations this year.""",
                 "created_at_offset_days": 90,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior exacerbation — short oral steroid course (winter)",
+                "content": """S: Viral-triggered exacerbation; increased reliever use and night waking with wheeze.
+O: PEFR 64% predicted; moderate airflow obstruction on spirometry.
+A: Moderate exacerbation — viral trigger.
+P: Five-day prednisolone reducing course; spacer technique review; written action plan updated.""",
+                "created_at_offset_days": 300,
             },
         ],
         "visit": {
@@ -330,6 +446,15 @@ A: GOLD Stage III COPD — severe, poorly controlled. Candidate for pulmonary re
 P: Refer pulmonary rehab. Flu + pneumococcal vaccine. Long-term O2 assessment: ambulatory O2 trial. Consider referral to thoracic surgery for emphysema assessment.""",
                 "created_at_offset_days": 60,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior admission — COPD infective exacerbation (previous year)",
+                "content": """S: Three-day worsening purulent sputum and exertional dyspnoea; increased home nebuliser use.
+O: SpO2 90% on air; infective AECOPD; CXR exclude pneumonia.
+A: AECOPD — likely bacterial trigger.
+P: Oral antibiotics + steroid; oxygen as needed; early supported discharge after clinical improvement.""",
+                "created_at_offset_days": 380,
+            },
         ],
         "visit": {
             "status": VisitStatus.IN_DEPARTMENT,
@@ -384,6 +509,15 @@ O: BP 152/94. Pitting oedema ankles +2. Pallor. Urine ACR 185 mg/mmol. Renal USS
 A: CKD Stage 3b progressing toward Stage 4. Diabetic nephropathy likely aetiology. Anaemia of CKD on EPO.
 P: Strict BP control target <130/80. Metformin ceased (eGFR <30). Maximise ACE inhibitor. Nephrology co-management. Prepare for renal replacement therapy counselling if eGFR <20.""",
                 "created_at_offset_days": 30,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior review — T2DM annual review (pre-ulcer)",
+                "content": """S: Routine diabetes review. No foot concerns documented at that visit.
+O: Monofilament intact; pedal pulses palpable; HbA1c 8.4%.
+A: T2DM with suboptimal glycaemia; no active foot ulcer.
+P: Intensify glucose-lowering strategy; annual foot check reinforced.""",
+                "created_at_offset_days": 200,
             },
         ],
         "visits": [
@@ -444,6 +578,15 @@ A: GAD — good partial response to sertraline. Residual symptoms manageable.
 P: Continue sertraline 100mg. CBT referral pending — expedite. Mindfulness app recommended. Review in 6 months or sooner if relapse.""",
                 "created_at_offset_days": 60,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — GAD diagnosis and initial SSRI trial",
+                "content": """S: Six-month history of worry, restlessness, sleep disturbance; panic symptoms triggered by exams.
+O: PHQ-9/GAD-7 consistent with generalized anxiety; physical exam and baseline bloods unremarkable.
+A: Generalized anxiety disorder — first presentation.
+P: Fluoxetine trialled then switched after intolerance; sertraline initiated with psychology referral.""",
+                "created_at_offset_days": 350,
+            },
         ],
         "visit": {
             "status": VisitStatus.COMPLETED,
@@ -497,6 +640,15 @@ O: Device interrogation: DDD pacemaker. Battery: 3.2 years remaining. 95% ventri
 A: Pacemaker functioning normally. HFrEF stable on guideline-directed therapy.
 P: Next device check 12 months. Continue current heart failure regime. CRT-D upgrade to consider at next device replacement.""",
                 "created_at_offset_days": 60,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior clinic — stable chronic HFrEF (elective review)",
+                "content": """S: Scheduled follow-up; reports NYHA class II symptoms on GDMT; no recent admissions.
+O: Weight stable; JVP mildly elevated; echo LVEF 26-28% unchanged from prior year.
+A: Chronic HFrEF — compensated on oral therapy.
+P: Continue sacubitril/valsartan, beta-blocker, MRA; daily weights and fluid restriction education.""",
+                "created_at_offset_days": 330,
             },
         ],
         "visit": {
@@ -552,6 +704,15 @@ A: Chronic migraine — partially responsive to topiramate. Cognitive side effec
 P: Switch to propranolol 80mg BD as alternative prophylaxis. Taper topiramate over 4 weeks. Maintain sumatriptan PRN. Botox referral if >2 more severe episodes on propranolol.""",
                 "created_at_offset_days": 14,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior episode — acute cholecystitis admission summary",
+                "content": """S: RUQ pain, fever, positive Murphy's sign; ultrasound gallstones with wall thickening.
+O: Laparoscopic cholecystectomy performed without immediate complication.
+A: Acute calculous cholecystitis — surgical management.
+P: Post-op wound care and low-fat diet advice; surgical follow-up arranged.""",
+                "created_at_offset_days": 270,
+            },
         ],
         "visit": {
             "status": VisitStatus.ROUTED,
@@ -601,6 +762,15 @@ A: Successful smoking cessation — 6 months sustained abstinence. Weight gain e
 P: Step down to nicotine patch 7mg for 4 weeks then stop. HEPA filter at home recommended (air quality). Continue annual nodule surveillance. Dietary advice for weight management.""",
                 "created_at_offset_days": 120,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior review — smoking cessation initiation visit",
+                "content": """S: Motivated to quit; long-standing 30+ pack-year history; prior failed cold-turkey attempts.
+O: CO verification baseline elevated; discussed pharmacotherapy options and relapse prevention.
+A: Tobacco use disorder — preparing to quit.
+P: Varenicline course planned with nursing support; low-dose CT surveillance discussed.""",
+                "created_at_offset_days": 500,
+            },
         ],
         "visit": {
             "status": VisitStatus.PENDING_REVIEW,
@@ -640,6 +810,15 @@ A: Suboptimal thyroid replacement — TSH still elevated. Iron deficiency improv
 P: Increase levothyroxine to 100mcg. Recheck TSH/fT4 in 6 weeks. Continue iron.""",
                 "created_at_offset_days": 30,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — Hashimoto's diagnosis and starting levothyroxine",
+                "content": """S: Fatigue, weight gain, dry skin; family history of autoimmune thyroid disease.
+O: TSH elevated with low-normal fT4; anti-TPO positive; USS thyroid heterogeneous.
+A: Primary hypothyroidism — likely autoimmune (Hashimoto's).
+P: Levothyroxine starter dose; repeat thyroid function in 8 weeks; patient counselling on adherence.""",
+                "created_at_offset_days": 480,
+            },
         ],
         "visit": {
             "status": VisitStatus.INTAKE,
@@ -676,12 +855,26 @@ A: Acute gout flare — classic presentation. No joint aspiration needed given p
 P: Colchicine 0.5mg TDS for 3 days then BD. Naproxen avoided (renal function). Paracetamol 1g QDS. Ice. Elevate. Dietary counselling reinforced.""",
                 "created_at_offset_days": 0,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior review — chronic gout on urate-lowering therapy (stable period)",
+                "content": """S: No flares for 6 months on febuxostat; alcohol moderated; dietary advice reinforced.
+O: Serum urate approaching target; renal function stable on last labs.
+A: Chronic gout — good interval control.
+P: Continue febuxostat; maintain colchicine prophylaxis during urate shifts; primary care co-monitoring.""",
+                "created_at_offset_days": 240,
+            },
         ],
         "visit": {
-            "status": VisitStatus.INTAKE,
+            "status": VisitStatus.IN_DEPARTMENT,
             "chief_complaint": "Sudden severe right toe pain and swelling — gout flare",
             "urgency_level": "urgent",
+            "current_department": "internal_medicine",
+            "assigned_doctor": "Dr. Patel",
+            "clinical_notes": "Acute gout flare under Internal Medicine. Analgesia and acute colchicine course. Sample MRI set linked for imaging tab demo.",
+            "confidence": 0.87,
         },
+        "imaging": DEFAULT_BRATS_IMAGING,
     },
     {
         "name": "Fatima Al-Rashid",
@@ -709,6 +902,15 @@ O: BP 120/76. HbA1c 7.4% (prev 7.8%). CGM download: time in range 68%, time belo
 A: T1DM — improving control. Nocturnal hypos from basal over-delivery. Background retinopathy stable.
 P: Reduce overnight basal 02:00-05:00 by 15%. Target TIR >70%. Annual retinopathy screen completed. Continue dapagliflozin. Recheck HbA1c in 3 months.""",
                 "created_at_offset_days": 0,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior review — insulin pump start education (year 0)",
+                "content": """S: MDI with recurrent hypoglycaemia and variable control; keen on pump + CGM bundle.
+O: Carb counting competencies assessed; basal-bolus concepts reviewed; hypoglycaemia safety netting.
+A: T1DM — candidate for technology upgrade.
+P: Pump initiation with specialist nurse; follow-up downloads at 2 and 6 weeks.""",
+                "created_at_offset_days": 400,
             },
         ],
         "visit": {
@@ -746,6 +948,15 @@ A: BPH — good response to combination therapy. IPSS moderate range.
 P: Continue current regimen. Discuss libido with patient — consider PDE5 inhibitor if bothersome. Repeat PSA + IPSS in 6 months. Urology referral if symptoms plateau.""",
                 "created_at_offset_days": 14,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — initial BPH diagnosis and tamsulosin start",
+                "content": """S: LUTS with weak stream and nocturia affecting sleep; PVR initially elevated on bladder scan.
+O: DRE consistent with benign enlargement; PSA in age-appropriate range.
+A: Benign prostatic hyperplasia — moderate symptoms.
+P: Alpha-blocker initiated; finasteride added later for gland volume; safety-net for retention.""",
+                "created_at_offset_days": 300,
+            },
         ],
         "visit": {
             "status": VisitStatus.AUTO_ROUTED,
@@ -779,6 +990,15 @@ O: Anterior rhinoscopy: bilateral turbinate hypertrophy, pale mucosa, clear secr
 A: Moderate-severe allergic rhinitis with eustachian tube dysfunction. Not responding to first-line treatment.
 P: Skin prick allergy testing. Add montelukast 10mg. Consider immunotherapy if allergens confirmed. Audiology referral for hearing assessment.""",
                 "created_at_offset_days": 0,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — allergic rhinitis first-line treatment start",
+                "content": """S: Seasonal and perennial nasal symptoms; trial of oral antihistamine alone insufficient.
+O: Examination compatible with allergic rhinitis without acute sinusitis.
+A: Allergic rhinitis — moderate symptoms.
+P: Intranasal corticosteroid plus second-generation antihistamine; trigger avoidance advice.""",
+                "created_at_offset_days": 250,
             },
         ],
         "visit": {
@@ -819,6 +1039,15 @@ A: NSTEMI vs unstable angina — high risk (GRACE score 142). Known 2-vessel CAD
 P: Aspirin 300mg loading. Fondaparinux 2.5mg SC. IV morphine for pain. Repeat troponin at 3h. Cardiology urgent — probable angiogram within 72 hours. Bed rest. Continuous monitoring.""",
                 "created_at_offset_days": 1,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior clinic — stable angina on medical therapy (elective)",
+                "content": """S: Class II exertional angina controlled on aspirin, beta-blocker, ARB; statin abandoned due to intolerance — ezetimibe substituted.
+O: ECG without acute ischaemia at routine visit; review of GTN use and activity limits.
+A: Chronic coronary disease — clinically stable interval.
+P: Risk factor modification; continue antianginal regimen; rapid-access chest pain advice reiterated.""",
+                "created_at_offset_days": 320,
+            },
         ],
         "visit": {
             "status": VisitStatus.IN_DEPARTMENT,
@@ -853,6 +1082,15 @@ A: Moderate-severe acne vulgaris — treatment-resistant to conventional therapy
 P: Refer dermatology for isotretinoin consideration. Baseline bloods: FBC, LFTs, lipids, pregnancy test. Contraception counselling (isotretinoin teratogenic). Continue OCP.""",
                 "created_at_offset_days": 0,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — moderate acne on topical regimen",
+                "content": """S: Papulopustular facial acne with intermittent flares; distress regarding scarring risk.
+O: Comedones and inflammatory lesions without deep nodules at that visit.
+A: Acne vulgaris — moderate severity on topical therapy.
+P: Topical retinoid + benzoyl peroxide; OCP continuation; review in 3 months.""",
+                "created_at_offset_days": 220,
+            },
         ],
         "visit": {
             "status": VisitStatus.TRIAGED,
@@ -885,6 +1123,15 @@ O: Repeat OGD: gastric antral ulcer healing — 0.5cm residual with clean base. 
 A: Gastric ulcer — healing well post H. pylori eradication. Eradication confirmed.
 P: Continue PPI 8 more weeks. Repeat OGD in 8 weeks to confirm complete healing. Stop sucralfate when ulcer healed. Histology follow-up in 2 weeks.""",
                 "created_at_offset_days": 7,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior admission — acute upper GI bleed workup (negative for malignancy at index)",
+                "content": """S: Epigastric pain and coffee-ground emesis prompting ED assessment.
+O: OGD: antral ulcer with positive H. pylori; haemodynamically stable after PPI loading.
+A: Peptic ulcer disease — H. pylori positive.
+P: Triple eradication prescribed; sick-day rules; surgical and GP follow-up arranged.""",
+                "created_at_offset_days": 180,
             },
         ],
         "visit": {
@@ -925,6 +1172,15 @@ A: Active RA with radiographic progression despite adalimumab. DAS28 >5.1 = high
 P: Prednisolone burst 15mg taper over 6 weeks. Consider biologic switch to rituximab or JAK inhibitor. Rheumatology MDT discussion. Hand therapy referral.""",
                 "created_at_offset_days": 0,
             },
+            {
+                "record_type": "text",
+                "summary": "Prior review — RA diagnosis and first-line synthetic DMARD attempt",
+                "content": """S: Symmetric small-joint swelling with high inflammatory markers; early erosive change on X-ray.
+O: Seropositive RA confirmed; intolerance to MTX (cytopenia) documented; sulfasalazine stopped for hepatotoxicity.
+A: Seropositive rheumatoid arthritis — conventional DMARDs not tolerated.
+P: Biologic therapy commenced under rheumatology; hand therapy and vaccination review.""",
+                "created_at_offset_days": 450,
+            },
         ],
         "visit": {
             "status": VisitStatus.PENDING_REVIEW,
@@ -951,8 +1207,10 @@ P: Prednisolone burst 15mg taper over 6 weeks. Consider biologic switch to ritux
             {"name": "Rivastigmine patch", "dosage": "9.5mg/24h", "frequency": "once daily transdermal", "prescribed_by": "Dr. Santos", "start_date": date(2023, 6, 1), "end_date": date(2023, 8, 31)},
         ],
         "vitals": [
-            {"days_ago": 90, "systolic_bp": 138, "diastolic_bp": 78, "heart_rate": 68, "temperature": 36.3, "weight_kg": 72.0, "height_cm": 170.0, "oxygen_saturation": 96.0},
+            {"days_ago": 180, "systolic_bp": 142, "diastolic_bp": 82, "heart_rate": 70, "temperature": 36.4, "weight_kg": 73.0, "height_cm": 170.0, "oxygen_saturation": 96.0},
+            {"days_ago": 90, "systolic_bp": 138, "diastolic_bp": 78, "heart_rate": 68, "temperature": 36.3, "weight_kg": 72.0, "oxygen_saturation": 96.0},
             {"days_ago": 30, "systolic_bp": 140, "diastolic_bp": 80, "heart_rate": 66, "weight_kg": 70.5},
+            {"days_ago": 7, "systolic_bp": 137, "diastolic_bp": 77, "heart_rate": 65, "temperature": 36.2, "weight_kg": 70.0},
             {"days_ago": 0, "systolic_bp": 136, "diastolic_bp": 76, "heart_rate": 64, "temperature": 36.2, "weight_kg": 69.8},
         ],
         "records": [
@@ -965,15 +1223,135 @@ A: Moderate Alzheimer's — progressive decline on dual therapy. Caregiver distr
 P: Continue donepezil + memantine. Neurology review for progression. OT home safety assessment. Respite care referral for daughter. Advance care planning discussion initiated.""",
                 "created_at_offset_days": 0,
             },
+            {
+                "record_type": "text",
+                "summary": "MRI brain — structural imaging (clinic correspondence)",
+                "content": """INDICATION: dementia workup — rule out structural lesion / normal-pressure hydrocephalus.
+
+FINDINGS: Moderate global cortical atrophy disproportionate to age. Periventricular and deep white matter T2/FLAIR hyperintensities (Fazekas grade 2). No acute infarct. No mass. Ventricles mildly enlarged; Evan's index 0.29 — borderline; no transependymal oedema pattern to suggest acute shunt requirement.
+
+IMPRESSION: Changes compatible with neurodegenerative dementia; no surgical lesion. Correlate with CSF / PET biomarkers if diagnostic uncertainty remains.
+
+CLINICAL NOTE: Copy to neurology dementia MDT; discussed safe wandering strategies with family.""",
+                "created_at_offset_days": 14,
+            },
+            {
+                "record_type": "text",
+                "summary": "Neuro-behaviour management plan — BPSD",
+                "content": """S: Daughter reports 3-4 episodes/week of evening agitation with pacing; one low-energy fall last week (no injury). Bed rails increase distress.
+O: No focal deficit on abbreviated neuro exam. Gait narrow-based. No orthostatic hypotension today.
+A: Behavioural and psychological symptoms of dementia (BPSD) on background moderate AD. Fall risk.
+P: Structured daytime activity; light therapy mornings; avoid PRN benzodiazepines. Low-dose trazodone 25mg nocte trial if sleep fragmentation persists. Home OT for lighting, remove trip hazards. Falls clinic leaflet given.""",
+                "created_at_offset_days": 45,
+            },
+            {
+                "record_type": "text",
+                "summary": "Laboratory — metabolic screen (dementia workup)",
+                "content": """FBC: Hb 132, WCC 7.2, plt 210. U&E: Na 139, K 4.3, creatinine 88, eGFR 72. LFTs normal. B12 420, folate 18, TFTs TSH 1.8. HbA1c 5.6%. Ca 2.35.
+
+COMMENT: No reversible metabolic cause identified.""",
+                "created_at_offset_days": 60,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior memory clinic — mild cognitive impairment transition visit",
+                "content": """S: Family reports word-finding difficulty and missed appointments; patient acknowledges slowing thinking.
+O: MoCA borderline; baseline CT brain age-appropriate atrophy without acute lesion; baseline labs unremarkable.
+A: Cognitive impairment — mild; differentiate neurodegenerative vs reversible contributors.
+P: Baseline acetylcholinesterase inhibitor discussed for future progression; caregiver strain screening initiated.""",
+                "created_at_offset_days": 365,
+            },
         ],
         "visit": {
             "status": VisitStatus.IN_DEPARTMENT,
             "chief_complaint": "Memory decline, nocturnal wandering, caregiver unable to cope",
             "urgency_level": "urgent",
             "current_department": "neurology",
+            "assigned_doctor": "Dr. Sarah Chen",
+            "clinical_notes": "Moderate AD with BPSD. MRI reviewed — no surgical lesion. Safety and caregiver support plan in progress.",
             "confidence": 0.94,
         },
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": BRATS_002_IMAGING,
+    },
+    {
+        "name": "Marcus Lindstrom",
+        "dob": date(1964, 4, 2),
+        "gender": "male",
+        "allergies": [
+            {"allergen": "Carbamazepine", "reaction": "Stevens-Johnson syndrome", "severity": "severe", "recorded_at": date(2009, 8, 1)},
+        ],
+        "medications": [
+            {"name": "Levetiracetam", "dosage": "1000mg", "frequency": "twice daily", "prescribed_by": "Dr. Sarah Chen", "start_date": date(2024, 11, 1)},
+            {"name": "Lamotrigine", "dosage": "100mg", "frequency": "twice daily", "prescribed_by": "Dr. Sarah Chen", "start_date": date(2025, 1, 10)},
+            {"name": "Aspirin", "dosage": "75mg", "frequency": "once daily (stroke prevention)", "prescribed_by": "Dr. Patel", "start_date": date(2023, 4, 15)},
+        ],
+        "vitals": [
+            {"days_ago": 120, "systolic_bp": 128, "diastolic_bp": 78, "heart_rate": 68, "temperature": 36.4, "weight_kg": 82.0, "height_cm": 178.0, "oxygen_saturation": 97.0},
+            {"days_ago": 60, "systolic_bp": 126, "diastolic_bp": 76, "heart_rate": 66, "weight_kg": 81.2},
+            {"days_ago": 14, "systolic_bp": 124, "diastolic_bp": 74, "heart_rate": 64, "temperature": 36.5, "weight_kg": 80.8},
+            {"days_ago": 3, "systolic_bp": 122, "diastolic_bp": 72, "heart_rate": 72, "temperature": 36.6, "weight_kg": 80.5},
+            {"days_ago": 0, "systolic_bp": 120, "diastolic_bp": 72, "heart_rate": 70, "temperature": 36.5, "weight_kg": 80.4},
+        ],
+        "records": [
+            {
+                "record_type": "text",
+                "summary": "Focal epilepsy — clinic review post MRI",
+                "content": """S: Marcus Lindstrom, 62M, 6-month history of stereotyped episodes: 60-90s unresponsive staring + right hand automatisms, post-ictal confusion 10 minutes. No tongue bite. Nocturnal episode triggered referral. Prior TIA 2023 on aspirin. Carbamazepine contraindicated (documented SJS).
+
+O: Awake — alert, fluent. CN II-XII intact. Power 5/5. No lateralising signs today. EEG (outpatient): bilateral temporal slowing; rare left temporal epileptiform discharges.
+
+A: Focal impaired-awareness seizures — epilepsy likely temporal onset. On dual AED (levetiracetam + lamotrigine).
+
+P: Maintain levetiracetam 1g BD, lamotrigine 100mg BD. Driving DVLA notified. Safety counselling. Review in 3 months or sooner if clusters.""",
+                "created_at_offset_days": 0,
+            },
+            {
+                "record_type": "text",
+                "summary": "EEG report — ambulatory study",
+                "content": """CLINICAL DETAILS: suspected focal seizures.
+
+TECHNIQUE: 72-hour ambulatory EEG.
+
+FINDINGS: Background 8-9 Hz posterior rhythm. Intermittent left anterior temporal sharp waves during drowsiness. One electrographic seizure captured: rhythmic 5-6 Hz activity over left temporal region, 75s, with clinical correlate reported as staring — patient note taken by spouse.
+
+IMPRESSION: Left temporal onset epilepsy — supportive of clinical diagnosis.""",
+                "created_at_offset_days": 10,
+            },
+            {
+                "record_type": "text",
+                "summary": "MRI brain report — epilepsy protocol",
+                "content": """TECHNIQUE: Epilepsy protocol MRI 1.5T including coronal T2/FLAIR through hippocampi.
+
+FINDINGS: Slight asymmetry of left hippocampus — reduced volume vs right, increased T2 signal. No mass. No acute infarct. Mild periventricular white matter change (non-specific).
+
+IMPRESSION: Findings suggestive of left mesial temporal sclerosis (MTS). Correlate with EEG.
+
+CLINIC: Discussed surgical candidacy — patient prefers medical management at this stage.""",
+                "created_at_offset_days": 21,
+            },
+            {
+                "record_type": "text",
+                "summary": "First neurology assessment — event characterisation",
+                "content": """S: Two witnessed episodes over 3 months; spouse video shows oral automatisms and unresponsiveness.
+
+O: Neuro exam grossly normal between events.
+
+A: Likely epileptic seizures vs syncope — leaning epileptic given automatisms and post-ictal confusion.
+
+P: MRI brain epilepsy protocol, EEG, start levetiracetam 500mg BD, driving advice per regulations.""",
+                "created_at_offset_days": 90,
+            },
+        ],
+        "visit": {
+            "status": VisitStatus.IN_DEPARTMENT,
+            "chief_complaint": "Recurrent staring spells and right hand twitching — epilepsy follow-up",
+            "urgency_level": "routine",
+            "current_department": "neurology",
+            "assigned_doctor": "Dr. Sarah Chen",
+            "clinical_notes": "Left MTS on imaging; seizures reduced on dual therapy. Discussed adherence and driving.",
+            "confidence": 0.91,
+        },
+        "imaging": BRATS_001_IMAGING,
     },
     {
         "name": "Nina Volkova",
@@ -1001,6 +1379,15 @@ O: Tenderness over right tibial shaft mid-third. No swelling. X-ray: subtle peri
 A: Right tibial stress fracture. Contributing factors: rapid training escalation, osteopenia, possible relative energy deficiency in sport (RED-S).
 P: Non-weight-bearing 6 weeks with moon boot. No running for 12 weeks minimum. DEXA review. Nutritional assessment — screen for RED-S. Calcium + Vitamin D continued. Gradual return to running protocol with sports medicine.""",
                 "created_at_offset_days": 7,
+            },
+            {
+                "record_type": "text",
+                "summary": "Prior consult — bone health review after osteopenia diagnosis",
+                "content": """S: Running-related stress symptoms absent at that time; DEXA showed osteopenia prompting bisphosphonate discussion.
+O: Calcium and vitamin D optimised; dietary calcium adequate after dietitian input.
+A: Low bone density — pre-fracture risk mitigation in athlete.
+P: Alendronate commenced with dental review; load management education for mileage progression.""",
+                "created_at_offset_days": 200,
             },
         ],
         "visit": {
@@ -1205,6 +1592,33 @@ async def _seed_patient_data(db: AsyncSession, data: dict, visit_counter: list) 
         await _seed_visit(db, patient, vd, visit_counter)
 
 
+async def _ensure_demo_doctor(db: AsyncSession) -> None:
+    """Create or update the `doctor` demo account to match neurology seed patients."""
+    result = await db.execute(select(User).where(User.username == "doctor"))
+    user = result.scalar_one_or_none()
+    if user is None:
+        db.add(
+            User(
+                username="doctor",
+                password_hash=hash_password("doctor123"),
+                name="Dr. Sarah Chen",
+                role="doctor",
+                department="neurology",
+            )
+        )
+        logger.info("Created demo doctor user (neurology)")
+        return
+    updated = False
+    if user.department != "neurology":
+        user.department = "neurology"
+        updated = True
+    if user.name != "Dr. Sarah Chen":
+        user.name = "Dr. Sarah Chen"
+        updated = True
+    if updated:
+        logger.info("Updated demo doctor user for neurology demo queue")
+
+
 async def seed() -> None:
     """Run the full seed."""
     logger.info("Starting seed — %d patients", len(PATIENTS))
@@ -1212,6 +1626,7 @@ async def seed() -> None:
     async with AsyncSessionLocal() as db:
         for data in PATIENTS:
             await _seed_patient_data(db, data, visit_counter)
+        await _ensure_demo_doctor(db)
         await db.commit()
     logger.info("Seed complete.")
 

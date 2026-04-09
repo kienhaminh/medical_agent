@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { User, ExternalLink } from "lucide-react";
+import { User, ExternalLink, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { PatientDetail, VisitListItem, Imaging } from "@/lib/api";
+import type { PatientDetail, VisitListItem, Imaging, ImageGroup } from "@/lib/api";
 import { ImagingAnalysisDialog } from "@/components/doctor/imaging-analysis-dialog";
 import { PreVisitBriefCard } from "@/components/doctor/pre-visit-brief-card";
 
@@ -117,7 +117,7 @@ export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoad
         {tab === "overview" && <OverviewTab visit={selectedVisit} />}
         {tab === "visit" && <VisitTab visit={selectedVisit} visitBrief={visitBrief} briefLoading={briefLoading} />}
         {tab === "records" && <RecordsTab records={patient.records} />}
-        {tab === "imaging" && <ImagingTab key={patient.id} imaging={patient.imaging} patientId={patient.id} />}
+        {tab === "imaging" && <ImagingTab key={patient.id} imaging={patient.imaging} imageGroups={patient.image_groups} patientId={patient.id} />}
       </div>
     </div>
   );
@@ -271,59 +271,119 @@ function RecordsTab({ records }: { records?: { id: number; title: string; record
 
 function ImagingTab({
   imaging: initialImaging,
+  imageGroups,
   patientId,
 }: {
   imaging?: Imaging[];
+  imageGroups?: ImageGroup[];
   patientId: number;
 }) {
   const [imaging, setImaging] = useState<Imaging[]>(initialImaging ?? []);
-  const [dialogImaging, setDialogImaging] = useState<Imaging | null>(null);
+  const [dialogGroup, setDialogGroup] = useState<Imaging[] | null>(null);
 
   if (!imaging.length) {
     return <p className="text-xs text-muted-foreground">No imaging on file.</p>;
   }
 
+  // Group images by group_id; all null-group images form one shared study
+  const groupMap = new Map<string, Imaging[]>();
+  for (const img of imaging) {
+    const key = img.group_id != null ? String(img.group_id) : "__ungrouped__";
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(img);
+  }
+
   const handleSegmentationComplete = (updated: Imaging) => {
     setImaging((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
-    setDialogImaging(updated);
+  };
+
+  const getGroupName = (key: string): string => {
+    if (key === "__ungrouped__") return "MRI Study";
+    const groupObj = imageGroups?.find((g) => String(g.id) === key);
+    return groupObj?.name ?? `MRI Study #${key}`;
   };
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2">
-        {imaging.map((img) => (
-          <button
-            key={img.id}
-            type="button"
-            onClick={() => setDialogImaging(img)}
-            className="group relative overflow-hidden rounded-md border border-border bg-muted/30 transition hover:border-primary/40 text-left"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={img.preview_url}
-              alt={img.title}
-              className="h-24 w-full object-contain bg-black/5"
-            />
-            <div className="border-t px-1.5 py-1 text-[10px] leading-tight">
-              <span className="font-medium uppercase text-foreground/90">{img.image_type}</span>
-              <span className="block truncate text-muted-foreground">{img.title}</span>
-            </div>
-            {img.segmentation_result?.status === "success" && (
-              <span className="absolute top-1 right-1 bg-emerald-600 text-white text-[9px] font-bold px-1 py-px rounded">
-                ✓
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-      <p className="text-[10px] text-muted-foreground mt-1">Click a tile to open and analyze.</p>
+      <div className="space-y-3">
+        {Array.from(groupMap.entries()).map(([key, groupImages]) => {
+          const isSegmented = groupImages.some(
+            (img) => img.segmentation_result?.status === "success"
+          );
+          const groupName = getGroupName(key);
+          const date = groupImages[0]?.created_at;
 
-      <ImagingAnalysisDialog
-        imaging={dialogImaging}
-        patientId={patientId}
-        onClose={() => setDialogImaging(null)}
-        onSegmentationComplete={handleSegmentationComplete}
-      />
+          return (
+            <div
+              key={key}
+              className="rounded-md border border-border bg-muted/20 overflow-hidden"
+            >
+              {/* Study header */}
+              <div className="flex items-center justify-between px-2.5 py-1.5 bg-muted/30 border-b border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[11px] font-semibold text-foreground truncate">
+                    {groupName}
+                  </span>
+                  {date && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {new Date(date).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                {isSegmented && (
+                  <span className="flex items-center gap-1 text-[9px] font-semibold text-emerald-600 shrink-0 ml-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Segmented
+                  </span>
+                )}
+              </div>
+
+              {/* 4-modality thumbnail grid */}
+              <div className="grid grid-cols-4 gap-1 p-1.5">
+                {groupImages.map((img) => (
+                  <div
+                    key={img.id}
+                    className="relative overflow-hidden rounded border border-border bg-black/5"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.preview_url}
+                      alt={img.image_type}
+                      className="w-full h-14 object-contain bg-black/5"
+                    />
+                    <div className="px-1 py-0.5 border-t border-border text-center">
+                      <span className="text-[9px] font-bold uppercase text-muted-foreground tracking-wide">
+                        {img.image_type}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Analyze button */}
+              <div className="px-2.5 pb-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDialogGroup(groupImages)}
+                  className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold rounded border border-primary/20 bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
+                >
+                  <Layers className="h-3 w-3" />
+                  Analyze Study
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {dialogGroup && (
+        <ImagingAnalysisDialog
+          imagingGroup={dialogGroup}
+          patientId={patientId}
+          onClose={() => setDialogGroup(null)}
+          onSegmentationComplete={handleSegmentationComplete}
+        />
+      )}
     </>
   );
 }

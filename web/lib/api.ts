@@ -111,6 +111,8 @@ export interface Imaging {
   preview_url: string;
   group_id?: number;
   segmentation_result?: SegmentationResult | null;
+  slice_index?: number | null;
+  aligned_preview_url?: string | null;
   created_at: string;
 }
 

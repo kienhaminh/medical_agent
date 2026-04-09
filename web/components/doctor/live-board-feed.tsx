@@ -66,36 +66,25 @@ export function LiveBoardFeed({ events }: LiveBoardFeedProps) {
     }
   }, [events]);
 
-  return (
-    <div className="px-3 py-2">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Activity className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Live Board
-        </span>
-      </div>
+  const latest = entries[0];
+  const LatestIcon = latest ? ICON_MAP[latest.icon] : Activity;
 
-      <div className="max-h-32 overflow-y-auto space-y-0.5">
-        {entries.length === 0 ? (
-          <p className="text-[10px] text-muted-foreground/60 py-2 text-center">
-            No recent activity
-          </p>
-        ) : (
-          entries.map((entry) => {
-            const Icon = ICON_MAP[entry.icon];
-            return (
-              <div
-                key={entry.id}
-                className="flex items-start gap-1.5 py-0.5 text-[10px] text-muted-foreground"
-              >
-                <Icon className="h-3 w-3 shrink-0 mt-0.5 opacity-60" />
-                <span className="flex-1 leading-tight">{entry.text}</span>
-                <span className="shrink-0 opacity-50">{timeAgo(entry.timestamp)}</span>
-              </div>
-            );
-          })
-        )}
-      </div>
+  return (
+    <div className="h-14 flex items-center gap-2 px-3">
+      <Activity className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+      {latest ? (
+        <>
+          <LatestIcon className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+          <span className="flex-1 text-[10px] text-muted-foreground/60 truncate leading-none">
+            {latest.text}
+          </span>
+          <span className="shrink-0 text-[10px] text-muted-foreground/35 font-mono">
+            {timeAgo(latest.timestamp)}
+          </span>
+        </>
+      ) : (
+        <span className="text-[10px] text-muted-foreground/35">No recent activity</span>
+      )}
     </div>
   );
 }

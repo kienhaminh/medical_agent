@@ -62,21 +62,23 @@ class TestConfigValidation:
     def test_validate_max_tokens_positive(self):
         """Test validation for positive max_tokens."""
         config = Config()
+        config.provider = "kimi"
         config.max_tokens = 100
         config.kimi_api_key = "test-key"
         # Should not raise
         config.validate()
-    
+
     def test_validate_temperature_range(self):
         """Test validation for temperature range."""
         config = Config()
+        config.provider = "kimi"
         config.kimi_api_key = "test-key"
-        
+
         config.temperature = 0
         config.validate()
-        
+
         config.temperature = 2
         config.validate()
-        
+
         config.temperature = 1.5
         config.validate()

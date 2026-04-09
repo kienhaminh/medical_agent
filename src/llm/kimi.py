@@ -2,16 +2,136 @@
 
 import json
 import logging
-from typing import Optional, Iterator, Union
+from typing import Any, AsyncIterator, Optional, Iterator, List, Type, Union
 
 from openai import OpenAI
+from langchain_core.messages import AIMessageChunk, BaseMessageChunk
+from langchain_core.outputs import ChatGenerationChunk
+from langchain_core.language_models.chat_models import AsyncCallbackManagerForLLMRun
+from langchain_openai import ChatOpenAI
+from langchain_openai.chat_models.base import _convert_message_to_dict, _convert_chunk_to_generation_chunk
 
 from .provider import Message, LLMResponse
 from ..utils.enums import MessageRole
 from .langchain_adapter import LangChainAdapter
-from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger(__name__)
+
+
+class KimiChatOpenAI(ChatOpenAI):
+    """ChatOpenAI that preserves reasoning_content in replayed history.
+
+    Kimi's thinking mode requires assistant messages with tool calls to include
+    reasoning_content when sent back in subsequent turns. LangChain's default
+    _convert_message_to_dict drops additional_kwargs fields, so we inject it here.
+    """
+
+    def _get_request_payload(
+        self,
+        input_: Any,
+        *,
+        stop: Optional[List[str]] = None,
+        **kwargs: Any,
+    ) -> dict:
+        messages = self._convert_input(input_).to_messages()
+        if stop is not None:
+            kwargs["stop"] = stop
+
+        formatted = []
+        for i, msg in enumerate(messages):
+            d = _convert_message_to_dict(msg)
+            # Kimi thinking mode requires reasoning_content on every assistant message
+            # that has tool_calls. We capture it from the raw stream in _astream and
+            # store it in additional_kwargs so it can be replayed here.
+            if d.get("role") == "assistant" and d.get("tool_calls"):
+                d["reasoning_content"] = getattr(msg, "additional_kwargs", {}).get(
+                    "reasoning_content", ""
+                )
+            formatted.append(d)
+
+        return {
+            "messages": formatted,
+            **self._default_params,
+            **kwargs,
+        }
+
+    async def _astream(
+        self,
+        messages: List,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """Override to capture reasoning_content from Kimi's thinking mode.
+
+        Kimi's thinking model streams reasoning_content in the delta. LangChain's
+        _convert_delta_to_message_chunk ignores it, so we capture it here and emit
+        a synthetic trailing chunk that stores it in AIMessage.additional_kwargs.
+        _get_request_payload then replays the real value in subsequent turns.
+        """
+        # Mirror ChatOpenAI._astream: handle stream_usage before calling super
+        stream_usage = kwargs.pop("stream_usage", None)
+        stream_usage = self._should_stream_usage(stream_usage, **kwargs)
+        if stream_usage:
+            kwargs["stream_options"] = {"include_usage": True}
+
+        kwargs["stream"] = True
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+        default_chunk_class: Type[BaseMessageChunk] = AIMessageChunk
+        base_generation_info: dict = {}
+
+        response = await self.async_client.create(**payload)
+
+        async with response:
+            is_first_chunk = True
+            async for chunk in response:
+                # Read reasoning_content from the raw object BEFORE model_dump(),
+                # because model_dump() strips Kimi-specific extra fields.
+                reasoning_chunk: Optional[ChatGenerationChunk] = None
+                if not isinstance(chunk, dict):
+                    try:
+                        choices = getattr(chunk, "choices", None) or []
+                        if choices:
+                            delta = getattr(choices[0], "delta", None)
+                            if delta is not None:
+                                rc = getattr(delta, "reasoning_content", None)
+                                if rc:
+                                    # Yield inline so reasoning streams to frontend
+                                    # in real-time AND accumulates in additional_kwargs
+                                    # for replay in subsequent turns.
+                                    reasoning_chunk = ChatGenerationChunk(
+                                        message=AIMessageChunk(
+                                            content="",
+                                            additional_kwargs={"reasoning_content": rc},
+                                        )
+                                    )
+                    except Exception:
+                        pass
+                    chunk = chunk.model_dump()
+
+                if reasoning_chunk is not None:
+                    if run_manager:
+                        await run_manager.on_llm_new_token("", chunk=reasoning_chunk)
+                    yield reasoning_chunk
+
+                generation_chunk = _convert_chunk_to_generation_chunk(
+                    chunk,
+                    default_chunk_class,
+                    base_generation_info if is_first_chunk else {},
+                )
+                if generation_chunk is None:
+                    continue
+
+                default_chunk_class = generation_chunk.message.__class__
+                logprobs = (generation_chunk.generation_info or {}).get("logprobs")
+                if run_manager:
+                    await run_manager.on_llm_new_token(
+                        generation_chunk.text,
+                        chunk=generation_chunk,
+                        logprobs=logprobs,
+                    )
+                is_first_chunk = False
+                yield generation_chunk
 
 
 class KimiProvider(LangChainAdapter):
@@ -29,7 +149,7 @@ class KimiProvider(LangChainAdapter):
         stream_usage: bool = True,
         **kwargs,
     ):
-        llm = ChatOpenAI(
+        llm = KimiChatOpenAI(
             model=model,
             api_key=api_key,
             base_url=base_url,

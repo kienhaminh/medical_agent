@@ -36,29 +36,19 @@ services:
     container_name: medical-agent-segmentation-mcp
     ports:
       - "8010:8000"
+    env_file:
+      - .env
     environment:
       - MCP_TRANSPORT=streamable-http
+      - HOST=0.0.0.0
       - PORT=8000
-      - PUBLIC_UPLOAD_BASE_URL=http://localhost:8000/uploads
+      # Override: inside the container, the FastAPI host is reachable via host.docker.internal
+      - PUBLIC_UPLOAD_BASE_URL=http://host.docker.internal:8000/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./uploads:/app/uploads
     restart: unless-stopped
-
-  # celery_worker:
-  #   build: .
-  #   container_name: ai-agent-celery-worker
-  #   command: python3 -m celery -A src.tasks worker --loglevel=info --concurrency=2
-  #   depends_on:
-  #     - db
-  #     - redis
-  #   environment:
-  #     - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/medinexus
-  #     - REDIS_URL=redis://redis:6379/0
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - .:/app
-  #   working_dir: /app
 
 volumes:
   postgres_data:
