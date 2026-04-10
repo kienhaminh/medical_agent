@@ -6,10 +6,7 @@ from eval.doctor_simulator import DoctorSimulator, DoctorResult
 
 
 def _make_event(content: str, session_id: int | None = None) -> ChatEvent:
-    event = ChatEvent()
-    event.chunks = [content]
-    event.session_id = session_id
-    return event
+    return ChatEvent(chunks=[content], session_id=session_id)
 
 
 @pytest.mark.asyncio
@@ -44,6 +41,7 @@ async def test_run_passes_patient_and_visit_id():
     for call in mock_client.chat.call_args_list:
         assert call.kwargs.get("patient_id") == 7
         assert call.kwargs.get("visit_id") == 3
+        assert call.kwargs.get("user_id") == "eval-doctor"
 
 
 @pytest.mark.asyncio
