@@ -39,6 +39,8 @@ def test_generate_report_100_percent_when_all_pass(tmp_path):
     data = json.loads(json_path.read_text())
     assert data["summary"]["triage_accuracy"] == 1.0
     assert data["summary"]["ddx_recall_at_3"] == 1.0
+    assert data["summary"]["history_pass_rate"] == 1.0
+    assert data["summary"]["soap_format_pass_rate"] == 1.0
 
 
 def test_generate_report_zero_percent_when_all_fail(tmp_path):
@@ -47,3 +49,6 @@ def test_generate_report_zero_percent_when_all_fail(tmp_path):
 
     data = json.loads(json_path.read_text())
     assert data["summary"]["triage_accuracy"] == 0.0
+    assert data["summary"]["ddx_recall_at_3"] == 0.0
+    assert data["summary"]["history_pass_rate"] == 0.0
+    assert data["summary"]["soap_format_pass_rate"] == 0.0

@@ -89,11 +89,12 @@ async def main() -> None:
             except Exception as exc:
                 print(f"ERROR: {exc}")
 
-    if scores:
-        json_path = generate_report(scores)
-        print(f"\nReport: {json_path}")
-
-    await engine.dispose()
+    try:
+        if scores:
+            json_path = generate_report(scores)
+            print(f"\nReport: {json_path}")
+    finally:
+        await engine.dispose()
 
 
 if __name__ == "__main__":
