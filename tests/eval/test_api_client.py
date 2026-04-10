@@ -48,7 +48,7 @@ async def test_create_patient_posts_correct_payload():
     mock_response.json.return_value = {"id": 7, "name": "John Doe", "dob": "1970-01-01", "gender": "male", "created_at": "2026-04-10T00:00:00"}
 
     async with EvalApiClient("http://localhost:8000") as client:
-        with patch.object(client._client, "post", return_value=mock_response) as mock_post:
+        with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
             result = await client.create_patient("John Doe", "1970-01-01", "male")
 
     mock_post.assert_called_once_with(
@@ -65,7 +65,7 @@ async def test_form_response_posts_to_correct_url():
     mock_response.raise_for_status = MagicMock()
 
     async with EvalApiClient("http://localhost:8000") as client:
-        with patch.object(client._client, "post", return_value=mock_response) as mock_post:
+        with patch.object(client._client, "post", new_callable=AsyncMock, return_value=mock_response) as mock_post:
             await client.form_response(
                 session_id=42,
                 form_id="form-abc",

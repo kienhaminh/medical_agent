@@ -48,7 +48,7 @@ class EvalApiClient:
     ) -> None:
         """POST /api/chat/{session_id}/form-response."""
         payload: dict = {"form_id": form_id, "answers": answers}
-        if template:
+        if template is not None:
             payload["template"] = template
         resp = await self._client.post(
             f"/api/chat/{session_id}/form-response",
