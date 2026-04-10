@@ -1,12 +1,15 @@
 # eval/patient_seeder.py
 from datetime import date
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from eval.api_client import EvalApiClient
 from eval.case_loader import EvalCase
 from src.models import MedicalRecord, Patient
+from src.models.room import Room
+from src.models.visit import Visit
+from src.models.visit_step import VisitStep
 
 
 class PatientSeeder:
@@ -27,14 +30,15 @@ class PatientSeeder:
         patient_id: int = patient_data["id"]
 
         for item in case.patient.medical_history:
-            content = item.name
+            summary = item.name
             if item.dosage:
-                content = f"{item.name} - {item.dosage}"
+                summary = f"{item.name} - {item.dosage}"
             self._db.add(
                 MedicalRecord(
                     patient_id=patient_id,
                     record_type=item.type,
-                    content=content,
+                    content=summary,
+                    summary=summary,
                 )
             )
 
@@ -44,6 +48,7 @@ class PatientSeeder:
                     patient_id=patient_id,
                     record_type="allergy",
                     content=allergy,
+                    summary=allergy,
                 )
             )
 
@@ -51,7 +56,32 @@ class PatientSeeder:
         return patient_id
 
     async def teardown(self, patient_id: int) -> None:
-        """Remove all seeded records and the patient row."""
+        """Remove all seeded records and the patient row.
+
+        Deletion order respects FK constraints:
+          rooms.current_visit_id → NULL
+          visit_steps → visits → medical_records → patients
+        """
+        result = await self._db.execute(
+            select(Visit.id).where(Visit.patient_id == patient_id)
+        )
+        rows = result.fetchall()
+        visit_ids = [row[0] for row in rows]
+
+        if visit_ids:
+            # Nullify rooms that reference these visits before deletion
+            await self._db.execute(
+                update(Room)
+                .where(Room.current_visit_id.in_(visit_ids))
+                .values(current_visit_id=None)
+            )
+            await self._db.execute(
+                delete(VisitStep).where(VisitStep.visit_id.in_(visit_ids))
+            )
+            await self._db.execute(
+                delete(Visit).where(Visit.patient_id == patient_id)
+            )
+
         await self._db.execute(
             delete(MedicalRecord).where(MedicalRecord.patient_id == patient_id)
         )

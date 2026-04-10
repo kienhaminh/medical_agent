@@ -13,6 +13,7 @@ Prerequisites:
 """
 import asyncio
 import argparse
+import json
 import os
 from pathlib import Path
 
@@ -20,8 +21,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from eval.api_client import EvalApiClient
 from eval.case_loader import EvalCase, load_all_cases, load_case
-from eval.doctor_simulator import DoctorSimulator
-from eval.intake_simulator import IntakeSimulator
+from eval.doctor_simulator import DoctorResult, DoctorSimulator
+from eval.intake_simulator import IntakeSimulator, TriageResult
 from eval.patient_seeder import PatientSeeder
 from eval.report import generate_report
 from eval.scorer import CaseScore, score_case
@@ -38,6 +39,7 @@ async def run_case(
     client: EvalApiClient,
     engine,
     use_judge: bool = False,
+    verbose: bool = False,
 ) -> CaseScore:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -46,11 +48,16 @@ async def run_case(
         patient_id = await seeder.seed(case)
 
         try:
-            intake_result = await IntakeSimulator(client=client).run(case, patient_id)
+            intake_result = await IntakeSimulator(client=client).run(case, patient_id, verbose=verbose)
+            if verbose:
+                _print_intake(intake_result)
             doctor_result = await DoctorSimulator(client=client).run(
                 patient_id=patient_id,
                 visit_id=intake_result.visit_id,
+                verbose=verbose,
             )
+            if verbose:
+                _print_doctor(doctor_result)
             score = score_case(case, intake_result, doctor_result)
             if use_judge:
                 from eval.judge import judge_ddx, judge_history, judge_soap
@@ -63,10 +70,28 @@ async def run_case(
             await seeder.teardown(patient_id)
 
 
+def _print_intake(result: TriageResult) -> None:
+    print("\n--- INTAKE ---")
+    print(f"  department : {result.department}")
+    print(f"  confidence : {result.confidence}")
+    print(f"  visit_id   : {result.visit_id}")
+    print(f"  tool_calls : {json.dumps(result.tool_calls, indent=4)}")
+    for i, resp in enumerate(result.agent_responses):
+        print(f"  [turn {i+1}] {resp[:300]}")
+
+
+def _print_doctor(result: DoctorResult) -> None:
+    print("\n--- DOCTOR ---")
+    print(f"  DDx:\n{result.ddx_output[:500]}\n")
+    print(f"  History:\n{result.history_output[:500]}\n")
+    print(f"  SOAP:\n{result.soap_output[:500]}\n")
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Medera Agent Evaluation Runner")
     parser.add_argument("--case", help="Run a specific case by ID (without .yaml extension)")
     parser.add_argument("--judge", action="store_true", help="Enable LLM-as-judge scoring (requires ANTHROPIC_API_KEY)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print agent outputs and tool calls for debugging")
     args = parser.parse_args()
 
     base_url = os.getenv("EVAL_BASE_URL", "http://localhost:8000")
@@ -84,7 +109,7 @@ async def main() -> None:
         for case in cases:
             print(f"  [{case.id}] ...", end=" ", flush=True)
             try:
-                score = await run_case(case, client, engine, use_judge=args.judge)
+                score = await run_case(case, client, engine, use_judge=args.judge, verbose=args.verbose)
                 scores.append(score)
                 status = "PASS" if score.all_passed else "FAIL"
                 print(

@@ -26,7 +26,7 @@ intake:
 
 expected:
   triage:
-    department: Cardiology
+    department: emergency
     min_confidence: 0.7
     red_flags:
       - chest pain

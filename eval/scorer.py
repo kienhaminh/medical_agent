@@ -94,11 +94,13 @@ def score_soap(case: EvalCase, output: str) -> StageScore:
     output_upper = output.upper()
     details: dict = {}
 
-    # Match single-letter headers (S:, O:, A:, P:) OR spelled-out headers
-    # (Subjective:, Objective:, Assessment:, Plan:) at line boundaries.
+    # Match single-letter or spelled-out SOAP section headers, allowing for
+    # markdown prefix characters (##, **, —) before the header word.
     def _section_present(section: str) -> bool:
         full = _SOAP_FULL_NAMES.get(section, section)
-        pattern = rf"(?:^|\n)(?:{re.escape(section)}|{re.escape(full)})[:\s(]"
+        # After a newline (or start), allow any non-alpha prefix chars (##, **, spaces, —)
+        # then the section letter or full word, then a separator (: space ( — *).
+        pattern = rf"(?:^|\n)[^A-Z]*(?:{re.escape(section)}|{re.escape(full)})[:\s(—*]"
         return bool(re.search(pattern, output_upper))
 
     sections_found = [s for s in exp.required_sections if _section_present(s)]

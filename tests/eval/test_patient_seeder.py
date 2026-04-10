@@ -69,11 +69,16 @@ async def test_seed_creates_medical_records_in_db():
 
 @pytest.mark.asyncio
 async def test_teardown_deletes_records_and_patient():
-    """teardown() executes DELETE for records then patient."""
+    """teardown() executes DELETE for visit_steps, visits, records, then patient."""
     mock_db = AsyncMock()
-    seeder = PatientSeeder(db=mock_db, api_client=AsyncMock())
+    # fetchall() is synchronous on the result object — return empty list (no visits)
+    mock_result = MagicMock()
+    mock_result.fetchall.return_value = []
+    mock_db.execute.return_value = mock_result
 
+    seeder = PatientSeeder(db=mock_db, api_client=AsyncMock())
     await seeder.teardown(patient_id=42)
 
-    assert mock_db.execute.call_count >= 2  # records + patient
+    # SELECT visits + DELETE medical_records + DELETE patients = at least 3 executes
+    assert mock_db.execute.call_count >= 3
     mock_db.commit.assert_called_once()
