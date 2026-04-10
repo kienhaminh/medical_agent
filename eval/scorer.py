@@ -70,7 +70,8 @@ def score_history(case: EvalCase, output: str) -> StageScore:
     details: dict = {}
 
     mentions_found = [item for item in exp.must_mention if item.lower() in output_lower]
-    mentions_missing = [item for item in exp.must_mention if item not in mentions_found]
+    mentions_found_set = set(mentions_found)
+    mentions_missing = [item for item in exp.must_mention if item not in mentions_found_set]
     details["mentions_found"] = mentions_found
     details["mentions_missing"] = mentions_missing
 
