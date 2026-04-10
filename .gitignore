@@ -72,3 +72,7 @@ video/
 mock
 
 *.db
+
+# Eval results (generated reports)
+eval/results/*.json
+eval/results/*.md
