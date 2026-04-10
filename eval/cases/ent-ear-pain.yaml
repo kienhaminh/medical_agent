@@ -1,0 +1,30 @@
+id: ent-ear-pain-001
+description: "8-year-old with ear pain and discharge (presented by parent)"
+patient:
+  name: "Tommy Chen"
+  age: 8
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Recurrent Otitis Media
+  allergies: [Amoxicillin]
+intake:
+  turns:
+    - "My son has been crying about ear pain for 2 days"
+    - "There's some yellowish discharge from his right ear"
+    - "He had otitis media before. He's allergic to amoxicillin"
+    - "Fever of 38.5, no hearing loss that I can tell"
+expected:
+  triage:
+    department: ENT
+    min_confidence: 0.7
+    red_flags: [ear discharge, pediatric, amoxicillin allergy]
+  ddx:
+    top_3_must_include: ["Otitis Media", "Otitis Externa", "Perforated Tympanic Membrane"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Otitis Media, Amoxicillin]
+    red_flags_expected: [amoxicillin allergy, alternative antibiotic]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [ear, otitis]

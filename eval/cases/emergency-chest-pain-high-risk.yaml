@@ -1,0 +1,38 @@
+id: emergency-chest-pain-high-risk-001
+description: "60-year-old male diabetic with atypical chest pain presentation"
+patient:
+  name: "George Miller"
+  age: 60
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Type 2 Diabetes
+    - type: chronic_condition
+      name: Hypertension
+    - type: medication
+      name: Metformin
+      dosage: "500mg twice daily"
+    - type: medication
+      name: Amlodipine
+      dosage: "10mg daily"
+  allergies: []
+intake:
+  turns:
+    - "I just feel very tired and have some jaw pain"
+    - "Also a bit of indigestion and shortness of breath"
+    - "No chest pain exactly, maybe some pressure"
+    - "I'm diabetic and have high blood pressure"
+expected:
+  triage:
+    department: Emergency
+    min_confidence: 0.75
+    red_flags: [diabetic, atypical MI, jaw pain, shortness of breath]
+  ddx:
+    top_3_must_include: ["Myocardial Infarction", "Acute Coronary Syndrome", "NSTEMI"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Diabetes, Hypertension, Metformin]
+    red_flags_expected: [silent MI, diabetic, atypical]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [cardiac, MI]

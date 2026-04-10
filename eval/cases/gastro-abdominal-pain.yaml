@@ -1,0 +1,28 @@
+id: gastro-abdominal-pain-001
+description: "32-year-old female with right lower quadrant pain and nausea"
+patient:
+  name: "Emma Watson"
+  age: 32
+  sex: female
+  medical_history: []
+  allergies: [Ibuprofen]
+intake:
+  turns:
+    - "I have sharp pain in my lower right abdomen"
+    - "It started yesterday and has gotten worse, maybe 7 out of 10"
+    - "I feel nauseous and had a low fever of 37.8"
+    - "No vomiting, last period was 3 weeks ago"
+expected:
+  triage:
+    department: Gastroenterology
+    min_confidence: 0.7
+    red_flags: [right lower quadrant, appendicitis]
+  ddx:
+    top_3_must_include: ["Appendicitis", "Ovarian Cyst", "Ectopic Pregnancy"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Ibuprofen]
+    red_flags_expected: [appendicitis, ibuprofen allergy]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [abdominal, append]

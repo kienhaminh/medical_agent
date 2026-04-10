@@ -1,0 +1,33 @@
+id: cardiology-palpitations-001
+description: "45-year-old female with rapid palpitations and lightheadedness"
+patient:
+  name: "Maria Lopez"
+  age: 45
+  sex: female
+  medical_history:
+    - type: chronic_condition
+      name: Hyperthyroidism
+    - type: medication
+      name: Methimazole
+      dosage: "10mg daily"
+  allergies: []
+intake:
+  turns:
+    - "My heart is racing and I feel very lightheaded"
+    - "It started suddenly about an hour ago"
+    - "I have hyperthyroidism and take methimazole"
+    - "No chest pain but I'm short of breath"
+expected:
+  triage:
+    department: Cardiology
+    min_confidence: 0.7
+    red_flags: [palpitations, lightheadedness]
+  ddx:
+    top_3_must_include: ["Atrial Fibrillation", "Supraventricular Tachycardia", "Thyroid"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Hyperthyroidism, Methimazole]
+    red_flags_expected: [thyroid, palpitations]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [cardiac, palpitation]

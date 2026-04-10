@@ -1,0 +1,33 @@
+id: mental-health-anxiety-001
+description: "29-year-old female with panic attacks and chest tightness"
+patient:
+  name: "Anna White"
+  age: 29
+  sex: female
+  medical_history:
+    - type: chronic_condition
+      name: Generalized Anxiety Disorder
+    - type: medication
+      name: Sertraline
+      dosage: "50mg daily"
+  allergies: []
+intake:
+  turns:
+    - "I keep having episodes where my heart races, I can't breathe, and I feel like I'm dying"
+    - "They come on suddenly and last about 10 minutes"
+    - "I have anxiety and take sertraline but it's not helping with these episodes"
+    - "My last episode was yesterday and I went to the ER but they said my heart was fine"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.65
+    red_flags: [panic attack, cardiac ruled out, medication inefficacy]
+  ddx:
+    top_3_must_include: ["Panic Disorder", "Generalized Anxiety", "Cardiac Arrhythmia"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Anxiety, Sertraline]
+    red_flags_expected: [medication inadequacy, panic]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [anxiety, panic]

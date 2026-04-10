@@ -1,0 +1,30 @@
+id: internal-fatigue-diabetes-001
+description: "58-year-old female with extreme fatigue, polyuria, and polydipsia"
+patient:
+  name: "Linda Park"
+  age: 58
+  sex: female
+  medical_history:
+    - type: chronic_condition
+      name: Obesity
+  allergies: []
+intake:
+  turns:
+    - "I've been extremely tired for the past month and urinating very frequently"
+    - "I'm also very thirsty all the time and my vision is blurry"
+    - "I haven't been diagnosed with diabetes but my mother has it"
+    - "I've gained weight this year"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.7
+    red_flags: [polyuria, polydipsia, new diabetes]
+  ddx:
+    top_3_must_include: ["Type 2 Diabetes Mellitus", "Diabetes Insipidus", "Hypothyroidism"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Obesity]
+    red_flags_expected: [undiagnosed diabetes, family history]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [diabetes, metabolic]

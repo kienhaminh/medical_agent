@@ -1,0 +1,28 @@
+id: pediatric-abdominal-001
+description: "6-year-old girl with recurrent abdominal pain and school avoidance"
+patient:
+  name: "Lily Evans"
+  age: 6
+  sex: female
+  medical_history: []
+  allergies: []
+intake:
+  turns:
+    - "My daughter keeps complaining of tummy aches every morning before school"
+    - "It's been 3 weeks, happens almost every day"
+    - "No vomiting, no diarrhea, normal stools"
+    - "The pain goes away after she's allowed to stay home"
+expected:
+  triage:
+    department: Gastroenterology
+    min_confidence: 0.6
+    red_flags: [pediatric, recurrent, school avoidance]
+  ddx:
+    top_3_must_include: ["Functional Abdominal Pain", "Anxiety", "Constipation"]
+    icd10_present: true
+  history_analysis:
+    must_mention: []
+    red_flags_expected: [psychosomatic, anxiety]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [abdominal, pediatric]

@@ -1,0 +1,39 @@
+id: returning-patient-cardio-001
+description: "62yo male with heart failure presenting with worsening edema"
+patient:
+  name: "Frank Thompson"
+  age: 62
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Heart Failure with Reduced Ejection Fraction
+    - type: medication
+      name: Furosemide
+      dosage: "40mg daily"
+    - type: medication
+      name: Carvedilol
+      dosage: "12.5mg twice daily"
+    - type: medication
+      name: Lisinopril
+      dosage: "10mg daily"
+  allergies: []
+intake:
+  turns:
+    - "My ankles are much more swollen than usual this past week"
+    - "I'm also more short of breath when I lie flat"
+    - "I've been taking my furosemide but it doesn't seem to be working"
+    - "I gained 4 pounds in the last 3 days"
+expected:
+  triage:
+    department: Cardiology
+    min_confidence: 0.7
+    red_flags: [decompensated heart failure, rapid weight gain, orthopnea]
+  ddx:
+    top_3_must_include: ["Decompensated Heart Failure", "Acute Pulmonary Edema", "Cardiac"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Heart Failure, Furosemide, Carvedilol, Lisinopril]
+    red_flags_expected: [decompensation, diuretic resistance]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [heart failure, edema]

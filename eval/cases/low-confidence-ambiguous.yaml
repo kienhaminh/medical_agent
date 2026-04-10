@@ -1,0 +1,28 @@
+id: low-confidence-ambiguous-001
+description: "25-year-old with vague fatigue and mild headache — ambiguous presentation"
+patient:
+  name: "Chris Jordan"
+  age: 25
+  sex: male
+  medical_history: []
+  allergies: []
+intake:
+  turns:
+    - "I just feel really tired and have a mild headache"
+    - "It's been about a week, maybe 3 out of 10"
+    - "No fever, no nausea, no specific other symptoms"
+    - "I've been stressed at work"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.5
+    red_flags: []
+  ddx:
+    top_3_must_include: ["Tension Headache", "Stress", "Viral Syndrome"]
+    icd10_present: true
+  history_analysis:
+    must_mention: []
+    red_flags_expected: []
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [fatigue, headache]

@@ -1,0 +1,28 @@
+id: ent-sore-throat-001
+description: "24-year-old female with severe sore throat and high fever"
+patient:
+  name: "Sophie Turner"
+  age: 24
+  sex: female
+  medical_history: []
+  allergies: []
+intake:
+  turns:
+    - "I have a very sore throat and high fever of 39.5"
+    - "It's been 2 days, I can barely swallow"
+    - "My lymph nodes are swollen"
+    - "No cough, no runny nose"
+expected:
+  triage:
+    department: ENT
+    min_confidence: 0.7
+    red_flags: [high fever, difficulty swallowing]
+  ddx:
+    top_3_must_include: ["Streptococcal Pharyngitis", "Peritonsillar Abscess", "Mononucleosis"]
+    icd10_present: true
+  history_analysis:
+    must_mention: []
+    red_flags_expected: [peritonsillar, airway]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [throat, pharyngi]

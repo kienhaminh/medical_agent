@@ -1,0 +1,33 @@
+id: internal-fever-unknown-001
+description: "35-year-old male with fever of unknown origin for 3 weeks"
+patient:
+  name: "Alex Nguyen"
+  age: 35
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: HIV (well-controlled)
+    - type: medication
+      name: Bictegravir/Emtricitabine/Tenofovir
+      dosage: "1 tablet daily"
+  allergies: []
+intake:
+  turns:
+    - "I've had a fever between 38 and 39 degrees for 3 weeks"
+    - "Night sweats, weight loss of 4 kg, and fatigue"
+    - "I'm HIV positive but well controlled on ART"
+    - "No cough, no specific localized pain"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.7
+    red_flags: [fever unknown origin, HIV, weight loss, night sweats]
+  ddx:
+    top_3_must_include: ["Lymphoma", "Tuberculosis", "Opportunistic Infection"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [HIV, Bictegravir]
+    red_flags_expected: [immunocompromised, opportunistic infection]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [fever, immunocompromised]

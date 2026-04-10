@@ -1,0 +1,28 @@
+id: urology-pain-001
+description: "38-year-old male with acute flank pain and hematuria"
+patient:
+  name: "Ryan Cooper"
+  age: 38
+  sex: male
+  medical_history: []
+  allergies: [Sulfa drugs]
+intake:
+  turns:
+    - "I have severe pain on my right side, in my back, it comes in waves"
+    - "I also noticed blood in my urine this morning"
+    - "The pain is maybe 9 out of 10 at its worst, radiates to my groin"
+    - "No fever, no vomiting, I'm allergic to sulfa drugs"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.7
+    red_flags: [hematuria, renal colic, sulfa allergy]
+  ddx:
+    top_3_must_include: ["Nephrolithiasis", "Renal Calculi", "Urinary Tract Infection"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Sulfa]
+    red_flags_expected: [sulfa allergy, stone]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [renal, urol]

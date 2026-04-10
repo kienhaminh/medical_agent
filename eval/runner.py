@@ -37,6 +37,7 @@ async def run_case(
     case: EvalCase,
     client: EvalApiClient,
     engine,
+    use_judge: bool = False,
 ) -> CaseScore:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -50,7 +51,14 @@ async def run_case(
                 patient_id=patient_id,
                 visit_id=intake_result.visit_id,
             )
-            return score_case(case, intake_result, doctor_result)
+            score = score_case(case, intake_result, doctor_result)
+            if use_judge:
+                from eval.judge import judge_ddx, judge_history, judge_soap
+                patient_summary = f"{case.description}"
+                score.triage.details["judge_ddx"] = judge_ddx(patient_summary, doctor_result.ddx_output)
+                score.triage.details["judge_history"] = judge_history(patient_summary, doctor_result.history_output)
+                score.triage.details["judge_soap"] = judge_soap(patient_summary, doctor_result.soap_output)
+            return score
         finally:
             await seeder.teardown(patient_id)
 
@@ -76,7 +84,7 @@ async def main() -> None:
         for case in cases:
             print(f"  [{case.id}] ...", end=" ", flush=True)
             try:
-                score = await run_case(case, client, engine)
+                score = await run_case(case, client, engine, use_judge=args.judge)
                 scores.append(score)
                 status = "PASS" if score.all_passed else "FAIL"
                 print(

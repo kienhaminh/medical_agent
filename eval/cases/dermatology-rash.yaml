@@ -1,0 +1,33 @@
+id: dermatology-rash-001
+description: "42-year-old female with spreading itchy rash after starting lisinopril"
+patient:
+  name: "Diana Prince"
+  age: 42
+  sex: female
+  medical_history:
+    - type: chronic_condition
+      name: Hypertension
+    - type: medication
+      name: Lisinopril
+      dosage: "5mg daily (started 2 weeks ago)"
+  allergies: []
+intake:
+  turns:
+    - "I have an itchy red rash on my arms and chest that appeared 3 days ago"
+    - "It's spreading and some areas look like hives"
+    - "I started a new blood pressure pill 2 weeks ago called lisinopril"
+    - "No breathing difficulty but the itch is terrible"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.7
+    red_flags: [drug reaction, angioedema risk, spreading rash]
+  ddx:
+    top_3_must_include: ["Drug Hypersensitivity Reaction", "Urticaria", "ACE Inhibitor"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Lisinopril, Hypertension]
+    red_flags_expected: [ACE inhibitor, angioedema, drug reaction]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [drug, rash]

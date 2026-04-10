@@ -1,0 +1,38 @@
+id: neurology-stroke-symptoms-001
+description: "72-year-old male with transient vision loss and confusion"
+patient:
+  name: "Harold Bennett"
+  age: 72
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Hypertension
+    - type: chronic_condition
+      name: Hyperlipidemia
+    - type: medication
+      name: Atorvastatin
+      dosage: "40mg daily"
+    - type: medication
+      name: Amlodipine
+      dosage: "5mg daily"
+  allergies: [Aspirin]
+intake:
+  turns:
+    - "I suddenly lost vision in my right eye for a few minutes, it came back"
+    - "I was also confused for a bit but I'm clearer now"
+    - "I have high blood pressure and high cholesterol"
+    - "I'm allergic to aspirin"
+expected:
+  triage:
+    department: Neurology
+    min_confidence: 0.75
+    red_flags: [transient vision loss, TIA, stroke]
+  ddx:
+    top_3_must_include: ["TIA", "Transient Ischemic Attack", "Retinal Artery Occlusion"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Hypertension, Aspirin, Atorvastatin]
+    red_flags_expected: [TIA, aspirin allergy]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [TIA, neurolog]

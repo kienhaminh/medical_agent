@@ -1,0 +1,33 @@
+id: orthopedics-joint-pain-001
+description: "55-year-old male with sudden severe right knee pain and swelling"
+patient:
+  name: "Michael Scott"
+  age: 55
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Gout
+    - type: medication
+      name: Allopurinol
+      dosage: "300mg daily"
+  allergies: []
+intake:
+  turns:
+    - "My right knee is extremely swollen and painful, I can barely walk"
+    - "It came on suddenly overnight, very hot and red"
+    - "I have gout and take allopurinol"
+    - "I ate a lot of shellfish and drank beer at a party 2 days ago"
+expected:
+  triage:
+    department: Internal Medicine
+    min_confidence: 0.7
+    red_flags: [acute joint, septic arthritis risk, gout flare]
+  ddx:
+    top_3_must_include: ["Gout Flare", "Pseudogout", "Septic Arthritis"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Gout, Allopurinol]
+    red_flags_expected: [septic arthritis, dietary trigger]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [gout, joint]

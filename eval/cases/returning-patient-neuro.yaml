@@ -1,0 +1,33 @@
+id: returning-patient-neuro-001
+description: "Returning epilepsy patient with breakthrough seizure"
+patient:
+  name: "Rachel Adams"
+  age: 28
+  sex: female
+  medical_history:
+    - type: chronic_condition
+      name: Epilepsy (focal seizures)
+    - type: medication
+      name: Levetiracetam
+      dosage: "500mg twice daily"
+  allergies: [Phenytoin]
+intake:
+  turns:
+    - "I had a seizure this morning even though I've been taking my medication"
+    - "It lasted about 2 minutes, I lost consciousness briefly"
+    - "I have epilepsy and take levetiracetam, allergic to phenytoin"
+    - "I haven't been sleeping well and missed one dose yesterday"
+expected:
+  triage:
+    department: Neurology
+    min_confidence: 0.7
+    red_flags: [breakthrough seizure, missed dose, phenytoin allergy]
+  ddx:
+    top_3_must_include: ["Breakthrough Seizure", "Epilepsy", "Status Epilepticus"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [Epilepsy, Levetiracetam, Phenytoin]
+    red_flags_expected: [phenytoin allergy, missed dose, breakthrough]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [seizure, epilepsy]

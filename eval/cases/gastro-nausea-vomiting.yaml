@@ -1,0 +1,33 @@
+id: gastro-nausea-vomiting-001
+description: "50-year-old male with persistent nausea, vomiting, and epigastric pain"
+patient:
+  name: "David Kim"
+  age: 50
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: GERD
+    - type: medication
+      name: Omeprazole
+      dosage: "20mg daily"
+  allergies: []
+intake:
+  turns:
+    - "I've been vomiting repeatedly and have bad stomach pain above my belly button"
+    - "It's been 2 days, pain is 6 out of 10"
+    - "I have GERD and take omeprazole but this is worse than usual"
+    - "I drank heavily at a party 3 days ago"
+expected:
+  triage:
+    department: Gastroenterology
+    min_confidence: 0.7
+    red_flags: [persistent vomiting, alcohol, epigastric]
+  ddx:
+    top_3_must_include: ["Acute Pancreatitis", "Gastritis", "Peptic Ulcer"]
+    icd10_present: true
+  history_analysis:
+    must_mention: [GERD, Omeprazole]
+    red_flags_expected: [alcohol, pancreatitis]
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention: [gastro, nausea]
