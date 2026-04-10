@@ -1,0 +1,50 @@
+id: neurology-headache-001
+description: "38-year-old female with sudden severe thunderclap headache"
+
+patient:
+  name: "Sarah Chen"
+  age: 38
+  sex: female
+  medical_history:
+    - type: chronic_condition
+      name: Migraines
+    - type: medication
+      name: Sumatriptan
+      dosage: "50mg as needed"
+  allergies: []
+
+intake:
+  turns:
+    - "I have the worst headache of my life, it came on suddenly"
+    - "It started about 30 minutes ago, it's a 10 out of 10"
+    - "I have a history of migraines but this feels completely different"
+    - "No fever, no neck stiffness that I know of"
+
+expected:
+  triage:
+    department: Neurology
+    min_confidence: 0.7
+    red_flags:
+      - thunderclap headache
+      - worst headache of life
+
+  ddx:
+    top_3_must_include:
+      - "Subarachnoid Hemorrhage"
+      - "Migraine"
+      - "Intracranial"
+    icd10_present: true
+
+  history_analysis:
+    must_mention:
+      - Migraines
+      - Sumatriptan
+    red_flags_expected:
+      - thunderclap
+      - subarachnoid
+
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention:
+      - headache
+      - neurolog

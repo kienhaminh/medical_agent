@@ -1,0 +1,59 @@
+id: emergency-stroke-001
+description: "68-year-old male with sudden facial droop, arm weakness, and slurred speech"
+
+patient:
+  name: "Robert Williams"
+  age: 68
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Atrial Fibrillation
+    - type: chronic_condition
+      name: Type 2 Diabetes
+    - type: medication
+      name: Warfarin
+      dosage: "5mg daily"
+    - type: medication
+      name: Metformin
+      dosage: "1000mg twice daily"
+  allergies:
+    - Sulfa drugs
+
+intake:
+  turns:
+    - "My face is drooping on one side and my speech is slurred"
+    - "My left arm is very weak, I can barely lift it"
+    - "This started about 20 minutes ago out of nowhere"
+    - "I take Warfarin for my heart condition"
+
+expected:
+  triage:
+    department: Emergency
+    min_confidence: 0.85
+    red_flags:
+      - facial droop
+      - arm weakness
+      - slurred speech
+      - stroke
+
+  ddx:
+    top_3_must_include:
+      - "Ischemic Stroke"
+      - "TIA"
+      - "Hemorrhagic Stroke"
+    icd10_present: true
+
+  history_analysis:
+    must_mention:
+      - Atrial Fibrillation
+      - Warfarin
+      - Diabetes
+    red_flags_expected:
+      - stroke
+      - anticoagulant
+
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention:
+      - stroke
+      - neurolog

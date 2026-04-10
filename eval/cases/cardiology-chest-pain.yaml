@@ -1,0 +1,55 @@
+id: cardiology-chest-pain-001
+description: "55-year-old male with acute chest pain, hypertension, radiating to left arm"
+
+patient:
+  name: "James Carter"
+  age: 55
+  sex: male
+  medical_history:
+    - type: chronic_condition
+      name: Hypertension
+    - type: medication
+      name: Lisinopril
+      dosage: "10mg daily"
+    - type: medication
+      name: Aspirin
+      dosage: "81mg daily"
+  allergies:
+    - Penicillin
+
+intake:
+  turns:
+    - "I've been having crushing chest pain for the past 2 hours"
+    - "It's about 8 out of 10. It radiates to my left arm"
+    - "I'm also sweating a lot and feel nauseous"
+    - "No fever. I take Lisinopril for blood pressure"
+
+expected:
+  triage:
+    department: Cardiology
+    min_confidence: 0.7
+    red_flags:
+      - chest pain
+      - left arm radiation
+
+  ddx:
+    top_3_must_include:
+      - "Acute Myocardial Infarction"
+      - "Unstable Angina"
+      - "STEMI"
+    icd10_present: true
+
+  history_analysis:
+    must_mention:
+      - Hypertension
+      - Lisinopril
+      - Penicillin
+    red_flags_expected:
+      - chest pain
+      - hypertension
+
+  soap_note:
+    required_sections: [S, O, A, P]
+    assessment_must_mention:
+      - chest pain
+      - cardiac
