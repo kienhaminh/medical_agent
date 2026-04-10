@@ -1,0 +1,61 @@
+# eval/patient_seeder.py
+from datetime import date
+
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from eval.api_client import EvalApiClient
+from eval.case_loader import EvalCase
+from src.models import MedicalRecord, Patient
+
+
+class PatientSeeder:
+    def __init__(self, db: AsyncSession, api_client: EvalApiClient) -> None:
+        self._db = db
+        self._api = api_client
+
+    async def seed(self, case: EvalCase) -> int:
+        """Seed patient + medical records. Returns patient_id."""
+        today = date.today()
+        dob = date(today.year - case.patient.age, 1, 1).isoformat()
+
+        patient_data = await self._api.create_patient(
+            name=case.patient.name,
+            dob=dob,
+            gender=case.patient.sex,
+        )
+        patient_id: int = patient_data["id"]
+
+        for item in case.patient.medical_history:
+            content = item.name
+            if item.dosage:
+                content = f"{item.name} - {item.dosage}"
+            self._db.add(
+                MedicalRecord(
+                    patient_id=patient_id,
+                    record_type=item.type,
+                    content=content,
+                )
+            )
+
+        for allergy in case.patient.allergies:
+            self._db.add(
+                MedicalRecord(
+                    patient_id=patient_id,
+                    record_type="allergy",
+                    content=allergy,
+                )
+            )
+
+        await self._db.commit()
+        return patient_id
+
+    async def teardown(self, patient_id: int) -> None:
+        """Remove all seeded records and the patient row."""
+        await self._db.execute(
+            delete(MedicalRecord).where(MedicalRecord.patient_id == patient_id)
+        )
+        await self._db.execute(
+            delete(Patient).where(Patient.id == patient_id)
+        )
+        await self._db.commit()
