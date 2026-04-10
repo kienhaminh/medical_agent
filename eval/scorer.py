@@ -81,14 +81,24 @@ def score_history(case: EvalCase, output: str) -> StageScore:
     return StageScore(passed=len(mentions_missing) == 0, details=details)
 
 
+_SOAP_FULL_NAMES = {
+    "S": "SUBJECTIVE",
+    "O": "OBJECTIVE",
+    "A": "ASSESSMENT",
+    "P": "PLAN",
+}
+
+
 def score_soap(case: EvalCase, output: str) -> StageScore:
     exp = case.expected.soap_note
     output_upper = output.upper()
     details: dict = {}
 
-    # Match section headers as word boundaries (e.g., "S:", "S\n", or start of line)
+    # Match single-letter headers (S:, O:, A:, P:) OR spelled-out headers
+    # (Subjective:, Objective:, Assessment:, Plan:) at line boundaries.
     def _section_present(section: str) -> bool:
-        pattern = rf"(?:^|\n){re.escape(section)}[:\s]"
+        full = _SOAP_FULL_NAMES.get(section, section)
+        pattern = rf"(?:^|\n)(?:{re.escape(section)}|{re.escape(full)})[:\s(]"
         return bool(re.search(pattern, output_upper))
 
     sections_found = [s for s in exp.required_sections if _section_present(s)]
@@ -98,9 +108,12 @@ def score_soap(case: EvalCase, output: str) -> StageScore:
 
     output_lower = output.lower()
     assessment_found = [kw for kw in exp.assessment_must_mention if kw.lower() in output_lower]
+    assessment_missing = [kw for kw in exp.assessment_must_mention if kw not in set(assessment_found)]
     details["assessment_keywords_found"] = assessment_found
+    details["assessment_keywords_missing"] = assessment_missing
 
-    return StageScore(passed=len(sections_missing) == 0, details=details)
+    passed = len(sections_missing) == 0 and len(assessment_missing) == 0
+    return StageScore(passed=passed, details=details)
 
 
 def score_case(case: EvalCase, triage: TriageResult, doctor: DoctorResult) -> CaseScore:

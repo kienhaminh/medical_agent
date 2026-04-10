@@ -54,10 +54,10 @@ async def run_case(
             score = score_case(case, intake_result, doctor_result)
             if use_judge:
                 from eval.judge import judge_ddx, judge_history, judge_soap
-                patient_summary = f"{case.description}"
-                score.triage.details["judge_ddx"] = judge_ddx(patient_summary, doctor_result.ddx_output)
-                score.triage.details["judge_history"] = judge_history(patient_summary, doctor_result.history_output)
-                score.triage.details["judge_soap"] = judge_soap(patient_summary, doctor_result.soap_output)
+                patient_summary = case.description
+                score.ddx.details["judge"] = await judge_ddx(patient_summary, doctor_result.ddx_output)
+                score.history.details["judge"] = await judge_history(patient_summary, doctor_result.history_output)
+                score.soap.details["judge"] = await judge_soap(patient_summary, doctor_result.soap_output)
             return score
         finally:
             await seeder.teardown(patient_id)
