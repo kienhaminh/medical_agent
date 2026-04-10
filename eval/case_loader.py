@@ -62,6 +62,8 @@ class EvalCase(BaseModel):
 def load_case(path: Path) -> EvalCase:
     with open(path) as f:
         data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a YAML mapping in {path}, got {type(data).__name__}")
     return EvalCase(**data)
 
 

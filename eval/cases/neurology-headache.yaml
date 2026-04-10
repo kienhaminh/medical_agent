@@ -32,7 +32,7 @@ expected:
     top_3_must_include:
       - "Subarachnoid Hemorrhage"
       - "Migraine"
-      - "Intracranial"
+      - "Intracranial Hemorrhage"
     icd10_present: true
 
   history_analysis:
