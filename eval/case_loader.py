@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class MedicalHistoryItem(BaseModel):
-    type: str  # chronic_condition | medication | allergy
+    type: str  # chronic_condition | medication
     name: str
     dosage: Optional[str] = None
 

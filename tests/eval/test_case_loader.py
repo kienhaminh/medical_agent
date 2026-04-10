@@ -68,7 +68,7 @@ expected:
 
 
 def test_load_all_cases_returns_list(tmp_path):
-    yaml = """
+    yaml_content = """
 id: case-a
 description: "A"
 patient:
@@ -81,7 +81,7 @@ expected:
   triage:
     department: Internal Medicine
 """
-    (tmp_path / "case-a.yaml").write_text(yaml)
+    (tmp_path / "case-a.yaml").write_text(yaml_content)
     cases = load_all_cases(tmp_path)
     assert len(cases) == 1
     assert cases[0].id == "case-a"
@@ -100,5 +100,6 @@ expected:
     case_file = tmp_path / "bad.yaml"
     case_file.write_text(bad_yaml)
 
-    with pytest.raises(Exception):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
         load_case(case_file)
