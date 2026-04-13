@@ -106,10 +106,8 @@ async def _run_agent_background(
                     )
                     bg_imaging = imaging_result.scalars().all()
                     if bg_imaging:
-                        imaging_lines = ", ".join(
-                            f"imaging_id={img.id} ({img.image_type})" for img in bg_imaging
-                        )
-                        context_message += f"Patient Imaging: [{imaging_lines}].\n"
+                        modalities = ", ".join(img.image_type for img in bg_imaging)
+                        context_message += f"Patient Imaging: {len(bg_imaging)} MRI record(s) ({modalities}). Use segment_patient_image(patient_id={patient.id}) to run segmentation.\n"
                     if record_id:
                         result = await db.execute(
                             select(MedicalRecord).where(MedicalRecord.id == record_id)
@@ -304,23 +302,19 @@ async def _process_dynamic_input(session_id: int, answers: dict[str, str]) -> st
             patient_id, is_new = await identify_patient(answers)
             result_parts.append(f"patient_id={patient_id}")
             result_parts.append(f"is_new={'true' if is_new else 'false'}")
-            # Persist patient_id and phone for subsequent steps in this session.
+            # Persist patient_id for subsequent steps in this session.
             form_registry.accumulate_answers(session_id, {
                 "__patient_id": str(patient_id),
-                "__phone": answers.get("phone", ""),
             })
         except Exception as e:
             logger.error("identify_patient failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail="Failed to identify patient")
     else:
-        # Recover patient_id (and phone) established in a previous step of this session.
+        # Recover patient_id established in a previous step of this session.
         accumulated = form_registry.get_accumulated_answers(session_id)
         pid_str = accumulated.get("__patient_id")
         if pid_str:
             patient_id = int(pid_str)
-        # Inject phone so save_intake can populate the non-nullable column.
-        if "__phone" in accumulated and "phone" not in answers:
-            answers = {**answers, "phone": accumulated["__phone"]}
 
     # --- Step 2: create VitalSign when height/weight are provided ---
     height_cm_str = answers.get("height_cm", "").strip()
@@ -441,10 +435,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                 )
                 patient_imaging = imaging_result.scalars().all()
                 if patient_imaging:
-                    imaging_lines = ", ".join(
-                        f"imaging_id={img.id} ({img.image_type})" for img in patient_imaging
-                    )
-                    context_message += f"Patient Imaging: [{imaging_lines}].\n"
+                    modalities = ", ".join(img.image_type for img in patient_imaging)
+                    context_message += f"Patient Imaging: {len(patient_imaging)} MRI record(s) ({modalities}). Use segment_patient_image(patient_id={patient.id}) to run segmentation.\n"
 
                 if request.record_id:
                     # Fetch specific record
@@ -527,17 +519,24 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
                     agent_task = asyncio.create_task(drain_agent())
 
+                    # Track inflight merge tasks so the finally block can cancel
+                    # them if the generator is abandoned (e.g. client disconnect).
+                    _inflight_merge_tasks: list[asyncio.Task] = []
+
                     # Merge agent + form queues into a single async generator
                     # so StreamProcessor can consume it.
                     async def merged_events():
                         while True:
                             get_agent = asyncio.create_task(agent_event_queue.get())
                             get_form = asyncio.create_task(form_event_queue.get())
+                            _inflight_merge_tasks[:] = [get_agent, get_form]
 
                             done_set, pending_set = await asyncio.wait(
                                 {get_agent, get_form},
                                 return_when=asyncio.FIRST_COMPLETED,
                             )
+                            _inflight_merge_tasks.clear()
+
                             for t in pending_set:
                                 t.cancel()
                                 try:
@@ -614,6 +613,12 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
                         await agent_task
                     except asyncio.CancelledError:
                         pass
+                    # Cancel any tasks still waiting on Queue.get() inside
+                    # merged_events() — prevents "Task destroyed but pending" warnings.
+                    for t in _inflight_merge_tasks:
+                        if not t.done():
+                            t.cancel()
+                    _inflight_merge_tasks.clear()
                     form_registry.unregister_session_queue(session.id)
 
             return StreamingResponse(generate(), media_type="text/event-stream")
