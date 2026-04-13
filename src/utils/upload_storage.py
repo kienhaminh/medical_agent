@@ -38,7 +38,7 @@ def upload_bytes(rel_path: str, data: bytes, content_type: str) -> str:
     _client().storage.from_(_bucket_name()).upload(
         rel,
         data,
-        {"content-type": content_type, "upsert": "true"},
+        {"content-type": content_type, "upsert": True},
     )
     return public_url_for_rel(rel)
 
