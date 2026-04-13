@@ -35,6 +35,7 @@ from . import compare_patient_tool
 from . import register_patient_tool
 from . import medical_img_segmentation_tool
 from . import medical_history_analysis_tool
+from . import mri_best_slice_tool
 
 # Re-export convenience functions
 from .datetime_tool import get_current_datetime
@@ -54,6 +55,7 @@ from .compare_patient_tool import compare_patient
 from .register_patient_tool import register_patient
 from .medical_img_segmentation_tool import segment_patient_image
 from .medical_history_analysis_tool import analyze_medical_history
+from .mri_best_slice_tool import get_best_segmentation_slice
 
 __all__ = [
     "ToolRegistry",
@@ -77,4 +79,5 @@ __all__ = [
     "set_itinerary",
     "segment_patient_image",
     "analyze_medical_history",
+    "get_best_segmentation_slice",
 ]

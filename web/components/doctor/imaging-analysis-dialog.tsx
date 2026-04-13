@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, ZoomIn, ZoomOut, Layers } from "lucide-react";
+import { X, ZoomIn, ZoomOut, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Imaging } from "@/lib/api";
-import { runSegmentation } from "@/lib/api";
+import { imagingSliceUrl, imagingMaskUrl, runSegmentation } from "@/lib/api";
 
 interface ImagingAnalysisDialogProps {
   /** All imaging records in the study group (typically 4 BraTS modalities). */
@@ -50,7 +50,7 @@ export function ImagingAnalysisDialog({
   // Internal group state — updated after segmentation without requiring parent re-open
   const [group, setGroup] = useState<Imaging[]>(imagingGroup);
   const [selectedId, setSelectedId] = useState<number | null>(imagingGroup[0]?.id ?? null);
-  const [overlayMode, setOverlayMode] = useState(false);
+  const [viewMode, setViewMode] = useState<"preview" | "mask" | "overlay">("preview");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState(RESET_VIEW);
@@ -76,50 +76,81 @@ export function ImagingAnalysisDialog({
       ? segmentedImaging.segmentation_result
       : null;
 
+  // Volume depth: prefer the NIfTI header value from the selected imaging record
+  // (available immediately from the API); fall back to segmentation result if present.
+  const volumeDepth: number =
+    selectedImaging?.volume_depth ??
+    segResult?.input?.shape_zyx?.[0] ??
+    0;
+
+  const [sliceZ, setSliceZ] = useState<number>(
+    segResult?.input?.slice_index ?? (volumeDepth > 0 ? Math.floor(volumeDepth / 2) : 0)
+  );
+
   // First valid-modality image — used as the entry point for the backend call
   const primaryForSeg =
     group.find((img) => VALID_MODALITIES.includes(img.image_type.toLowerCase())) ??
     group[0];
 
-  // Preload overlay to prevent flicker on toggle
-  useEffect(() => {
-    if (segResult) {
-      const img = new window.Image();
-      img.src = segResult.artifacts.overlay_image.url;
-    }
-  }, [segResult]);
-
-  // Reset view when switching modalities (overlay mode stays if already active)
+  // Reset view and slice when switching modalities
   useEffect(() => {
     setView(RESET_VIEW);
+    setViewMode("preview");
+    const target = segResult?.input?.slice_index ?? (volumeDepth > 0 ? Math.floor(volumeDepth / 2) : 0);
+    setSliceZ(target);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
-  // Escape key closes dialog
+  // Jump to segmentation slice when segmentation first completes
+  useEffect(() => {
+    if (segResult?.input?.slice_index !== undefined) {
+      setSliceZ(segResult.input.slice_index);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [segmentedImaging?.id]);
+
+  // Keyboard: Escape closes, arrow keys navigate slices
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") { onCloseRef.current(); return; }
+      if (e.key === "ArrowLeft")  setSliceZ((z) => Math.max(0, z - 1));
+      if (e.key === "ArrowRight") setSliceZ((z) => Math.min(volumeDepth - 1, z + 1));
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [volumeDepth]);
 
-  // Non-passive wheel handler for zoom-toward-cursor
+  // Wheel scrolls through slices; Ctrl/Cmd+wheel zooms toward cursor
+  const volumeDepthRef = useRef(volumeDepth);
+  useEffect(() => { volumeDepthRef.current = volumeDepth; });
+
   useEffect(() => {
     const el = imageAreaRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
-      const v = viewRef.current;
-      const rect = el.getBoundingClientRect();
-      const cx = e.clientX - rect.left - rect.width / 2;
-      const cy = e.clientY - rect.top - rect.height / 2;
-      const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
-      const scale = newZoom / v.zoom;
-      setView({ zoom: newZoom, x: cx + scale * (v.x - cx), y: cy + scale * (v.y - cy) });
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd+scroll → zoom toward cursor
+        const v = viewRef.current;
+        const rect = el.getBoundingClientRect();
+        const cx = e.clientX - rect.left - rect.width / 2;
+        const cy = e.clientY - rect.top - rect.height / 2;
+        const factor = e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
+        const scale = newZoom / v.zoom;
+        setView({ zoom: newZoom, x: cx + scale * (v.x - cx), y: cy + scale * (v.y - cy) });
+      } else {
+        // Plain scroll → next/prev slice
+        const depth = volumeDepthRef.current;
+        if (depth > 1) {
+          setSliceZ((z) => Math.min(Math.max(0, z + (e.deltaY > 0 ? 1 : -1)), depth - 1));
+        }
+      }
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRunSegmentation = useCallback(async () => {
@@ -133,7 +164,7 @@ export function ImagingAnalysisDialog({
       onSegmentationCompleteRef.current(updated);
       // Switch to the segmented record and show the overlay
       setSelectedId(updated.id);
-      setOverlayMode(true);
+      setViewMode("overlay");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Segmentation failed");
     } finally {
@@ -143,13 +174,21 @@ export function ImagingAnalysisDialog({
 
   if (!group.length || !selectedImaging) return null;
 
-  // Main view image: overlay when toggled, otherwise selected modality preview
-  const previewUrl =
-    selectedImaging.aligned_preview_url ?? selectedImaging.preview_url;
-  const imageUrl =
-    overlayMode && segResult
-      ? segResult.artifacts.overlay_image.url
-      : previewUrl;
+  // Image layers per view mode:
+  //   PREVIEW → selected modality's NIfTI at current z-slice (JPEG), or static preview fallback
+  //   MASK    → dim MRI slice (background) + transparent mask PNG (foreground)
+  //   OVERLAY → plain MRI slice (background) + transparent mask PNG (foreground, full opacity)
+  // Both MASK and OVERLAY composite client-side so the mask sits on top of the original slice.
+  const baseSliceUrl = volumeDepth > 0
+    ? imagingSliceUrl(patientId, selectedImaging.id, sliceZ, false)
+    : (selectedImaging.aligned_preview_url ?? selectedImaging.preview_url);
+
+  const imageUrl = viewMode === "preview"
+    ? baseSliceUrl
+    : imagingMaskUrl(patientId, segmentedImaging?.id ?? selectedImaging.id, sliceZ);
+
+  // Show the plain MRI slice underneath in both mask and overlay modes.
+  const showBaseLayer = (viewMode === "mask" || viewMode === "overlay") && !!segmentedImaging;
 
   const isDefaultView = view.zoom === 1 && view.x === 0 && view.y === 0;
 
@@ -232,6 +271,22 @@ export function ImagingAnalysisDialog({
           and the overlay image are always rendered within the same CSS box, so toggling
           between them never causes a size jump regardless of their intrinsic dimensions.
         */}
+        {/* Base MRI slice rendered underneath mask/overlay for anatomical context */}
+        {showBaseLayer && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={baseSliceUrl}
+            alt="MRI background"
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+            style={{
+              transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+              transformOrigin: "center",
+              transition: isDragging ? "none" : "transform 0.05s ease-out",
+              opacity: viewMode === "mask" ? 0.4 : 1,
+            }}
+          />
+        )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
@@ -310,41 +365,74 @@ export function ImagingAnalysisDialog({
           </button>
         </div>
 
-        {/* Preview / Overlay toggle — bottom-right */}
+        {/* Slice navigation — bottom-center; visible as soon as NIfTI depth is known */}
+        {!running && volumeDepth > 1 && (
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded"
+            style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseMove={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setSliceZ((z) => Math.max(0, z - 1))}
+              disabled={sliceZ === 0}
+              className="p-1.5 transition-opacity disabled:opacity-20 hover:opacity-80"
+              style={{ color: "white" }}
+              aria-label="Previous slice"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span
+              className="text-[11px] tabular-nums px-1"
+              style={{ color: "rgba(255,255,255,0.5)", minWidth: "6ch", textAlign: "center" }}
+            >
+              {sliceZ + 1} / {volumeDepth}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSliceZ((z) => Math.min(volumeDepth - 1, z + 1))}
+              disabled={sliceZ === volumeDepth - 1}
+              className="p-1.5 transition-opacity disabled:opacity-20 hover:opacity-80"
+              style={{ color: "white" }}
+              aria-label="Next slice"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Preview / Mask / Overlay toggle — bottom-right */}
         {segResult && !running && (
           <div className="absolute bottom-4 right-4 flex items-center gap-0.5">
-            {segResult.input?.slice_index !== undefined && (
-              <span className="mr-2 text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
-                slice {segResult.input.slice_index}
-              </span>
-            )}
             <div
               className="flex rounded overflow-hidden"
               style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.6)" }}
             >
-              <button
-                type="button"
-                onClick={() => setOverlayMode(false)}
-                className="px-3 py-1.5 text-[10px] font-bold tracking-wider transition-colors"
-                style={{
-                  background: !overlayMode ? "rgba(255,255,255,0.1)" : "transparent",
-                  color: !overlayMode ? "white" : "rgba(255,255,255,0.3)",
-                }}
-              >
-                PREVIEW
-              </button>
-              <button
-                type="button"
-                onClick={() => setOverlayMode(true)}
-                className="px-3 py-1.5 text-[10px] font-bold tracking-wider transition-colors"
-                style={{
-                  background: overlayMode ? "rgba(96,165,250,0.15)" : "transparent",
-                  color: overlayMode ? "#93c5fd" : "rgba(255,255,255,0.3)",
-                  borderLeft: "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                OVERLAY
-              </button>
+              {(["preview", "mask", "overlay"] as const).map((mode, i) => {
+                const active = viewMode === mode;
+                const label = mode.toUpperCase();
+                const activeStyle =
+                  mode === "overlay"
+                    ? { background: "rgba(96,165,250,0.15)", color: "#93c5fd" }
+                    : mode === "mask"
+                      ? { background: "rgba(52,211,153,0.12)", color: "#6ee7b7" }
+                      : { background: "rgba(255,255,255,0.1)", color: "white" };
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    className="px-3 py-1.5 text-[10px] font-bold tracking-wider transition-colors"
+                    style={{
+                      ...(active ? activeStyle : { background: "transparent", color: "rgba(255,255,255,0.3)" }),
+                      ...(i > 0 ? { borderLeft: "1px solid rgba(255,255,255,0.08)" } : {}),
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

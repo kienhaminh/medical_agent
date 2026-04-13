@@ -88,15 +88,15 @@ async def _call_segmentation_mcp(
             return {"status": "unknown", "raw_result": str(tool_result)}
 
 
-def segment_patient_image(patient_id: int, imaging_id: int) -> str:
-    """Run MRI segmentation on one imaging record via the medical_img_segmentation MCP.
+def segment_patient_image(patient_id: int) -> str:
+    """Run MRI segmentation for a patient via the medical_img_segmentation MCP.
 
-    Only the specified imaging record is sent to the MCP; other modality channels are
-    zero-filled by the server. Always call with a specific imaging_id — one call per image.
+    Fetches all MRI modality URLs (t1, t1ce, t2, flair) for the patient and sends
+    them together in a single MCP call. Uses the most recent imaging group when the
+    patient has multiple scan sets.
 
     Args:
         patient_id: The patient's database ID.
-        imaging_id: ID of the imaging record to segment (t1, t1ce, t2, or flair).
 
     Returns:
         JSON string with overlay_url, predmask_url, modalities_used, and tumour classes.
@@ -105,33 +105,23 @@ def segment_patient_image(patient_id: int, imaging_id: int) -> str:
 
     try:
         with SessionLocal() as db:
-            requested = db.query(Imaging).filter(
-                Imaging.id == imaging_id,
+            all_records = db.query(Imaging).filter(
                 Imaging.patient_id == patient_id,
-            ).first()
-            if requested is None:
-                return json.dumps(
-                    {"status": "error", "error": f"Imaging {imaging_id} not found for patient {patient_id}"},
-                    ensure_ascii=True,
-                )
+            ).order_by(Imaging.id).all()
 
-            # BraTS segmentation requires all 4 modalities.
-            # Pull the full group (or all patient images when ungrouped).
-            if requested.group_id is not None:
-                imaging_records = db.query(Imaging).filter(
-                    Imaging.group_id == requested.group_id,
-                    Imaging.patient_id == patient_id,
-                ).all()
-            else:
-                imaging_records = db.query(Imaging).filter(
-                    Imaging.patient_id == patient_id,
-                ).all()
-
-            if not imaging_records:
+            if not all_records:
                 return json.dumps(
                     {"status": "error", "error": f"No MRI imaging records found for patient {patient_id}"},
                     ensure_ascii=True,
                 )
+
+            # Use the most recent imaging group; fall back to all records if ungrouped.
+            grouped = [r for r in all_records if r.group_id is not None]
+            if grouped:
+                latest_group_id = max(r.group_id for r in grouped)
+                imaging_records = [r for r in grouped if r.group_id == latest_group_id]
+            else:
+                imaging_records = all_records
 
             # Check for a cached segmentation result before calling the MCP.
             intended_modalities = {
@@ -188,6 +178,7 @@ def segment_patient_image(patient_id: int, imaging_id: int) -> str:
                     "overlay_url": overlay_url,
                     "overlay_markdown": f"![MRI Segmentation Overlay]({overlay_url})",
                     "predmask_url": predmask_url,
+                    "predmask_markdown": f"![Segmentation Mask]({predmask_url})" if predmask_url else "",
                     "tumour_classes": tumour_classes,
                 },
                 ensure_ascii=True,
