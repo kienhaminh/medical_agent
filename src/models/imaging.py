@@ -34,6 +34,7 @@ class Imaging(Base):
     segmentation_result: Mapped[Optional[Dict[str, Any]]] = mapped_column(_JSONB, nullable=True)
     # Axial slice index used for the segmentation overlay (-1 = not yet set / auto-select)
     slice_index: Mapped[Optional[int]] = mapped_column(nullable=True)
+    segmentation_status: Mapped[str] = mapped_column(String(20), default="idle", server_default="idle")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="imaging")
