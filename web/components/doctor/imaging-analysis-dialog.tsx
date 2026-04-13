@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Imaging } from "@/lib/api";
-import { imagingSliceUrl, imagingMaskUrl, runSegmentation } from "@/lib/api";
+import { imagingSliceUrl, imagingMaskUrl, runSegmentationAsync } from "@/lib/api";
 
 interface ImagingAnalysisDialogProps {
   /** All imaging records in the study group (typically 4 BraTS modalities). */
@@ -12,6 +12,8 @@ interface ImagingAnalysisDialogProps {
   patientId: number;
   onClose: () => void;
   onSegmentationComplete: (updated: Imaging) => void;
+  sessionId?: number | null;
+  userId?: string;
 }
 
 // BraTS segmentation class colors — medical imaging standard, not UI theme colors
@@ -46,12 +48,15 @@ export function ImagingAnalysisDialog({
   patientId,
   onClose,
   onSegmentationComplete,
+  sessionId,
+  userId,
 }: ImagingAnalysisDialogProps) {
   // Internal group state — updated after segmentation without requiring parent re-open
   const [group, setGroup] = useState<Imaging[]>(imagingGroup);
   const [selectedId, setSelectedId] = useState<number | null>(imagingGroup[0]?.id ?? null);
   const [viewMode, setViewMode] = useState<"preview" | "mask" | "overlay">("preview");
   const [running, setRunning] = useState(false);
+  const [queued, setQueued] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState(RESET_VIEW);
   const [isDragging, setIsDragging] = useState(false);
@@ -158,19 +163,17 @@ export function ImagingAnalysisDialog({
     setRunning(true);
     setError(null);
     try {
-      const updated = await runSegmentation(patientId, primaryForSeg.id);
-      // Update internal group state so UI reflects results without closing dialog
-      setGroup((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
-      onSegmentationCompleteRef.current(updated);
-      // Switch to the segmented record and show the overlay
-      setSelectedId(updated.id);
-      setViewMode("overlay");
+      await runSegmentationAsync(patientId, primaryForSeg.id, {
+        userId: userId ?? undefined,
+        sessionId: sessionId ?? undefined,
+      });
+      setQueued(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Segmentation failed");
+      setError(err instanceof Error ? err.message : "Segmentation failed to start");
     } finally {
       setRunning(false);
     }
-  }, [primaryForSeg, patientId]);
+  }, [primaryForSeg, patientId, userId, sessionId]);
 
   if (!group.length || !selectedImaging) return null;
 
@@ -299,32 +302,6 @@ export function ImagingAnalysisDialog({
             transition: isDragging ? "none" : "transform 0.05s ease-out",
           }}
         />
-
-        {/* Processing overlay */}
-        {running && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4"
-            style={{ background: "rgba(5,5,8,0.85)", backdropFilter: "blur(4px)" }}
-          >
-            <div className="relative">
-              <div
-                className="h-12 w-12 rounded-full animate-spin"
-                style={{ border: "2px solid rgba(255,255,255,0.06)", borderTopColor: "#60a5fa" }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Layers className="h-4 w-4" style={{ color: "rgba(96,165,250,0.6)" }} />
-              </div>
-            </div>
-            <div className="text-center">
-              <p className="text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Processing
-              </p>
-              <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>
-                Running BraTS segmentation across all {group.length} modalities…
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Zoom controls — bottom-left */}
         <div className="absolute bottom-4 left-4 flex items-center gap-1">
@@ -524,7 +501,14 @@ export function ImagingAnalysisDialog({
             </span>
           )}
 
-          {segResult ? (
+          {queued ? (
+            <span
+              className="text-[11px] font-mono px-3 py-1.5 rounded"
+              style={{ border: "1px solid rgba(96,165,250,0.3)", color: "rgba(96,165,250,0.7)" }}
+            >
+              Running in background — you&apos;ll be notified when done
+            </span>
+          ) : segResult ? (
             <button
               type="button"
               onClick={handleRunSegmentation}
@@ -543,7 +527,7 @@ export function ImagingAnalysisDialog({
               style={{ background: "#2563eb", color: "white" }}
             >
               <Layers className="h-3.5 w-3.5" />
-              Run BraTS Segmentation
+              {running ? "Starting…" : "Run BraTS Segmentation"}
             </button>
           )}
         </div>
