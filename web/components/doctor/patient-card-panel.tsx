@@ -12,6 +12,8 @@ interface PatientCardPanelProps {
   selectedVisit: VisitListItem | null;
   visitBrief: string;
   briefLoading: boolean;
+  chatSessionId?: number | null;
+  userId?: string;
 }
 
 type Tab = "overview" | "visit" | "records" | "imaging";
@@ -36,7 +38,7 @@ const URGENCY_BADGE: Record<string, string> = {
   routine: "bg-green-100 text-green-700",
 };
 
-export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoading }: PatientCardPanelProps) {
+export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoading, chatSessionId, userId }: PatientCardPanelProps) {
   const [tab, setTab] = useState<Tab>("overview");
 
   if (!patient) {
@@ -117,7 +119,7 @@ export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoad
         {tab === "overview" && <OverviewTab visit={selectedVisit} />}
         {tab === "visit" && <VisitTab visit={selectedVisit} visitBrief={visitBrief} briefLoading={briefLoading} />}
         {tab === "records" && <RecordsTab records={patient.records} />}
-        {tab === "imaging" && <ImagingTab key={patient.id} imaging={patient.imaging} imageGroups={patient.image_groups} patientId={patient.id} />}
+        {tab === "imaging" && <ImagingTab key={patient.id} imaging={patient.imaging} imageGroups={patient.image_groups} patientId={patient.id} chatSessionId={chatSessionId} userId={userId} />}
       </div>
     </div>
   );
@@ -273,10 +275,14 @@ function ImagingTab({
   imaging: initialImaging,
   imageGroups,
   patientId,
+  chatSessionId,
+  userId,
 }: {
   imaging?: Imaging[];
   imageGroups?: ImageGroup[];
   patientId: number;
+  chatSessionId?: number | null;
+  userId?: string;
 }) {
   const [imaging, setImaging] = useState<Imaging[]>(initialImaging ?? []);
   const [dialogGroup, setDialogGroup] = useState<Imaging[] | null>(null);
@@ -382,6 +388,8 @@ function ImagingTab({
           patientId={patientId}
           onClose={() => setDialogGroup(null)}
           onSegmentationComplete={handleSegmentationComplete}
+          sessionId={chatSessionId}
+          userId={userId}
         />
       )}
     </>

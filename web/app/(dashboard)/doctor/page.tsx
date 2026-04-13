@@ -85,6 +85,7 @@ export default function DoctorPage() {
               workspace.handleAcceptPatient(visit, user?.name ?? "", myPatients.length)
             }
             wsEvents={wsEvents}
+            canAccept={myPatients.length === 0}
           />
         </div>
 
@@ -105,6 +106,8 @@ export default function DoctorPage() {
           onTransfer={workspace.handleTransfer}
           onSaveNotes={workspace.handleSaveNotes}
           onEndShift={workspace.openShiftHandoff}
+          chatSessionId={workspace.chatSessionId}
+          userId={user ? String(user.id) : undefined}
         />
 
         {/* Zone C: AI Assistant */}

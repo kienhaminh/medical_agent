@@ -41,6 +41,10 @@ interface ClinicalWorkspaceProps {
   onTransfer: (dept: string) => void;
   onSaveNotes: () => void;
   onEndShift: () => void;
+
+  // Session / user context for imaging async segmentation
+  chatSessionId?: number | null;
+  userId?: string;
 }
 
 function loadCollapsedPanels(): Set<string> {
@@ -97,6 +101,8 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
             selectedVisit={props.selectedVisit ?? null}
             visitBrief={props.visitBrief}
             briefLoading={props.briefLoading}
+            chatSessionId={props.chatSessionId}
+            userId={props.userId}
           />
         </CollapsiblePanel>
 

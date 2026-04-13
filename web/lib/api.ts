@@ -83,7 +83,7 @@ export type SegmentationResult =
       status: "success";
       patient_id: string; // MCP echoes the patient_id as a string
       input: {
-        image_url: string;
+        modalities_provided: string[];
         shape_zyx: [number, number, number];
         slice_index: number;
       };
@@ -97,6 +97,7 @@ export type SegmentationResult =
       artifacts: {
         overlay_image: { url: string };
         predmask_image: { url: string };
+        pred_mask_3d?: { url: string; format: string };
       };
     }
   | { status: "error" | "unknown"; [key: string]: unknown };
@@ -113,6 +114,7 @@ export interface Imaging {
   segmentation_result?: SegmentationResult | null;
   slice_index?: number | null;
   aligned_preview_url?: string | null;
+  volume_depth?: number | null;
   created_at: string;
 }
 
@@ -141,6 +143,23 @@ export async function getPatient(id: number): Promise<PatientDetail> {
   return res.json();
 }
 
+export function imagingSliceUrl(
+  patientId: number,
+  imagingId: number,
+  z: number,
+  overlay: boolean
+): string {
+  return `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/slice?z=${z}&overlay=${overlay}`;
+}
+
+export function imagingMaskUrl(
+  patientId: number,
+  imagingId: number,
+  z: number
+): string {
+  return `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/mask?z=${z}`;
+}
+
 export async function runSegmentation(
   patientId: number,
   imagingId: number
@@ -152,6 +171,29 @@ export async function runSegmentation(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { detail?: string }).detail || "Segmentation failed");
+  }
+  return res.json();
+}
+
+export async function runSegmentationAsync(
+  patientId: number,
+  imagingId: number,
+  opts?: { userId?: string; sessionId?: number | null },
+): Promise<{ status: string; imaging_id: number }> {
+  const res = await fetch(
+    `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/segment-async`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: opts?.userId ?? null,
+        session_id: opts?.sessionId ?? null,
+      }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Segment-async failed: ${res.status}`);
   }
   return res.json();
 }
