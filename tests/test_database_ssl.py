@@ -44,7 +44,7 @@ def test_ssl_enabled_async_connect_args(monkeypatch):
         "postgresql+asyncpg://postgres:pass@db.abc.supabase.co:5432/postgres",
         "true",
     )
-    assert base._async_connect_args == {"ssl": True}
+    assert base._async_connect_args == {"ssl": True, "statement_cache_size": 0}
 
 
 def test_ssl_enabled_sync_connect_args(monkeypatch):
