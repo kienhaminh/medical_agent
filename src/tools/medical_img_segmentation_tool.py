@@ -88,20 +88,23 @@ async def _call_segmentation_mcp(
             return {"status": "unknown", "raw_result": str(tool_result)}
 
 
-def segment_patient_image(patient_id: int) -> str:
-    """Run MRI segmentation for a patient via the medical_img_segmentation MCP.
+def segment_patient_image(patient_id: int, session_id: int | None = None) -> str:
+    """Start MRI segmentation for a patient in the background.
 
-    Fetches all MRI modality URLs (t1, t1ce, t2, flair) for the patient and sends
-    them together in a single MCP call. Uses the most recent imaging group when the
-    patient has multiple scan sets.
+    If a valid cached result exists, returns it immediately (no background task).
+    Otherwise, fires a background asyncio task and returns status=queued.
 
     Args:
         patient_id: The patient's database ID.
+        session_id: The active chat session ID. When provided, the agent will post
+                    a clinical interpretation to this session when segmentation completes.
 
     Returns:
-        JSON string with overlay_url, predmask_url, modalities_used, and tumour classes.
+        JSON string. Either cached results (status=success, already_segmented=true)
+        or {status: "queued"} when the background task has been dispatched.
     """
     from src.models import SessionLocal, Imaging
+    from src.api.routers.patients.segmentation_worker import _run_segmentation_background
 
     try:
         with SessionLocal() as db:
@@ -123,7 +126,7 @@ def segment_patient_image(patient_id: int) -> str:
             else:
                 imaging_records = all_records
 
-            # Check for a cached segmentation result before calling the MCP.
+            # Check for a cached segmentation result.
             intended_modalities = {
                 img.image_type for img in imaging_records if img.image_type in _MODALITY_PARAM
             }
@@ -138,51 +141,60 @@ def segment_patient_image(patient_id: int) -> str:
                     break
 
             if cached_payload is not None:
-                payload = cached_payload
-            else:
-                # Build modality URL map, rewriting base URL for Docker MCP access.
-                modality_urls = {
-                    img.image_type: _rewrite_for_mcp(img.original_url)
-                    for img in imaging_records
-                    if img.image_type in _MODALITY_PARAM
-                }
+                # Return cached result immediately — no background task needed.
+                _output_base = os.getenv("PUBLIC_UPLOAD_BASE_URL", "http://localhost:8000/uploads").rstrip("/")
+                for artifact in cached_payload.get("artifacts", {}).values():
+                    if isinstance(artifact, dict) and "path" in artifact:
+                        artifact["url"] = f"{_output_base}/{artifact['path'].rsplit('/', 1)[-1]}"
 
-                payload = asyncio.run(
-                    _call_segmentation_mcp(
-                        modality_urls=modality_urls,
-                        patient_id=str(patient_id),
-                    )
+                overlay_url = cached_payload.get("artifacts", {}).get("overlay_image", {}).get("url", "")
+                predmask_url = cached_payload.get("artifacts", {}).get("predmask_image", {}).get("url", "")
+                tumour_classes = cached_payload.get("prediction", {}).get("pred_classes_in_slice", [])
+                modalities_used = cached_payload.get("input", {}).get("modalities_provided", sorted(intended_modalities))
+
+                return json.dumps(
+                    {
+                        "status": cached_payload.get("status", "unknown"),
+                        "already_segmented": True,
+                        "modalities_used": modalities_used,
+                        "overlay_url": overlay_url,
+                        "overlay_markdown": f"![MRI Segmentation Overlay]({overlay_url})",
+                        "predmask_url": predmask_url,
+                        "predmask_markdown": f"![Segmentation Mask]({predmask_url})" if predmask_url else "",
+                        "tumour_classes": tumour_classes,
+                    },
+                    ensure_ascii=True,
                 )
 
-                if payload.get("status") == "success":
-                    # Persist result on the first (lowest-id) imaging record.
-                    imaging_records[0].segmentation_result = payload
-                    db.commit()
+            # No cache — dispatch background task and return immediately.
+            primary_imaging_id = imaging_records[0].id
 
-            # Rewrite artifact URLs to use the correct public-facing upload base.
-            _output_base = os.getenv("PUBLIC_UPLOAD_BASE_URL", "http://localhost:8000/uploads").rstrip("/")
-            for artifact in payload.get("artifacts", {}).values():
-                if isinstance(artifact, dict) and "path" in artifact:
-                    artifact["url"] = f"{_output_base}/{artifact['path'].rsplit('/', 1)[-1]}"
-
-            overlay_url = payload.get("artifacts", {}).get("overlay_image", {}).get("url", "")
-            predmask_url = payload.get("artifacts", {}).get("predmask_image", {}).get("url", "")
-            tumour_classes = payload.get("prediction", {}).get("pred_classes_in_slice", [])
-            modalities_used = payload.get("input", {}).get("modalities_provided", sorted(intended_modalities))
-
-            return json.dumps(
-                {
-                    "status": payload.get("status", "unknown"),
-                    "already_segmented": cached_payload is not None,
-                    "modalities_used": modalities_used,
-                    "overlay_url": overlay_url,
-                    "overlay_markdown": f"![MRI Segmentation Overlay]({overlay_url})",
-                    "predmask_url": predmask_url,
-                    "predmask_markdown": f"![Segmentation Mask]({predmask_url})" if predmask_url else "",
-                    "tumour_classes": tumour_classes,
-                },
-                ensure_ascii=True,
+        # Schedule the background coroutine on the running event loop.
+        # The tool is called from within the async LangGraph agent, so a loop is always running.
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            _run_segmentation_background(
+                patient_id=patient_id,
+                imaging_id=primary_imaging_id,
+                session_id=session_id,
             )
+        )
+
+        return json.dumps(
+            {
+                "status": "queued",
+                "message": (
+                    f"BraTS segmentation has been started in the background for patient {patient_id}. "
+                    "This typically takes 3–5 minutes. "
+                    + (
+                        "I will post the clinical interpretation directly in this conversation when it is ready."
+                        if session_id
+                        else "You will receive a notification when it is complete."
+                    )
+                ),
+            },
+            ensure_ascii=True,
+        )
 
     except Exception as exc:
         return json.dumps(
