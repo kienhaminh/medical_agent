@@ -26,7 +26,7 @@ from src.utils.upload_storage import (
     patient_imaging_dir,
     public_url_for_rel,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from ...models import ImagingResponse, ImageGroupResponse, ImageGroupCreate, ImagingCreate
 from src.api.routers.patients.segmentation_worker import _run_segmentation_background
@@ -34,11 +34,21 @@ from src.api.routers.patients.segmentation_worker import _run_segmentation_backg
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
 
+# Strong reference set to prevent asyncio background tasks from being garbage-collected
+# before they complete. Tasks are discarded automatically via add_done_callback.
+_background_tasks: set[asyncio.Task] = set()
+
 
 class SegmentAsyncRequest(BaseModel):
     """Body for the non-blocking segment-async endpoint."""
     user_id: str | None = None    # used for WS notification (manual path)
     session_id: int | None = None  # used for agent report (agent path)
+
+    @model_validator(mode="after")
+    def require_at_least_one(self) -> "SegmentAsyncRequest":
+        if self.user_id is None and self.session_id is None:
+            raise ValueError("At least one of user_id or session_id must be provided")
+        return self
 
 
 def _extract_aligned_preview(nii_path: Path, slice_idx: int, out_path: Path) -> bool:
@@ -562,7 +572,7 @@ async def segment_imaging_async(
     if imaging_record.segmentation_status == "running":
         return {"status": "already_running", "imaging_id": imaging_id}
 
-    asyncio.create_task(
+    task = asyncio.create_task(
         _run_segmentation_background(
             patient_id=patient_id,
             imaging_id=imaging_id,
@@ -570,6 +580,8 @@ async def segment_imaging_async(
             user_id=body.user_id,
         )
     )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return {"status": "queued", "imaging_id": imaging_id}
 

@@ -284,7 +284,7 @@ function ImagingTab({
   chatSessionId?: number | null;
   userId?: string;
 }) {
-  const [imaging, setImaging] = useState<Imaging[]>(initialImaging ?? []);
+  const imaging = initialImaging ?? [];
   const [dialogGroup, setDialogGroup] = useState<Imaging[] | null>(null);
 
   if (!imaging.length) {
@@ -298,10 +298,6 @@ function ImagingTab({
     if (!groupMap.has(key)) groupMap.set(key, []);
     groupMap.get(key)!.push(img);
   }
-
-  const handleSegmentationComplete = (updated: Imaging) => {
-    setImaging((prev) => prev.map((img) => (img.id === updated.id ? updated : img)));
-  };
 
   const getGroupName = (key: string): string => {
     if (key === "__ungrouped__") return "MRI Study";
@@ -387,7 +383,6 @@ function ImagingTab({
           imagingGroup={dialogGroup}
           patientId={patientId}
           onClose={() => setDialogGroup(null)}
-          onSegmentationComplete={handleSegmentationComplete}
           sessionId={chatSessionId}
           userId={userId}
         />

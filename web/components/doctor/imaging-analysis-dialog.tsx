@@ -11,7 +11,6 @@ interface ImagingAnalysisDialogProps {
   imagingGroup: Imaging[];
   patientId: number;
   onClose: () => void;
-  onSegmentationComplete: (updated: Imaging) => void;
   sessionId?: number | null;
   userId?: string;
 }
@@ -47,7 +46,6 @@ export function ImagingAnalysisDialog({
   imagingGroup,
   patientId,
   onClose,
-  onSegmentationComplete,
   sessionId,
   userId,
 }: ImagingAnalysisDialogProps) {
@@ -68,8 +66,6 @@ export function ImagingAnalysisDialog({
   const dragStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; });
-  const onSegmentationCompleteRef = useRef(onSegmentationComplete);
-  useEffect(() => { onSegmentationCompleteRef.current = onSegmentationComplete; });
 
   const selectedImaging = group.find((img) => img.id === selectedId) ?? group[0];
   // The record that holds the segmentation result (only one per-run)
