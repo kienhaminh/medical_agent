@@ -9,10 +9,10 @@ def _reload_base(monkeypatch, database_url: str, ssl: str):
     """Reload src.models.base with patched env vars."""
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("DATABASE_SSL", ssl)
-    # Remove cached module so env vars are re-read on import
+    # Remove cached module via monkeypatch so sys.modules is restored on teardown
     for key in list(sys.modules.keys()):
         if "src.models.base" in key:
-            del sys.modules[key]
+            monkeypatch.delitem(sys.modules, key)
     return importlib.import_module("src.models.base")
 
 
