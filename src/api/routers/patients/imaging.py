@@ -1,4 +1,6 @@
 """Patient imaging operations."""
+import asyncio
+import io
 import logging
 import shutil
 import time
@@ -7,7 +9,8 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from fastapi import APIRouter, HTTPException, Depends, File, Form, UploadFile
+from fastapi import APIRouter, HTTPException, Depends, File, Form, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -23,10 +26,19 @@ from src.utils.upload_storage import (
     patient_imaging_dir,
     public_url_for_rel,
 )
+from pydantic import BaseModel
+
 from ...models import ImagingResponse, ImageGroupResponse, ImageGroupCreate, ImagingCreate
+from src.api.routers.patients.segmentation_worker import _run_segmentation_background
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
+
+
+class SegmentAsyncRequest(BaseModel):
+    """Body for the non-blocking segment-async endpoint."""
+    user_id: str | None = None    # used for WS notification (manual path)
+    session_id: int | None = None  # used for agent report (agent path)
 
 
 def _extract_aligned_preview(nii_path: Path, slice_idx: int, out_path: Path) -> bool:
@@ -75,6 +87,116 @@ def _extract_aligned_preview(nii_path: Path, slice_idx: int, out_path: Path) -> 
         return False
 
 
+def _extract_slice_jpeg(
+    nii_path: Path, slice_z: int, mask_path: Path | None, alpha: float = 0.45
+) -> bytes:
+    """Extract axial slice z from a NIfTI and return JPEG bytes.
+
+    Orientation and normalization match _extract_aligned_preview exactly:
+      data[:, :, z].T  →  shape (y, x)
+
+    If mask_path is given, blends the 3-D prediction mask (ZYX order,
+    saved by the MCP as full_pred) onto the grayscale slice using the
+    same color scheme as the MCP overlay (red/green/blue for classes 1/2/3).
+    """
+    import nibabel as nib
+
+    img = nib.load(str(nii_path))
+    data = np.asarray(img.dataobj)  # (x, y, z) for raw BraTS modality NIfTIs
+    if slice_z < 0 or slice_z >= data.shape[2]:
+        raise ValueError(f"slice_z {slice_z} out of range for shape {data.shape}")
+
+    slice_yx = data[:, :, slice_z].T.astype(np.float32)
+
+    # Normalize (p1-p99 on non-zero voxels — identical to MCP)
+    nz = slice_yx[slice_yx != 0]
+    if nz.size == 0:
+        normed = np.zeros(slice_yx.shape, dtype=np.uint8)
+    else:
+        lo, hi = float(np.percentile(nz, 1)), float(np.percentile(nz, 99))
+        if hi - lo < 1e-8:
+            lo, hi = float(nz.min()), float(nz.max())
+        normed = np.clip((slice_yx - lo) / (hi - lo) * 255, 0, 255).astype(np.uint8)
+
+    base_rgb = np.stack([normed, normed, normed], axis=-1).astype(np.float32)
+
+    if mask_path and mask_path.is_file():
+        mask_img = nib.load(str(mask_path))
+        # full_pred was saved as (z, y, x) — index directly by z
+        mask_data = np.asarray(mask_img.dataobj)
+        label_yx = (
+            mask_data[slice_z, :, :]
+            if slice_z < mask_data.shape[0]
+            else np.zeros(base_rgb.shape[:2], dtype=np.uint8)
+        )
+        color_map = {
+            1: np.array([255.0, 0.0, 0.0], dtype=np.float32),
+            2: np.array([0.0, 255.0, 0.0], dtype=np.float32),
+            3: np.array([0.0, 0.0, 255.0], dtype=np.float32),
+        }
+        overlay = base_rgb.copy()
+        for cls, color in color_map.items():
+            m = label_yx == cls
+            if np.any(m):
+                overlay[m] = (1.0 - alpha) * overlay[m] + alpha * color
+        rgb_out = overlay.clip(0, 255).astype(np.uint8)
+    else:
+        rgb_out = base_rgb.astype(np.uint8)
+
+    pil_img = Image.fromarray(rgb_out, mode="RGB").resize((512, 512), Image.LANCZOS)
+    buf = io.BytesIO()
+    pil_img.save(buf, "JPEG", quality=90)
+    return buf.getvalue()
+
+
+def _extract_mask_png(mask_nii_path: Path, slice_z: int) -> bytes:
+    """Extract axial slice z from a 3-D prediction NIfTI and return RGBA PNG bytes.
+
+    The mask NIfTI was saved by the MCP in (z, y, x) order (full_pred).
+    Returns an RGBA image: transparent where label==0, colored where tumor present.
+    Color scheme matches the MCP overlay: class 1=red, class 2=green, class 3=blue.
+    """
+    import nibabel as nib
+
+    mask_img = nib.load(str(mask_nii_path))
+    mask_data = np.asarray(mask_img.dataobj)  # shape (z, y, x)
+
+    if slice_z < 0 or slice_z >= mask_data.shape[0]:
+        raise ValueError(f"slice_z {slice_z} out of range for mask shape {mask_data.shape}")
+
+    label_yx = mask_data[slice_z, :, :].astype(np.uint8)
+
+    color_map = {
+        1: np.array([255, 0, 0], dtype=np.uint8),
+        2: np.array([0, 255, 0], dtype=np.uint8),
+        3: np.array([0, 0, 255], dtype=np.uint8),
+    }
+    rgba = np.zeros((*label_yx.shape, 4), dtype=np.uint8)
+    for cls, color in color_map.items():
+        m = label_yx == cls
+        if np.any(m):
+            rgba[m, :3] = color
+            rgba[m, 3] = 255  # fully opaque
+
+    pil_img = Image.fromarray(rgba, mode="RGBA").resize((512, 512), Image.NEAREST)
+    buf = io.BytesIO()
+    pil_img.save(buf, "PNG")
+    return buf.getvalue()
+
+
+def _nifti_depth(original_url: str) -> int | None:
+    """Read the z-axis depth from a NIfTI header without loading the full volume."""
+    try:
+        import nibabel as nib
+        p = local_path_from_public_url(original_url)
+        if p and p.is_file():
+            img = nib.load(str(p))
+            return int(img.shape[2])  # (x, y, z) — z is the axial axis
+    except Exception:
+        pass
+    return None
+
+
 def _imaging_to_response(i: Imaging) -> ImagingResponse:
     seg = normalize_docker_urls(i.segmentation_result) if i.segmentation_result else i.segmentation_result
     aligned_preview_url = seg.get("aligned_preview_url") if seg else None
@@ -89,6 +211,7 @@ def _imaging_to_response(i: Imaging) -> ImagingResponse:
         segmentation_result=seg,
         slice_index=i.slice_index,
         aligned_preview_url=aligned_preview_url,
+        volume_depth=_nifti_depth(i.original_url),
         created_at=i.created_at.isoformat(),
     )
 
@@ -409,3 +532,136 @@ async def segment_imaging(
     await db.refresh(imaging_record)
 
     return _imaging_to_response(imaging_record)
+
+
+@router.post(
+    "/api/patients/{patient_id}/imaging/{imaging_id}/segment-async",
+    status_code=202,
+)
+async def segment_imaging_async(
+    patient_id: int,
+    imaging_id: int,
+    body: SegmentAsyncRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Start BraTS segmentation as a background task and return immediately.
+
+    On completion:
+    - If body.session_id is set: agent posts clinical interpretation to that chat session.
+    - If body.user_id is set: sends an imaging.segmentation WS notification to that user.
+    """
+    result = await db.execute(
+        select(Imaging)
+        .where(Imaging.id == imaging_id)
+        .where(Imaging.patient_id == patient_id)
+    )
+    imaging_record = result.scalar_one_or_none()
+    if not imaging_record:
+        raise HTTPException(status_code=404, detail="Imaging record not found")
+
+    if imaging_record.segmentation_status == "running":
+        return {"status": "already_running", "imaging_id": imaging_id}
+
+    asyncio.create_task(
+        _run_segmentation_background(
+            patient_id=patient_id,
+            imaging_id=imaging_id,
+            session_id=body.session_id,
+            user_id=body.user_id,
+        )
+    )
+
+    return {"status": "queued", "imaging_id": imaging_id}
+
+
+@router.get("/api/patients/{patient_id}/imaging/{imaging_id}/slice")
+async def get_imaging_slice(
+    patient_id: int,
+    imaging_id: int,
+    z: int = Query(..., ge=0, description="Axial slice index"),
+    overlay: bool = Query(False, description="Blend segmentation mask overlay"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return JPEG of axial slice z for the given imaging record.
+
+    If overlay=true and pred_mask_3d is in segmentation_result, the 3-D
+    prediction mask is blended onto the slice. Falls back to raw slice when
+    the mask is unavailable (pre-segmentation or legacy records).
+    """
+    result = await db.execute(
+        select(Imaging)
+        .where(Imaging.id == imaging_id)
+        .where(Imaging.patient_id == patient_id)
+    )
+    imaging_record = result.scalar_one_or_none()
+    if not imaging_record:
+        raise HTTPException(status_code=404, detail="Imaging record not found")
+
+    nii_path = local_path_from_public_url(imaging_record.original_url)
+    if not nii_path or not nii_path.is_file():
+        raise HTTPException(status_code=404, detail="NIfTI volume not found on disk")
+
+    mask_path: Path | None = None
+    if overlay and imaging_record.segmentation_result:
+        seg = normalize_docker_urls(imaging_record.segmentation_result)
+        mask_url = seg.get("artifacts", {}).get("pred_mask_3d", {}).get("url", "")
+        if mask_url:
+            mask_path = local_path_from_public_url(mask_url.split("?")[0])
+
+    try:
+        jpeg_bytes = await asyncio.get_event_loop().run_in_executor(
+            None, _extract_slice_jpeg, nii_path, z, mask_path
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        logger.exception("Slice extraction failed z=%d %s", z, nii_path)
+        raise HTTPException(status_code=500, detail="Slice extraction failed")
+
+    return Response(content=jpeg_bytes, media_type="image/jpeg")
+
+
+@router.get("/api/patients/{patient_id}/imaging/{imaging_id}/mask")
+async def get_imaging_mask(
+    patient_id: int,
+    imaging_id: int,
+    z: int = Query(..., ge=0, description="Axial slice index"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return RGBA PNG of the segmentation mask at axial slice z.
+
+    Transparent where no tumor is predicted; red/green/blue for classes 1/2/3.
+    Requires segmentation to have been run (pred_mask_3d must exist).
+    """
+    result = await db.execute(
+        select(Imaging)
+        .where(Imaging.id == imaging_id)
+        .where(Imaging.patient_id == patient_id)
+    )
+    imaging_record = result.scalar_one_or_none()
+    if not imaging_record:
+        raise HTTPException(status_code=404, detail="Imaging record not found")
+
+    if not imaging_record.segmentation_result:
+        raise HTTPException(status_code=404, detail="No segmentation result available")
+
+    seg = normalize_docker_urls(imaging_record.segmentation_result)
+    mask_url = seg.get("artifacts", {}).get("pred_mask_3d", {}).get("url", "")
+    if not mask_url:
+        raise HTTPException(status_code=404, detail="3D mask not found in segmentation result")
+
+    mask_path = local_path_from_public_url(mask_url.split("?")[0])
+    if not mask_path or not mask_path.is_file():
+        raise HTTPException(status_code=404, detail="3D mask file not found on disk")
+
+    try:
+        png_bytes = await asyncio.get_event_loop().run_in_executor(
+            None, _extract_mask_png, mask_path, z
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        logger.exception("Mask extraction failed z=%d %s", z, mask_path)
+        raise HTTPException(status_code=500, detail="Mask extraction failed")
+
+    return Response(content=png_bytes, media_type="image/png")
