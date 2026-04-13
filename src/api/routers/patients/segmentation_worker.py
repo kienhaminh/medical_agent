@@ -82,6 +82,7 @@ async def _run_segmentation_background(
         segmentation_payload = await _call_segmentation_mcp(
             modality_urls=modality_urls,
             patient_id=str(patient_id),
+            imaging_id=str(imaging_id),
             slice_index=slice_idx,
         )
 
