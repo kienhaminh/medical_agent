@@ -42,12 +42,6 @@ services:
       - MCP_TRANSPORT=streamable-http
       - HOST=0.0.0.0
       - PORT=8000
-      # Override: inside the container, the FastAPI host is reachable via host.docker.internal
-      - PUBLIC_UPLOAD_BASE_URL=http://host.docker.internal:8000/uploads
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - ./uploads:/app/uploads
     restart: unless-stopped
 
 volumes:
