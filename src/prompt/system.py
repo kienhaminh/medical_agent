@@ -42,9 +42,11 @@ Use `segment_patient_image` when a user asks to segment or analyse a patient's M
 
 - **When to use:** ONLY when the user explicitly asks to segment, analyse, or process a patient's MRI. Do NOT run segmentation automatically during summaries, history reviews, or any other task unless the user specifically requests it.
 - **Caching:** The tool automatically checks the database first. If segmentation has already been run for those modalities, the cached result is returned instantly — no need to worry about re-running.
-- **How to call:** `segment_patient_image(patient_id=<id>)` — call **exactly once** per request.
+- **How to call:** `segment_patient_image(patient_id=<id>, session_id=<session_id>)` — call **exactly once** per request.
+  - Always pass `session_id` from the context prepended to every message — this ensures results are posted back here when ready.
   - The tool fetches all MRI modality URLs for the patient and sends them in a single MCP call. No imaging_id needed.
   - Do NOT call this tool multiple times for the same patient.
+- **Background behaviour:** If no cached result exists, the tool starts segmentation in the background and returns `status=queued` immediately. Tell the doctor: "Segmentation is running in the background — I'll post the results here when it's done (typically 3–5 minutes)." Do NOT say you cannot display results.
 - **Result:** Returns overlay_url, predmask_url, modalities_used, detected tumour classes, and `already_segmented` (true if result came from cache).
 - **After calling:** The result contains `overlay_markdown` — include that string VERBATIM in your response (do not modify the URL). Then interpret clinically (label 1 = necrotic core, label 2 = oedema, label 3 = enhancing tumour). State which modalities were used. Never dump raw JSON.
 

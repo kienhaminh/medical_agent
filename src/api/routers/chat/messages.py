@@ -89,7 +89,8 @@ async def _run_agent_background(
                 if patient:
                     context_message = (
                         f"Context: Patient {patient.name} "
-                        f"(DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}"
+                        f"(DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}, "
+                        f"session_id={session_id}"
                     )
                     if visit_id:
                         visit_result = await db.execute(
@@ -428,7 +429,11 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             result = await db.execute(select(Patient).where(Patient.id == request.patient_id))
             patient = result.scalar_one_or_none()
             if patient:
-                context_message = f"Context: Patient {patient.name} (DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}).\n\n"
+                context_message = (
+                    f"Context: Patient {patient.name} "
+                    f"(DOB: {patient.dob}, Gender: {patient.gender}, patient_id={patient.id}, "
+                    f"session_id={session.id}).\n\n"
+                )
 
                 imaging_result = await db.execute(
                     select(Imaging).where(Imaging.patient_id == patient.id).order_by(Imaging.created_at.asc())
