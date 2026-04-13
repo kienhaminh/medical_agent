@@ -1,93 +1,74 @@
-"""Local storage under `uploads/` with public URLs served at `/uploads/...`."""
+"""Supabase Storage client — replaces local uploads/ filesystem.
 
+All medical images are stored in the Supabase Storage bucket defined by
+SUPABASE_STORAGE_BUCKET (default: medical_images). The bucket is public,
+so reads require no auth; writes use the service role key.
+
+Required env vars:
+  SUPABASE_URL               e.g. https://xyz.supabase.co
+  SUPABASE_SERVICE_ROLE_KEY  from Supabase dashboard → Settings → API
+  SUPABASE_STORAGE_BUCKET    default: medical_images
+"""
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from functools import lru_cache
+
+from supabase import create_client, Client
 
 
-def upload_root() -> Path:
-    """Absolute path to upload root; directory is created if missing."""
-    root = Path(os.getenv("UPLOAD_DIR", "uploads")).resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+@lru_cache(maxsize=1)
+def _client() -> Client:
+    """Return a cached Supabase client (initialised once per process)."""
+    url = os.environ["SUPABASE_URL"]
+    key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+    return create_client(url, key)
 
 
-def public_uploads_base() -> str:
-    """Base URL for the `/uploads` static mount (no trailing slash)."""
-    explicit = os.getenv("PUBLIC_UPLOAD_BASE_URL", "").strip()
-    if explicit:
-        return explicit.rstrip("/")
-    backend = os.getenv("PYTHON_BACKEND_URL", "http://localhost:8000").rstrip("/")
-    return f"{backend}/uploads"
+def _bucket_name() -> str:
+    return os.getenv("SUPABASE_STORAGE_BUCKET", "medical_images")
+
+
+def upload_bytes(rel_path: str, data: bytes, content_type: str) -> str:
+    """Upload *data* to Supabase Storage at *rel_path* and return its public URL.
+
+    Uses upsert so re-uploading the same path overwrites the previous object.
+    """
+    rel = rel_path.lstrip("/")
+    _client().storage.from_(_bucket_name()).upload(
+        rel,
+        data,
+        {"content-type": content_type, "upsert": "true"},
+    )
+    return public_url_for_rel(rel)
 
 
 def public_url_for_rel(rel_path: str) -> str:
-    """Build public URL from path relative to upload root (forward slashes)."""
-    rel = rel_path.strip().lstrip("/").replace("\\", "/")
-    return f"{public_uploads_base()}/{rel}"
+    """Return the Supabase public URL for *rel_path* in the storage bucket."""
+    supabase_url = os.environ["SUPABASE_URL"].rstrip("/")
+    bucket = _bucket_name()
+    rel = rel_path.lstrip("/")
+    return f"{supabase_url}/storage/v1/object/public/{bucket}/{rel}"
 
 
-def patient_imaging_dir(patient_id: int) -> Path:
-    d = upload_root() / "patients" / str(patient_id)
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+def patient_rel_path(patient_id: int, filename: str) -> str:
+    """Return the relative storage path for a per-patient file."""
+    return f"patients/{patient_id}/{filename}"
 
 
-def relpath_from_public_url(url: str) -> str | None:
-    """Extract `patients/1/foo.jpg` from a stored public URL, or None if not under /uploads/."""
-    if not url or "/uploads/" not in url:
-        return None
-    return url.split("/uploads/", 1)[1].split("?", 1)[0].strip()
+def slice_url_pattern(patient_id: int, imaging_id: int) -> dict:
+    """Return URL pattern dict for a patient/imaging slice set.
 
+    Only ``{z}`` is a template variable — all other parts are concrete.
 
-def local_path_from_public_url(url: str) -> Path | None:
-    rel = relpath_from_public_url(url)
-    if not rel or ".." in rel.split("/"):
-        return None
-    p = (upload_root() / rel).resolve()
-    try:
-        p.relative_to(upload_root())
-    except ValueError:
-        return None
-    return p
-
-
-def public_url_from_filesystem_path(path_str: str) -> str | None:
-    """If `path_str` points inside upload root, return its public URL."""
-    try:
-        p = Path(path_str).expanduser().resolve()
-        rel = p.relative_to(upload_root())
-        return public_url_for_rel(str(rel).replace("\\", "/"))
-    except (ValueError, OSError):
-        return None
-
-
-def normalize_docker_urls(obj: object) -> object:
-    """Recursively rewrite host.docker.internal URLs to the public uploads base.
-
-    The segmentation MCP container stores artifact URLs using its own
-    PUBLIC_UPLOAD_BASE_URL (typically http://host.docker.internal:8000/uploads).
-    Browsers cannot resolve that hostname, so we rewrite them to the equivalent
-    public URL before returning data to clients.
+    Returns:
+        {
+            "mri":  "https://...patients/{id}/slices/{iid}/mri_z{z}.jpg",
+            "mask": "https://...patients/{id}/slices/{iid}/mask_z{z}.png",
+        }
     """
-    import re
-
-    _DOCKER_INTERNAL_RE = re.compile(
-        r"https?://host\.docker\.internal(?::\d+)?/uploads(/[^\s\"']*)"
-    )
-
-    def _rewrite(s: str) -> str:
-        # group(1) is everything after /uploads, e.g. /patients/1/foo.jpg
-        # public_uploads_base() already ends with /uploads
-        return _DOCKER_INTERNAL_RE.sub(
-            lambda m: public_uploads_base() + m.group(1), s
-        )
-
-    if isinstance(obj, str):
-        return _rewrite(obj)
-    if isinstance(obj, dict):
-        return {k: normalize_docker_urls(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [normalize_docker_urls(item) for item in obj]
-    return obj
+    base = public_url_for_rel(f"patients/{patient_id}/slices/{imaging_id}")
+    return {
+        "mri": f"{base}/mri_z{{z}}.jpg",
+        "mask": f"{base}/mask_z{{z}}.png",
+    }
