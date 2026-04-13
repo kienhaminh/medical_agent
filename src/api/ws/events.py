@@ -29,6 +29,9 @@ class WSEventType(str, Enum):
     # Critical lab value alert
     LAB_CRITICAL = "lab.critical"
 
+    # Imaging segmentation complete
+    IMAGING_SEGMENTATION = "imaging.segmentation"
+
 
 class WSEvent(BaseModel):
     """A single WebSocket event to be dispatched."""
@@ -53,4 +56,5 @@ NOTIFICATION_ROUTING: dict[WSEventType, dict[str, bool]] = {
     WSEventType.STEP_UPDATED:     {"bell": False, "inline": True,  "toast": False},
     WSEventType.AI_INSIGHT:       {"bell": False, "inline": False, "toast": False},
     WSEventType.LAB_CRITICAL:     {"bell": True,  "inline": True,  "toast": True},
+    WSEventType.IMAGING_SEGMENTATION: {"bell": True, "inline": False, "toast": True},
 }

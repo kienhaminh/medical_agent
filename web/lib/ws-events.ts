@@ -16,7 +16,8 @@ export type WSEventType =
   | "visit.notes_updated"
   | "queue.updated"
   | "ai.insight"
-  | "lab.critical";
+  | "lab.critical"
+  | "imaging.segmentation";
 
 export type EventSeverity = "info" | "warning" | "critical";
 
@@ -66,6 +67,7 @@ export const NOTIFICATION_ROUTING: Record<WSEventType, NotificationLayers> = {
   "queue.updated":      { bell: false, inline: true,  toast: false },
   "ai.insight":         { bell: false, inline: false, toast: false },
   "lab.critical":       { bell: true,  inline: true,  toast: true  },
+  "imaging.segmentation": { bell: true, inline: false, toast: true },
 };
 
 // Human-readable titles for notification display
@@ -85,6 +87,8 @@ export function eventTitle(type: WSEventType, payload: Record<string, unknown>):
       return `Patient transferred to ${payload.new_department}`;
     case "lab.critical":
       return `Critical lab result: ${payload.order_name}`;
+    case "imaging.segmentation":
+      return `Segmentation complete: ${payload.patient_name}`;
     default:
       return type;
   }
@@ -106,6 +110,8 @@ export function eventDescription(type: WSEventType, payload: Record<string, unkn
       return `Transferred from ${payload.old_department} to ${payload.new_department}`;
     case "lab.critical":
       return `${payload.result_notes}`;
+    case "imaging.segmentation":
+      return "BraTS MRI segmentation finished. Open the imaging viewer to see results.";
     default:
       return "";
   }
