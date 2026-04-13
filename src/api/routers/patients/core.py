@@ -4,7 +4,7 @@ import os
 from datetime import date as _date
 from fastapi import APIRouter, HTTPException, Depends
 
-from src.utils.upload_storage import public_url_for_rel, public_url_from_filesystem_path
+from src.utils.upload_storage import public_url_for_rel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import cast, or_, select, String as SAString
 
@@ -102,9 +102,14 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db)):
             file_type = "text"
         else:
             raw = r.content or ""
-            file_url = public_url_from_filesystem_path(raw)
-            if not file_url and raw:
+            # If content is already a full URL (Supabase Storage), use it directly.
+            # Otherwise build a public URL from the basename (legacy local path fallback).
+            if raw.startswith("http://") or raw.startswith("https://"):
+                file_url = raw
+            elif raw:
                 file_url = public_url_for_rel(os.path.basename(raw))
+            else:
+                file_url = None
             if r.summary and "Title: " in r.summary:
                 try:
                     title = r.summary.split("Title: ")[1].split(" |")[0].strip()

@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 logger = logging.getLogger(__name__)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy import func, select
 
@@ -19,9 +18,8 @@ from ..models.base import AsyncSessionLocal
 from ..models.department import Department
 from ..models.room import Room
 from ..constants.department_seed_data import DEPARTMENT_SEED_DATA
-from .dependencies import provider_name, llm_provider
+from .dependencies import _OPENAI_MODEL, _KIMI_MODEL, _kimi_provider
 from .routers import patients, agents, tools, chat, usage, skills, visits, departments, hospital, auth, orders, ws, case_threads, transcription, rooms
-from src.utils.upload_storage import upload_root
 import src.tools  # Register tools
 import src.skills.builtin  # Register skill search tools
 
@@ -130,9 +128,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount uploads directory for serving files (absolute path so cwd does not matter)
-app.mount("/uploads", StaticFiles(directory=str(upload_root())), name="uploads")
-
 # Include routers
 app.include_router(patients.router)
 app.include_router(agents.router)
@@ -156,7 +151,7 @@ async def root():
     return {
         "message": "AI Agent API is running",
         "status": "ok",
-        "provider": provider_name,
+        "providers": {"intake": _OPENAI_MODEL, "doctor": _KIMI_MODEL},
     }
 
 @app.get("/health")
@@ -164,8 +159,8 @@ async def health():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "provider": provider_name,
-        "model": llm_provider.model,
+        "providers": {"intake": _OPENAI_MODEL, "doctor": _KIMI_MODEL},
+        "model": _kimi_provider.model,
     }
 
 if __name__ == "__main__":

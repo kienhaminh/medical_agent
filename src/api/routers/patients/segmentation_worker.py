@@ -25,7 +25,6 @@ from src.tools.medical_img_segmentation_tool import (
     _rewrite_for_mcp,
     _MODALITY_PARAM,
 )
-from src.utils.upload_storage import local_path_from_public_url, public_url_for_rel
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +36,6 @@ async def _run_segmentation_background(
     user_id: str | None = None,
 ) -> None:
     """Run BraTS segmentation in the background and notify on completion."""
-    # Import here to avoid circular imports
-    from src.api.routers.patients.imaging import _extract_aligned_preview
-
     try:
         # ── Step 1: Mark record as running ──────────────────────────────────
         async with AsyncSessionLocal() as db:
@@ -111,19 +107,6 @@ async def _run_segmentation_background(
                 mcp_slice = segmentation_payload.get("input", {}).get("slice_index")
                 if mcp_slice is not None:
                     imaging_record.slice_index = mcp_slice
-
-            used_slice = imaging_record.slice_index
-            if used_slice is not None:
-                nii_path = local_path_from_public_url(imaging_record.original_url)
-                if nii_path and nii_path.is_file():
-                    orig_stem = nii_path.stem.replace(".nii", "")
-                    aligned_filename = f"{orig_stem}_aligned_preview.jpg"
-                    aligned_path = nii_path.parent / aligned_filename
-                    if _extract_aligned_preview(nii_path, used_slice, aligned_path):
-                        rel = f"patients/{patient_id}/{aligned_filename}"
-                        aligned_url = f"{public_url_for_rel(rel)}?v={ts}"
-                        segmentation_payload["aligned_preview_url"] = aligned_url
-                        imaging_record.segmentation_result = segmentation_payload
 
             await db.commit()
 
