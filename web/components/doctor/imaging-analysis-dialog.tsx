@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Imaging } from "@/lib/api";
-import { imagingSliceUrl, imagingMaskUrl, runSegmentationAsync } from "@/lib/api";
+import { runSegmentationAsync } from "@/lib/api";
 
 interface ImagingAnalysisDialogProps {
   /** All imaging records in the study group (typically 4 BraTS modalities). */
@@ -178,16 +178,25 @@ export function ImagingAnalysisDialog({
   //   MASK    → dim MRI slice (background) + transparent mask PNG (foreground)
   //   OVERLAY → plain MRI slice (background) + transparent mask PNG (foreground, full opacity)
   // Both MASK and OVERLAY composite client-side so the mask sits on top of the original slice.
-  const baseSliceUrl = volumeDepth > 0
-    ? imagingSliceUrl(patientId, selectedImaging.id, sliceZ, false)
+
+  // Supabase slice URL pattern — stored in segmentation_result.slice_url_pattern after MCP run.
+  const slicePattern = segResult?.slice_url_pattern ?? null;
+
+  // MRI base layer: Supabase pre-generated slice when available, else static preview fallback.
+  const baseSliceUrl = slicePattern
+    ? slicePattern.mri.replace("{z}", String(sliceZ))
     : (selectedImaging.aligned_preview_url ?? selectedImaging.preview_url);
+
+  // Mask overlay: Supabase transparent PNG slice (only valid after segmentation).
+  const maskUrl = slicePattern
+    ? slicePattern.mask.replace("{z}", String(sliceZ))
+    : null;
 
   const imageUrl = viewMode === "preview"
     ? baseSliceUrl
-    : imagingMaskUrl(patientId, segmentedImaging?.id ?? selectedImaging.id, sliceZ);
+    : (maskUrl ?? baseSliceUrl);
 
-  // Show the plain MRI slice underneath in both mask and overlay modes.
-  const showBaseLayer = (viewMode === "mask" || viewMode === "overlay") && !!segmentedImaging;
+  const showBaseLayer = (viewMode === "mask" || viewMode === "overlay") && !!segmentedImaging && !!maskUrl;
 
   const isDefaultView = view.zoom === 1 && view.x === 0 && view.y === 0;
 

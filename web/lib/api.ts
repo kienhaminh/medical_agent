@@ -99,6 +99,11 @@ export type SegmentationResult =
         predmask_image: { url: string };
         pred_mask_3d?: { url: string; format: string };
       };
+      /** Supabase Storage URL patterns for pre-generated slices. Replace {z} with slice index. */
+      slice_url_pattern?: {
+        mri: string;
+        mask: string;
+      } | null;
     }
   | { status: "error" | "unknown"; [key: string]: unknown };
 
@@ -141,23 +146,6 @@ export async function getPatient(id: number): Promise<PatientDetail> {
   const res = await fetch(`${API_BASE_URL}/patients/${id}`);
   if (!res.ok) throw new Error("Failed to fetch patient");
   return res.json();
-}
-
-export function imagingSliceUrl(
-  patientId: number,
-  imagingId: number,
-  z: number,
-  overlay: boolean
-): string {
-  return `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/slice?z=${z}&overlay=${overlay}`;
-}
-
-export function imagingMaskUrl(
-  patientId: number,
-  imagingId: number,
-  z: number
-): string {
-  return `${API_BASE_URL}/patients/${patientId}/imaging/${imagingId}/mask?z=${z}`;
 }
 
 export async function runSegmentation(
