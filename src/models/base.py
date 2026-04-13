@@ -14,12 +14,9 @@ _ssl_enabled = os.getenv("DATABASE_SSL", "false").lower() == "true"
 
 
 def _normalize_url(url: str, driver: str) -> str:
-    """Strip any existing driver suffix and apply the given one (asyncpg or psycopg2)."""
     if not url:
         return url
-    # Render (and Heroku) use postgres:// — normalize to postgresql://
     base = url.replace("postgres://", "postgresql://", 1)
-    # Strip any existing driver suffix
     base = (
         base.replace("postgresql+asyncpg://", "postgresql://")
             .replace("postgresql+psycopg2://", "postgresql://")
@@ -30,11 +27,6 @@ def _normalize_url(url: str, driver: str) -> str:
 ASYNC_DATABASE_URL = _normalize_url(DATABASE_URL, "asyncpg")
 SYNC_DATABASE_URL = _normalize_url(DATABASE_URL, "psycopg2")
 
-# pgbouncer (transaction pooling) compatibility:
-# - statement_cache_size=0: disable asyncpg's client-side prepared statement cache.
-# - prepared_statement_name_func: give every statement a unique UUID name so it
-#   never collides when pgbouncer reuses a server connection across sessions.
-#   (asyncpg 0.28+ uses a simple counter that can cause DuplicatePreparedStatementError)
 _async_connect_args: dict = {
     "statement_cache_size": 0,
     "prepared_statement_name_func": lambda: f"pstmt_{uuid.uuid4().hex}",
