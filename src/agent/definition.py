@@ -27,6 +27,7 @@ class LangGraphAgent:
         llm_with_tools,
         system_prompt: str = None,
         max_iterations: int = 10,
+        allowed_tools: list[str] | None = None,
         **kwargs,
     ):
         self.llm = llm_with_tools
@@ -45,9 +46,9 @@ class LangGraphAgent:
             system_prompt=self.system_prompt,
             max_iterations=max_iterations,
         )
-        self.graph = self.graph_builder.build()
+        self.graph = self.graph_builder.build(allowed_tools=allowed_tools)
 
-        logger.debug("LangGraphAgent initialized (max_iterations=%s)", max_iterations)
+        logger.debug("LangGraphAgent initialized (max_iterations=%s, tools=%s)", max_iterations, allowed_tools or "all")
 
     async def process_message(
         self,

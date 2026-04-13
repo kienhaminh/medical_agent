@@ -1,6 +1,8 @@
 # eval/api_client.py
+import asyncio
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import httpx
@@ -12,6 +14,7 @@ BASE_URL = os.getenv("EVAL_BASE_URL", "http://localhost:8000")
 class ChatEvent:
     chunks: list[str] = field(default_factory=list)
     tool_calls: list[dict] = field(default_factory=list)
+    form_requests: list[dict] = field(default_factory=list)
     session_id: int | None = None
 
     @property
@@ -22,7 +25,7 @@ class ChatEvent:
 class EvalApiClient:
     def __init__(self, base_url: str = BASE_URL):
         self._base_url = base_url
-        self._client = httpx.AsyncClient(base_url=base_url, timeout=120.0)
+        self._client = httpx.AsyncClient(base_url=base_url, timeout=httpx.Timeout(None))
 
     async def __aenter__(self) -> "EvalApiClient":
         return self
@@ -46,15 +49,20 @@ class EvalApiClient:
         answers: dict,
         template: str | None = None,
     ) -> None:
-        """POST /api/chat/{session_id}/form-response."""
+        """POST /api/chat/{session_id}/form-response.
+
+        Uses a dedicated short-lived client to avoid blocking the shared connection
+        pool while SSE streams are held open concurrently.
+        """
         payload: dict = {"form_id": form_id, "answers": answers}
         if template is not None:
             payload["template"] = template
-        resp = await self._client.post(
-            f"/api/chat/{session_id}/form-response",
-            json=payload,
-        )
-        resp.raise_for_status()
+        async with httpx.AsyncClient(base_url=self._base_url, timeout=30.0) as client:
+            resp = await client.post(
+                f"/api/chat/{session_id}/form-response",
+                json=payload,
+            )
+            resp.raise_for_status()
 
     async def chat(
         self,
@@ -64,8 +72,14 @@ class EvalApiClient:
         session_id: int | None = None,
         mode: str | None = None,
         user_id: str = "eval-user",
+        form_handler: Callable[[dict], dict] | None = None,
     ) -> ChatEvent:
-        """POST /api/chat with streaming=True. Consumes SSE stream and returns ChatEvent."""
+        """POST /api/chat with streaming=True. Consumes SSE stream and returns ChatEvent.
+
+        form_handler: optional callable(form_definition) -> answers_dict.
+        When provided, form_request events are auto-responded to so the agent
+        can unblock and continue without the stream hanging.
+        """
         payload: dict = {
             "message": message,
             "user_id": user_id,
@@ -97,6 +111,15 @@ class EvalApiClient:
                     event.tool_calls.append(data["tool_call"])
                 elif "session_id" in data:
                     event.session_id = data["session_id"]
+                elif "form_request" in data:
+                    form_req = data["form_request"]
+                    event.form_requests.append(form_req)
+                    if form_handler and event.session_id:
+                        answers = form_handler(form_req)
+                        # Schedule response without blocking stream reading
+                        asyncio.create_task(
+                            self.form_response(event.session_id, form_req["id"], answers)
+                        )
                 elif data.get("done"):
                     break
 

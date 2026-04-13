@@ -104,23 +104,31 @@ async def main() -> None:
 
     print(f"Running {len(cases)} case(s) against {base_url}")
 
-    scores: list[CaseScore] = []
-    async with EvalApiClient(base_url) as client:
-        for case in cases:
-            print(f"  [{case.id}] ...", end=" ", flush=True)
+    # Limit concurrency to avoid overwhelming the API server
+    sem = asyncio.Semaphore(5)
+
+    async def run_and_print(case: EvalCase, client: EvalApiClient) -> CaseScore | None:
+        async with sem:
             try:
                 score = await run_case(case, client, engine, use_judge=args.judge, verbose=args.verbose)
-                scores.append(score)
                 status = "PASS" if score.all_passed else "FAIL"
                 print(
-                    f"{status} "
+                    f"  [{case.id}] {status} "
                     f"(triage={score.triage.passed} "
                     f"ddx={score.ddx.passed} "
                     f"history={score.history.passed} "
-                    f"soap={score.soap.passed})"
+                    f"soap={score.soap.passed})",
+                    flush=True,
                 )
+                return score
             except Exception as exc:
-                print(f"ERROR: {exc}")
+                print(f"  [{case.id}] ERROR: {type(exc).__name__}: {exc}", flush=True)
+                return None
+
+    async with EvalApiClient(base_url) as client:
+        results = await asyncio.gather(*[run_and_print(case, client) for case in cases])
+
+    scores: list[CaseScore] = [r for r in results if r is not None]
 
     try:
         if scores:

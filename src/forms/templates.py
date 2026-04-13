@@ -64,7 +64,6 @@ TEMPLATES: dict[str, FormTemplate] = {
         message="Since this is your first visit, we need a bit more information.",
         fields=[
             # Contact
-            FormField("phone", "Phone Number", "text", placeholder="+1 555 000 0000"),
             FormField("email", "Email Address", "text", placeholder="jane@example.com"),
             FormField("address", "Home Address", "textarea", placeholder="123 Main St, City, State"),
             # Insurance
@@ -106,7 +105,6 @@ TEMPLATES: dict[str, FormTemplate] = {
             FormField("last_name", "Last Name", "text", placeholder="Doe"),
             FormField("dob", "Date of Birth", "date"),
             FormField("gender", "Gender", "select", options=["male", "female", "other"]),
-            FormField("phone", "Phone Number", "text", placeholder="+1 555 000 0000"),
             FormField("email", "Email Address", "text", placeholder="jane@example.com"),
             FormField("address", "Home Address", "textarea", placeholder="123 Main St, City, State"),
             FormField("chief_complaint", "Reason for Visit", "text", placeholder="e.g. chest pain, follow-up"),

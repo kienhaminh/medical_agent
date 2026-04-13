@@ -7,7 +7,8 @@ Self-registers at import time.
 import logging
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from src.models import SessionLocal
 from src.models.visit import Visit, VisitStatus
 from src.models.patient import Patient
@@ -52,44 +53,59 @@ def create_visit(patient_id: int) -> str:
                 f"Continue the intake with this visit."
             )
 
-        # Generate visit ID
+        # Generate visit ID — only consider IDs in the standard format VIS-YYYYMMDD-NNN
+        # (exactly 3 digits after the date prefix). This avoids conflicts with seed/eval
+        # visit IDs that use an extended format like VIS-20260413-p127-023.
         today = date.today()
         prefix = f"VIS-{today.strftime('%Y%m%d')}-"
-        result = db.execute(
-            select(Visit.visit_id).where(Visit.visit_id.like(f"{prefix}%"))
-            .order_by(Visit.visit_id.desc()).limit(1)
-        )
-        last_id = result.scalar_one_or_none()
-        next_num = int(last_id.split("-")[-1]) + 1 if last_id else 1
-        visit_id = f"{prefix}{next_num:03d}"
+        exact_id_length = len(prefix) + 3  # e.g. "VIS-20260413-" (14) + "024" (3) = 17
 
-        # Reuse the current intake chat session if available, otherwise create one.
-        # current_session_id_var is set by the SSE endpoint before the agent runs.
-        current_session_id = current_session_id_var.get(None)
-        if current_session_id:
-            existing_session = db.execute(
-                select(ChatSession).where(ChatSession.id == current_session_id)
-            ).scalar_one_or_none()
-            intake_session_id = existing_session.id if existing_session else None
-        else:
-            intake_session_id = None
+        visit = None
+        for attempt in range(3):
+            result = db.execute(
+                select(Visit.visit_id)
+                .where(Visit.visit_id.like(f"{prefix}%"))
+                .where(func.length(Visit.visit_id) == exact_id_length)
+                .order_by(Visit.visit_id.desc())
+                .limit(1)
+            )
+            last_id = result.scalar_one_or_none()
+            next_num = int(last_id.split("-")[-1]) + 1 if last_id else 1
+            visit_id = f"{prefix}{next_num:03d}"
 
-        if not intake_session_id:
-            new_session = ChatSession(title=f"Intake - {visit_id}")
-            db.add(new_session)
-            db.flush()
-            intake_session_id = new_session.id
+            # Reuse the current intake chat session if available, otherwise create one.
+            # current_session_id_var is set by the SSE endpoint before the agent runs.
+            current_session_id = current_session_id_var.get(None)
+            if current_session_id:
+                existing_session = db.execute(
+                    select(ChatSession).where(ChatSession.id == current_session_id)
+                ).scalar_one_or_none()
+                intake_session_id = existing_session.id if existing_session else None
+            else:
+                intake_session_id = None
 
-        # Create visit
-        visit = Visit(
-            visit_id=visit_id,
-            patient_id=patient_id,
-            status=VisitStatus.INTAKE.value,
-            intake_session_id=intake_session_id,
-        )
-        db.add(visit)
-        db.commit()
-        db.refresh(visit)
+            if not intake_session_id:
+                new_session = ChatSession(title=f"Intake - {visit_id}")
+                db.add(new_session)
+                db.flush()
+                intake_session_id = new_session.id
+
+            try:
+                visit = Visit(
+                    visit_id=visit_id,
+                    patient_id=patient_id,
+                    status=VisitStatus.INTAKE.value,
+                    intake_session_id=intake_session_id,
+                )
+                db.add(visit)
+                db.commit()
+                db.refresh(visit)
+                break
+            except IntegrityError:
+                db.rollback()
+                if attempt == 2:
+                    return "Error: Unable to generate a unique visit ID after multiple attempts. Please try again."
+                logger.warning("visit_id collision on %s, retrying (attempt %d)", visit_id, attempt + 1)
 
         logger.info("Created visit %s for patient %s", visit.visit_id, patient.name)
 

@@ -1,12 +1,8 @@
-"""Medical history analysis tool — structured clinical review of a patient's full history.
+"""Medical history data fetcher — returns all raw patient clinical data for agent analysis.
 
-Fetches all patient data (records, vitals, medications, allergies, imaging),
-builds a clinical context string, and calls the LLM with a structured prompt
-that enforces section-based output suitable for active clinical decision-making.
-
-Distinct from patient.health_summary (a cached narrative stored in DB):
-this tool runs live, mid-conversation, and returns a clinician-grade analysis
-with red flags and recommendations.
+Fetches records, vitals, medications, allergies, and imaging from the database
+and returns them as structured text. The agent reasons over this data directly
+in the main conversation — no secondary LLM call is made.
 
 NOTE — entity_select() helper:
 SQLAlchemy 2.0 removed the internal entity_zero attribute from the Table objects
@@ -29,51 +25,6 @@ from src.models import (
 from src.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
-
-HISTORY_ANALYSIS_PROMPT = """You are a senior clinician performing a structured medical history review.
-
-Patient: {name}, {age}yo {gender}
-
-{records_section}
-
-{vitals_section}
-
-{medications_section}
-
-{allergies_section}
-
-{imaging_section}
-
----
-
-Produce a structured clinical history analysis using the sections below.
-Omit any section where no data is available — do not write "None" or "N/A".
-Be specific to this patient's data. Do not give generic advice.
-{focus_instruction}
-
-## Chief Concerns
-Recurring complaints and active problems identified across records.
-
-## Chronic Conditions
-Established diagnoses with onset, progression, and current status.
-
-## Surgical & Procedure History
-Notable interventions, dates, and outcomes.
-
-## Medication Review
-Current medications, notable changes over time, potential interactions or concerns.
-
-## Allergy Profile
-Known allergies with reaction type and severity.
-
-## Key Lab & Imaging Findings
-Significant results and trends. Note abnormal values or worrying patterns.
-
-## 🔴 Red Flags
-Findings that warrant urgent attention or immediate follow-up. Be specific.
-
-## Clinical Recommendations
-Suggested next steps: investigations, referrals, screenings overdue, management changes."""
 
 
 # ---------------------------------------------------------------------------
@@ -118,18 +69,7 @@ def _entity_select(entity: type, *args, **kwargs):
 
 
 # ---------------------------------------------------------------------------
-# LLM call helper
-# ---------------------------------------------------------------------------
-
-def _call_llm(prompt: str) -> str:
-    """Call the configured LLM provider and return the raw text response."""
-    from src.api.dependencies import llm_provider
-    response = llm_provider.llm.invoke(prompt)
-    return response.content if hasattr(response, "content") else str(response)
-
-
-# ---------------------------------------------------------------------------
-# Prompt-section builders — each returns "" when list is empty (section omitted)
+# Section builders — each returns "" when list is empty (section omitted)
 # ---------------------------------------------------------------------------
 
 def _patient_age(dob: date) -> int:
@@ -218,28 +158,20 @@ def analyze_medical_history(
     patient_id: int,
     focus_area: Optional[str] = None,
 ) -> str:
-    """Perform a structured clinical analysis of a patient's full medical history.
+    """Fetch all clinical data for a patient and return it as structured text.
 
-    Fetches all records, vitals, medications, allergies, and imaging from the
-    database and passes them through a clinical expert prompt. Returns a
-    markdown-formatted analysis with sections for chief concerns, chronic
-    conditions, medications, allergies, imaging findings, red flags, and
-    clinical recommendations.
-
-    ALWAYS call this tool when asked to analyse, review, or summarise a
-    patient's medical history or full clinical picture. Do not attempt to
-    synthesise history manually from individual record queries.
+    The agent analyses and reasons over this data directly — no secondary LLM
+    call is made. Returns records, vitals, medications, allergies, and imaging
+    as plain text sections ready for clinical reasoning.
 
     Args:
         patient_id: Patient's database ID (from the patient context)
-        focus_area: Optional clinical domain for deeper focus
-                    (e.g. "cardiovascular", "medications", "oncology")
+        focus_area: Optional clinical domain to highlight (e.g. "cardiovascular")
 
     Returns:
-        Structured markdown clinical analysis
+        Raw structured patient data for the agent to analyse
     """
     with SessionLocal() as db:
-        # Fetch patient — use entity_select so froms[0].entity_zero.entity resolves correctly
         patient = db.execute(
             _entity_select(Patient).where(Patient.id == patient_id)
         ).scalar_one_or_none()
@@ -247,7 +179,6 @@ def analyze_medical_history(
         if not patient:
             return f"Error: Patient {patient_id} not found in the database."
 
-        # Fetch all related data
         records = db.execute(
             _entity_select(MedicalRecord)
             .where(MedicalRecord.patient_id == patient_id)
@@ -278,32 +209,23 @@ def analyze_medical_history(
             .order_by(Imaging.created_at)
         ).scalars().all()
 
-        # Build prompt inside session while ORM objects are still attached,
-        # preventing DetachedInstanceError on lazy-loaded attributes.
-        # Escape braces in focus_area to avoid KeyError in .format().
-        safe_focus = focus_area.replace("{", "{{").replace("}", "}}") if focus_area else None
-        focus_instruction = (
-            f"\nPay particular clinical attention to: {safe_focus}.\n"
-            if safe_focus else ""
-        )
+        sections = [
+            f"Patient: {patient.name}, {_patient_age(patient.dob)}yo {patient.gender}",
+        ]
+        if focus_area:
+            sections.append(f"Focus area: {focus_area}")
 
-        prompt = HISTORY_ANALYSIS_PROMPT.format(
-            name=patient.name,
-            age=_patient_age(patient.dob),
-            gender=patient.gender,
-            records_section=_build_records_section(records),
-            vitals_section=_build_vitals_section(vitals),
-            medications_section=_build_medications_section(medications),
-            allergies_section=_build_allergies_section(allergies),
-            imaging_section=_build_imaging_section(imaging),
-            focus_instruction=focus_instruction,
-        )
+        for section in (
+            _build_records_section(records),
+            _build_vitals_section(vitals),
+            _build_medications_section(medications),
+            _build_allergies_section(allergies),
+            _build_imaging_section(imaging),
+        ):
+            if section:
+                sections.append(section)
 
-    try:
-        return _call_llm(prompt)
-    except Exception as e:
-        logger.error("analyze_medical_history failed for patient %d: %s", patient_id, e)
-        return f"Error: Failed to generate medical history analysis — {e}"
+        return "\n\n".join(sections)
 
 
 # ---------------------------------------------------------------------------

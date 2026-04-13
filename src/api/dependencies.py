@@ -1,5 +1,13 @@
-"""API dependencies — single shared agent instance."""
+"""API dependencies — shared agent instances.
 
+Model routing:
+  - Intake agent  → OpenAI gpt-4.1 (fast tool calling, low latency)
+  - Doctor agent  → Kimi kimi-k2.5 (deep reasoning, extended thinking for clinical support)
+
+Override models via env vars: OPENAI_MODEL, KIMI_MODEL
+"""
+
+import os
 import logging
 from ..agent.definition import LangGraphAgent
 from ..llm.kimi import KimiProvider
@@ -17,43 +25,53 @@ tool_registry = ToolRegistry()
 # but doing it here makes MCP-backed tools guaranteed available on first agent build).
 import src.tools  # noqa: E402, F401
 
-# Initialize LLM provider
 config = load_config()
 
-if config.provider == "openai":
-    provider_name = "OpenAI"
-    llm_provider = OpenAIProvider(
-        api_key=config.openai_api_key,
-        model=config.model,
-        temperature=config.temperature,
-        streaming=True,
-    )
-else:
-    provider_name = "Moonshot Kimi"
-    llm_provider = KimiProvider(
-        api_key=config.kimi_api_key,
-        model=config.model,
-        temperature=config.temperature,
-        streaming=True,
-    )
+# Per-agent model selection — override via env vars if needed
+_OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1")
+_KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.5")
+_KIMI_TEMPERATURE = 1.0  # kimi-k2.5 only supports temperature=1
 
-# Single shared agent — stateless, no per-user config
-_agent: LangGraphAgent = LangGraphAgent(llm_with_tools=llm_provider.llm)
-logger.info("Global agent initialized (%s)", provider_name)
-
-# Intake agent with patient-facing system prompt
-_intake_agent: LangGraphAgent = LangGraphAgent(
-    llm_with_tools=llm_provider.llm,
-    system_prompt=INTAKE_SYSTEM_PROMPT,
+# --- OpenAI provider (intake) ---
+_openai_provider = OpenAIProvider(
+    api_key=config.openai_api_key,
+    model=_OPENAI_MODEL,
+    temperature=config.temperature,
+    streaming=True,
 )
-logger.info("Intake agent initialized (%s)", provider_name)
+logger.info("OpenAI provider initialized (model=%s)", _OPENAI_MODEL)
+
+# --- Kimi provider (doctor support) ---
+_kimi_provider = KimiProvider(
+    api_key=config.kimi_api_key,
+    model=_KIMI_MODEL,
+    temperature=_KIMI_TEMPERATURE,
+    streaming=True,
+)
+logger.info("Kimi provider initialized (model=%s)", _KIMI_MODEL)
+
+# Doctor support agent — full tool set, deep reasoning via kimi-k2.5
+_agent: LangGraphAgent = LangGraphAgent(llm_with_tools=_kimi_provider.llm)
+logger.info("Doctor agent initialized (Kimi %s)", _KIMI_MODEL)
+
+# Tools needed by the intake agent — restrict to this set for faster tool
+# selection and smaller prompt token count (no clinical/analysis tools needed).
+_INTAKE_TOOLS = ["ask_user_input", "create_visit", "complete_triage", "set_itinerary"]
+
+# Intake agent — fast GPT model with restricted tool set for low latency
+_intake_agent: LangGraphAgent = LangGraphAgent(
+    llm_with_tools=_openai_provider.llm,
+    system_prompt=INTAKE_SYSTEM_PROMPT,
+    allowed_tools=_INTAKE_TOOLS,
+)
+logger.info("Intake agent initialized (OpenAI %s)", _OPENAI_MODEL)
 
 
 def get_agent() -> LangGraphAgent:
-    """Return the global agent instance."""
+    """Return the doctor support agent (Kimi)."""
     return _agent
 
 
 def get_intake_agent() -> LangGraphAgent:
-    """Return the intake-mode agent (patient-facing system prompt)."""
+    """Return the intake agent (OpenAI)."""
     return _intake_agent

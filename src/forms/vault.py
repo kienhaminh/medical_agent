@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Columns that exist on IntakeSubmission as dedicated fields.
 _KNOWN_COLUMNS: set[str] = {
     "first_name", "last_name", "dob", "gender",
-    "phone", "chief_complaint", "symptoms",
+    "chief_complaint", "symptoms",
 }
 
 
@@ -120,7 +120,6 @@ async def save_intake(answers: dict[str, str], patient_id: int | None = None) ->
             last_name=last_name,
             dob=dob_val,
             gender=gender_val,
-            phone=_get("phone"),
             chief_complaint=_get("chief_complaint"),
             symptoms=_get("symptoms") or None,
             extra_data=json.dumps(extra) if extra else None,

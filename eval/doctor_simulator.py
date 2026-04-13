@@ -33,43 +33,37 @@ class DoctorSimulator:
         self._client = client
 
     async def run(self, patient_id: int, visit_id: int | None = None, verbose: bool = False) -> DoctorResult:
-        """Fire DDx, history analysis, and SOAP note requests. Returns all outputs."""
-        session_id: int | None = None
+        """Fire DDx, history analysis, and SOAP note requests in parallel. Returns all outputs."""
+        import asyncio
 
         # Include visit_id explicitly so the agent doesn't have to infer it
         visit_context = f" Use visit_id={visit_id} for the pre_visit_brief lookup." if visit_id else ""
 
-        ddx_event = await self._client.chat(
-            message=DDX_PROMPT + visit_context,
-            patient_id=patient_id,
-            visit_id=visit_id,
-            session_id=session_id,
-            user_id="eval-doctor",
-        )
-        if ddx_event.session_id is not None:
-            session_id = ddx_event.session_id
-
-        history_event = await self._client.chat(
-            message=HISTORY_PROMPT,
-            patient_id=patient_id,
-            visit_id=visit_id,
-            session_id=session_id,
-            user_id="eval-doctor",
-        )
-        if history_event.session_id is not None:
-            session_id = history_event.session_id
-
-        soap_event = await self._client.chat(
-            message=SOAP_PROMPT + visit_context,
-            patient_id=patient_id,
-            visit_id=visit_id,
-            session_id=session_id,
-            user_id="eval-doctor",
+        # All three are independent — run concurrently with separate sessions
+        ddx_event, history_event, soap_event = await asyncio.gather(
+            self._client.chat(
+                message=DDX_PROMPT + visit_context,
+                patient_id=patient_id,
+                visit_id=visit_id,
+                user_id="eval-doctor-ddx",
+            ),
+            self._client.chat(
+                message=HISTORY_PROMPT,
+                patient_id=patient_id,
+                visit_id=visit_id,
+                user_id="eval-doctor-history",
+            ),
+            self._client.chat(
+                message=SOAP_PROMPT + visit_context,
+                patient_id=patient_id,
+                visit_id=visit_id,
+                user_id="eval-doctor-soap",
+            ),
         )
 
         return DoctorResult(
             ddx_output=ddx_event.content,
             history_output=history_event.content,
             soap_output=soap_event.content,
-            session_id=session_id,
+            session_id=ddx_event.session_id,
         )

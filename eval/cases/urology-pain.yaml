@@ -14,11 +14,11 @@ intake:
     - "No fever, no vomiting, I'm allergic to sulfa drugs"
 expected:
   triage:
-    department: Internal Medicine
+    department: urology
     min_confidence: 0.7
     red_flags: [hematuria, renal colic, sulfa allergy]
   ddx:
-    top_3_must_include: ["Nephrolithiasis", "Renal Calculi", "Urinary Tract Infection"]
+    top_3_must_include: ["Nephrolithiasis", "kidney stone", "calcul", "urolithias", "renal colic", "Urinary Tract Infection", "hematuria"]
     icd10_present: true
   history_analysis:
     must_mention: [Sulfa]

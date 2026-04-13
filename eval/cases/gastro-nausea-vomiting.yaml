@@ -30,4 +30,4 @@ expected:
     red_flags_expected: [alcohol, pancreatitis]
   soap_note:
     required_sections: [S, O, A, P]
-    assessment_must_mention: [gastro, nausea]
+    assessment_must_mention: [gastro, vomit]

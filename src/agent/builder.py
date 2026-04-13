@@ -29,11 +29,17 @@ class GraphBuilder:
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
 
-    def build(self):
-        """Build LangGraph using create_react_agent (Agent + Tools)."""
+    def build(self, allowed_tools: list[str] | None = None):
+        """Build LangGraph using create_react_agent (Agent + Tools).
+
+        Args:
+            allowed_tools: Optional list of tool names to include. If None, all tools are used.
+        """
         logger.debug("Building LangGraph workflow via create_react_agent")
 
         all_tools = self.tool_registry.list_tools()
+        if allowed_tools is not None:
+            all_tools = [t for t in all_tools if t.name in allowed_tools]
 
         graph = create_react_agent(
             model=self.llm,

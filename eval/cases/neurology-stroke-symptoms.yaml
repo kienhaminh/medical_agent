@@ -24,8 +24,8 @@ intake:
     - "I'm allergic to aspirin"
 expected:
   triage:
-    department: Neurology
-    min_confidence: 0.75
+    department: emergency
+    min_confidence: 0.85
     red_flags: [transient vision loss, TIA, stroke]
   ddx:
     top_3_must_include: ["TIA", "Transient Ischemic Attack", "Retinal Artery Occlusion"]

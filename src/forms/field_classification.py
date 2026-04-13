@@ -17,7 +17,6 @@ PII_FIELDS: set[str] = {
     "gender",
     "ssn",
     # Contact
-    "phone",
     "email",
     "address",
     # Insurance
@@ -44,4 +43,4 @@ SAFE_FIELDS: set[str] = {
 
 # Subset of PII_FIELDS that triggers patient lookup/creation when ALL are present.
 # Must match exactly what the identity step of the intake form collects.
-PATIENT_IDENTITY_FIELDS: set[str] = {"first_name", "last_name", "dob", "gender", "phone"}
+PATIENT_IDENTITY_FIELDS: set[str] = {"first_name", "last_name", "dob", "gender"}

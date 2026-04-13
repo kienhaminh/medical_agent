@@ -1,14 +1,15 @@
 # Default configuration for AI Agent
 
 # Provider Configuration
-# Overridden by AI_PROVIDER env var (set in .env)
-provider: kimi  # Options: openai, kimi, gemini
+# Each agent uses a dedicated provider — routing is fixed in dependencies.py:
+#   intake  → OpenAI (OPENAI_MODEL env var, default: gpt-4.1)
+#   doctor  → Kimi   (KIMI_MODEL env var,   default: kimi-k2.5)
+provider: kimi  # legacy fallback, no longer drives agent routing
 
-# Per-provider model configuration — single source of truth for models
-# MODEL env var overrides the active provider's model at runtime
+# Per-provider model configuration (used as reference / legacy fallback)
 providers:
   openai:
-    model: gpt-5.4-mini
+    model: gpt-4.1
   kimi:
     model: kimi-k2.5
     temperature: 1  # kimi-k2.5 only supports temperature=1

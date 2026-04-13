@@ -44,6 +44,8 @@ class ImagingResponse(BaseModel):
     slice_index: Optional[int] = None
     # NIfTI-extracted preview aligned to segmentation slice/orientation (null if not yet segmented)
     aligned_preview_url: Optional[str] = None
+    # Total number of axial slices in the NIfTI volume (populated from header at load time)
+    volume_depth: Optional[int] = None
     created_at: str
 
 class ImageGroupResponse(BaseModel):

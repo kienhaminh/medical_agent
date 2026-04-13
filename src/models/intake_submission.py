@@ -26,8 +26,8 @@ class IntakeSubmission(Base):
     dob: Mapped[str] = mapped_column(String(20))
     gender: Mapped[str] = mapped_column(String(20))
 
-    # Contact
-    phone: Mapped[str] = mapped_column(String(30))
+    # Contact (phone removed — no longer collected at intake)
+    phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
 
     # Visit
     chief_complaint: Mapped[str] = mapped_column(Text)

@@ -25,6 +25,30 @@ class IntakeSimulator:
         all_responses: list[str] = []
         all_tool_calls: list[dict] = []
 
+        # Build a combined context string from all turns for use as form answers
+        chief_complaint = case.intake.turns[0] if case.intake.turns else ""
+        symptoms = " ".join(case.intake.turns[1:]) if len(case.intake.turns) > 1 else ""
+
+        def form_handler(form_req: dict) -> dict:
+            """Return sensible answers for any agent-generated form."""
+            answers: dict = {}
+            for f in form_req.get("fields", []):
+                name = f["name"]
+                field_type = f.get("type", "text")
+                if name == "chief_complaint":
+                    answers[name] = chief_complaint
+                elif name == "symptoms":
+                    answers[name] = symptoms
+                elif field_type == "number":
+                    answers[name] = ""
+                else:
+                    answers[name] = ""
+            # Choice questions — pick the first option
+            for choice in form_req.get("choices", []):
+                answers["choice"] = choice
+                break
+            return answers
+
         for i, turn in enumerate(case.intake.turns):
             if verbose:
                 print(f"  [intake turn {i+1}] patient: {turn}")
@@ -33,6 +57,7 @@ class IntakeSimulator:
                 patient_id=patient_id,
                 session_id=session_id,
                 mode="intake",
+                form_handler=form_handler,
             )
             if event.session_id is not None:
                 session_id = event.session_id
@@ -51,6 +76,39 @@ class IntakeSimulator:
                 routing = args.get("routing_suggestion") or []
                 department = routing[0] if routing else args.get("department")
                 # visit id comes back as "id" in the complete_triage tool args
+                visit_id = args.get("id") or args.get("visit_id")
+                return TriageResult(
+                    department=department,
+                    confidence=args.get("confidence"),
+                    visit_id=visit_id,
+                    session_id=session_id,
+                    agent_responses=all_responses,
+                    tool_calls=all_tool_calls,
+                )
+
+        # All turns exhausted without triage — send a closing nudge so the agent
+        # wraps up and calls complete_triage with what it has gathered so far.
+        if session_id is not None:
+            nudge = "That's all my symptoms. Please go ahead and route me to the right department."
+            if verbose:
+                print(f"  [intake nudge] patient: {nudge}")
+            event = await self._client.chat(
+                message=nudge,
+                patient_id=patient_id,
+                session_id=session_id,
+                mode="intake",
+                form_handler=form_handler,
+            )
+            if event.session_id is not None:
+                session_id = event.session_id
+            all_responses.append(event.content)
+            all_tool_calls.extend(event.tool_calls)
+
+            triage_call = self._find_tool_call(event.tool_calls, "complete_triage")
+            if triage_call:
+                args = triage_call.get("args", {})
+                routing = args.get("routing_suggestion") or []
+                department = routing[0] if routing else args.get("department")
                 visit_id = args.get("id") or args.get("visit_id")
                 return TriageResult(
                     department=department,

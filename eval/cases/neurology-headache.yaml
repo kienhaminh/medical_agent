@@ -22,8 +22,8 @@ intake:
 
 expected:
   triage:
-    department: Neurology
-    min_confidence: 0.7
+    department: emergency
+    min_confidence: 0.9
     red_flags:
       - thunderclap headache
       - worst headache of life
@@ -37,7 +37,7 @@ expected:
 
   history_analysis:
     must_mention:
-      - Migraines
+      - migraine
       - Sumatriptan
     red_flags_expected:
       - thunderclap

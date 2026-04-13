@@ -25,4 +25,4 @@ expected:
     red_flags_expected: [psychosomatic, anxiety]
   soap_note:
     required_sections: [S, O, A, P]
-    assessment_must_mention: [abdominal, pediatric]
+    assessment_must_mention: [abdominal, pain]

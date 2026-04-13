@@ -465,6 +465,19 @@ async def update_clinical_notes(visit_id: int, data: ClinicalNotesUpdate, db: As
     if data.clinical_notes is not None:
         visit.clinical_notes = data.clinical_notes
     if data.assigned_doctor is not None:
+        # Enforce one patient per doctor at a time
+        existing = await db.execute(
+            select(Visit).where(
+                Visit.assigned_doctor == data.assigned_doctor,
+                Visit.status != "completed",
+                Visit.id != visit_id,
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=409,
+                detail=f"{data.assigned_doctor} already has an active patient. Finish the current patient first.",
+            )
         visit.assigned_doctor = data.assigned_doctor
     await db.commit()
     await db.refresh(visit)

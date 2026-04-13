@@ -19,9 +19,9 @@ def test_chat_request_mode_defaults_to_none():
     assert req.mode is None
 
 
-def test_phone_is_in_patient_identity_fields():
+def test_phone_not_in_patient_identity_fields():
     from src.forms.field_classification import PATIENT_IDENTITY_FIELDS
-    assert "phone" in PATIENT_IDENTITY_FIELDS
+    assert "phone" not in PATIENT_IDENTITY_FIELDS
 
 
 def test_height_cm_is_safe_field():

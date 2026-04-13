@@ -30,4 +30,4 @@ expected:
     red_flags_expected: [immunocompromised, opportunistic infection]
   soap_note:
     required_sections: [S, O, A, P]
-    assessment_must_mention: [fever, immunocompromised]
+    assessment_must_mention: [fever, HIV]

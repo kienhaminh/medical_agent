@@ -10,7 +10,7 @@ async def test_save_intake_returns_patient_id_and_intake_id():
     """save_intake must return (int, str) — no PII."""
     answers = {
         "first_name": "Jane", "last_name": "Doe", "dob": "1990-05-15",
-        "gender": "female", "phone": "555-0100", "email": "jane@test.com",
+        "gender": "female", "email": "jane@test.com",
         "address": "1 Main St", "chief_complaint": "headache", "symptoms": "",
         "insurance_provider": "BlueCross", "policy_id": "BC123",
         "emergency_contact_name": "John Doe",
@@ -56,7 +56,7 @@ async def test_save_intake_reuses_existing_patient():
     """When patient lookup finds a match, it reuses that patient's id."""
     answers = {
         "first_name": "Jane", "last_name": "Doe", "dob": "1990-05-15",
-        "gender": "female", "phone": "555-0100", "email": "jane@test.com",
+        "gender": "female", "email": "jane@test.com",
         "address": "1 Main St", "chief_complaint": "headache", "symptoms": "",
         "insurance_provider": "BlueCross", "policy_id": "BC123",
         "emergency_contact_name": "John Doe",

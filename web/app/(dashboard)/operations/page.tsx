@@ -50,6 +50,7 @@ export default function OperationsPage() {
           departments={departments}
           rooms={rooms}
           departmentVisits={departmentVisits}
+          onUpdated={refresh}
         />
       </div>
 

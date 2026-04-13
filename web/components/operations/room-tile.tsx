@@ -3,11 +3,9 @@
 
 import type { RoomInfo } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { DEPARTMENT_STATUS_STYLES, type DepartmentStatus } from "./operations-constants";
 
 interface RoomTileProps {
   room: RoomInfo;
-  status: DepartmentStatus;
 }
 
 function formatTimeAgo(isoString: string): string {
@@ -19,16 +17,15 @@ function formatTimeAgo(isoString: string): string {
   return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
 }
 
-export function RoomTile({ room, status }: RoomTileProps) {
-  const s = DEPARTMENT_STATUS_STYLES[status] ?? DEPARTMENT_STATUS_STYLES.IDLE;
+export function RoomTile({ room }: RoomTileProps) {
   const isOccupied = room.current_visit_id !== null;
 
   return (
     <div className={cn(
-      "rounded-md px-2 py-1.5 border text-[10px] font-mono",
+      "rounded-md px-2 py-1.5 border text-[10px] font-mono border-border",
       isOccupied
-        ? cn(s.text, s.tileBg, s.tileBorder)
-        : "opacity-50 bg-muted text-muted-foreground border-border",
+        ? "bg-muted/60 text-foreground"
+        : "opacity-40 bg-muted text-muted-foreground",
     )}>
       <div className="flex items-center justify-between gap-1">
         <span className="font-bold">{room.room_number}</span>

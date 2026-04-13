@@ -15,7 +15,7 @@ def test_patient_intake_has_required_fields():
     field_names = [f.name for f in template.fields]
     for name in [
         "first_name", "last_name", "dob", "gender",
-        "phone", "email", "address", "chief_complaint",
+        "email", "address", "chief_complaint",
         "insurance_provider", "policy_id",
         "emergency_contact_name", "emergency_contact_relationship",
         "emergency_contact_phone",

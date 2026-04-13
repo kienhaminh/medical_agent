@@ -28,11 +28,16 @@ class CaseScore:
         return all([self.triage.passed, self.ddx.passed, self.history.passed, self.soap.passed])
 
 
+def _normalize_dept(name: str) -> str:
+    """Normalize department names for comparison: lowercase, underscores → spaces."""
+    return name.lower().replace("_", " ").strip()
+
+
 def score_triage(case: EvalCase, result: TriageResult) -> StageScore:
     exp = case.expected.triage
     details: dict = {}
 
-    dept_match = result.department is not None and result.department.lower() == exp.department.lower()
+    dept_match = result.department is not None and _normalize_dept(result.department) == _normalize_dept(exp.department)
     details["department_match"] = dept_match
     details["expected_department"] = exp.department
     details["actual_department"] = result.department
