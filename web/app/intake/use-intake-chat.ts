@@ -154,6 +154,9 @@ export function useIntakeChat() {
   const [activity, setActivity] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Set by handleFormSubmitted so the SSE loop can reuse the pending message
+  // instead of inserting a duplicate empty assistant message.
+  const pendingAssistantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -277,11 +280,18 @@ export function useIntakeChat() {
             needsNewMessage = false;
             setIsLoading(true);
             accumulated = "";
-            currentAssistantId = (Date.now() + Math.random()).toString();
-            setMessages((prev) => [
-              ...prev,
-              { id: currentAssistantId, role: "assistant", content: "" },
-            ]);
+            // Reuse the pending message inserted by handleFormSubmitted so we
+            // don't create a duplicate empty assistant bubble.
+            if (pendingAssistantIdRef.current) {
+              currentAssistantId = pendingAssistantIdRef.current;
+              pendingAssistantIdRef.current = null;
+            } else {
+              currentAssistantId = (Date.now() + Math.random()).toString();
+              setMessages((prev) => [
+                ...prev,
+                { id: currentAssistantId, role: "assistant", content: "" },
+              ]);
+            }
           }
           if (activity) setActivity(null);
           accumulated += parsed.chunk;
@@ -298,6 +308,8 @@ export function useIntakeChat() {
           setActivity(
             TOOL_LABELS[toolName] ?? `Running ${toolName.replace(/_/g, " ")}`,
           );
+          // Show spinner in pending message while tool runs after form submission
+          if (pendingAssistantIdRef.current) setIsLoading(true);
         }
 
         if (parsed.tool_result) {
@@ -387,10 +399,20 @@ export function useIntakeChat() {
           title: activeForm.title || activeForm.question || "Form",
           formType: activeForm.form_type,
           fieldCount,
+          sectionCount: 0,
           answer,
         },
       };
-      setMessages((prev) => [...prev, submissionMsg]);
+      // Add form confirmation card + pending assistant message so the
+      // loading spinner appears while the agent continues processing.
+      const pendingId = `pending-${Date.now()}`;
+      pendingAssistantIdRef.current = pendingId;
+      setMessages((prev) => [
+        ...prev,
+        submissionMsg,
+        { id: pendingId, role: "assistant", content: "" },
+      ]);
+      setIsLoading(true);
     }
     setActiveForm(null);
   };

@@ -24,7 +24,7 @@ function StreamingImage({ src, alt }: { src?: string; alt?: string }) {
   }, [src]);
 
   return (
-    <span className="block my-4">
+    <span className="block my-4 text-center">
       {/* Skeleton shown while the image is in-flight */}
       {!loaded && !error && (
         <span className="block h-48 w-full rounded-lg bg-muted/50 border border-border/40 animate-pulse" />
@@ -40,7 +40,7 @@ function StreamingImage({ src, alt }: { src?: string; alt?: string }) {
         src={src}
         alt={alt ?? "Image"}
         className={cn(
-          "max-w-full h-auto rounded-lg border border-border/50 shadow-sm transition-opacity duration-300",
+          "inline-block max-w-full h-auto rounded-lg border border-border/50 shadow-sm transition-opacity duration-300",
           loaded ? "opacity-100" : "hidden"
         )}
         onLoad={() => setLoaded(true)}
@@ -156,7 +156,7 @@ function buildComponents(
 
     // ── Body ────────────────────────────────────────────────────────────────
     p: ({ children, ...props }) => (
-      <p className="leading-7 text-sm text-foreground my-2.5 first:mt-0" {...props}>
+      <p className="leading-7 text-sm text-foreground mt-2.5 mb-0 first:mt-0" {...props}>
         {withLinks(children)}
       </p>
     ),
@@ -241,7 +241,7 @@ function buildComponents(
     ),
 
     // ── Images ──────────────────────────────────────────────────────────────
-    img: ({ alt, src }) => <StreamingImage src={src} alt={alt} />,
+    img: ({ alt, src }) => <StreamingImage src={typeof src === "string" ? src : undefined} alt={alt} />,
 
     // ── Tables ──────────────────────────────────────────────────────────────
     table: ({ children, ...props }) => (

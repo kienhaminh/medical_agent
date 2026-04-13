@@ -127,8 +127,8 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
           setIsThinking(false);
           setActivityStatus(null);
           const formMsg =
-            formRequest.schema?.message ||
-            formRequest.schema?.title ||
+            formRequest.message ||
+            formRequest.title ||
             "Please fill out the form below.";
           accumulated = formMsg;
           setMessages((prev) =>
@@ -259,7 +259,7 @@ export function IntakeChat({ visit, patientId }: IntakeChatProps) {
             <Send className="w-4 h-4" />
           </Button>
         </form>
-      )}
+      ) : null}
     </Card>
   );
 }

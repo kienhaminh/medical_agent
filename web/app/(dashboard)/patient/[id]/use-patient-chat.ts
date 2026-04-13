@@ -249,8 +249,8 @@ export function usePatientChat(sessionId: string | null, patientId: number | nul
           const formRequest = parsed.form_request as ActiveForm;
           setActiveForm(formRequest);
           const formMsg =
-            formRequest.schema?.message ||
-            formRequest.schema?.title ||
+            formRequest.message ||
+            formRequest.title ||
             "Please fill out the form below.";
           accumulatedContent = formMsg;
           setMessages((prev) =>

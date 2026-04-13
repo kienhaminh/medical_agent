@@ -423,7 +423,7 @@ export function useDoctorWorkspace() {
       setChatMessages((prev) =>
         prev.map((msg) =>
           msg.id === messageId
-            ? { ...msg, toolCalls: [...(msg.toolCalls ?? []), { id: event.id, tool: event.tool, args: event.args ?? {}, result: null }] }
+            ? { ...msg, toolCalls: [...(msg.toolCalls ?? []), { id: event.id, tool: event.tool, args: event.args ?? {}, result: undefined }] }
             : msg
         )
       );
