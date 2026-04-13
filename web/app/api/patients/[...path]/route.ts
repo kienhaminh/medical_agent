@@ -38,12 +38,12 @@ async function proxyToPythonBackend(
   pathSegments: string[]
 ) {
   try {
-    const pythonBackendUrl =
-      process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
+    const backendUrl =
+      process.env.BACKEND_URL || "http://localhost:8000";
 
     // Reconstruct the full path
     const path = pathSegments?.length ? pathSegments.join("/") : "";
-    const url = `${pythonBackendUrl}/api/patients${path ? `/${path}` : ""}`;
+    const url = `${backendUrl}/api/patients${path ? `/${path}` : ""}`;
 
     // Get the request body if it exists
     let body = null;

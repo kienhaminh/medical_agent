@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Python backend API
-    const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
 
     try {
       const body: Record<string, unknown> = {
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       if (user_id) body.user_id = user_id;
       if (mode) body.mode = mode;
 
-      const response = await fetch(`${pythonBackendUrl}/api/chat`, {
+      const response = await fetch(`${backendUrl}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const pythonBackendUrl =
-  process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
+const backendUrl =
+  process.env.BACKEND_URL || "http://localhost:8000";
 
 export async function GET(
   request: NextRequest,
@@ -10,7 +10,7 @@ export async function GET(
   const { sessionId } = await params;
   try {
     const response = await fetch(
-      `${pythonBackendUrl}/api/chat/sessions/${sessionId}/messages`
+      `${backendUrl}/api/chat/sessions/${sessionId}/messages`
     );
     if (!response.ok) {
       return NextResponse.json(

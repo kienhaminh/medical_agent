@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const pythonBackendUrl =
-  process.env.PYTHON_BACKEND_URL || "http://localhost:8000";
+const backendUrl =
+  process.env.BACKEND_URL || "http://localhost:8000";
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function POST(
   try {
     const body = await request.json();
     const response = await fetch(
-      `${pythonBackendUrl}/api/chat/${sessionId}/form-response`,
+      `${backendUrl}/api/chat/${sessionId}/form-response`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
