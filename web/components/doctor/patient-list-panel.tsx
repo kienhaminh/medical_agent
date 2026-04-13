@@ -16,6 +16,7 @@ interface PatientListPanelProps {
   onSelectVisit: (visit: VisitListItem) => void;
   onAcceptPatient: (visit: VisitListItem) => void;
   wsEvents: WSEvent[];
+  canAccept: boolean;
 }
 
 function UrgencyDot({ level }: { level?: string | null }) {
@@ -109,6 +110,7 @@ export function PatientListPanel({
   onSelectVisit,
   onAcceptPatient,
   wsEvents,
+  canAccept,
 }: PatientListPanelProps) {
   return (
     <div className="flex flex-col h-full border-r border-border bg-card overflow-hidden">
@@ -158,7 +160,7 @@ export function PatientListPanel({
                       visit={visit}
                       selected={visit.id === selectedVisitId}
                       onSelect={() => onSelectVisit(visit)}
-                      onAccept={() => onAcceptPatient(visit)}
+                      onAccept={canAccept ? () => onAcceptPatient(visit) : undefined}
                     />
                   ))}
                 </div>
