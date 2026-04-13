@@ -44,6 +44,7 @@ def _rewrite_for_mcp(url: str) -> str:
 async def _call_segmentation_mcp(
     modality_urls: dict[str, str],
     patient_id: str = "remote",
+    imaging_id: str = "0",
     slice_index: int = -1,
     fold: int = 3,
     alpha: float = 0.45,
@@ -56,6 +57,7 @@ async def _call_segmentation_mcp(
     """
     arguments: dict[str, Any] = {
         "patient_id": patient_id,
+        "imaging_id": imaging_id,
         "slice_index": slice_index,
         "fold": fold,
         "alpha": alpha,
