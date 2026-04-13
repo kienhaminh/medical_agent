@@ -6,7 +6,7 @@ interface Props {
 
 async function getTrackingData(visitId: string) {
   try {
-    const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
     const res = await fetch(`${backendUrl}/api/visits/${visitId}/track`, {
       cache: "no-store",
     });

@@ -1,7 +1,7 @@
 """API dependencies — shared agent instances.
 
 Model routing:
-  - Intake agent  → OpenAI gpt-4.1 (fast tool calling, low latency)
+  - Intake agent  → OpenAI gpt-5.4-nano (fast tool calling, low latency)
   - Doctor agent  → Kimi kimi-k2.5 (deep reasoning, extended thinking for clinical support)
 
 Override models via env vars: OPENAI_MODEL, KIMI_MODEL
@@ -28,7 +28,7 @@ import src.tools  # noqa: E402, F401
 config = load_config()
 
 # Per-agent model selection — override via env vars if needed
-_OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1")
+_OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-nano")
 _KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.5")
 _KIMI_TEMPERATURE = 1.0  # kimi-k2.5 only supports temperature=1
 

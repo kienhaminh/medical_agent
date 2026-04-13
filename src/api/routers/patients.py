@@ -1,11 +1,9 @@
 import asyncio
 import os
-import shutil
 import uuid
 import json
 import logging
 from datetime import datetime, UTC
-from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +14,7 @@ from src.models import get_db, AsyncSessionLocal, Patient, MedicalRecord, Imagin
 from ...config.settings import load_config
 from ...agent.stream_processor import StreamProcessor
 from ...api.dependencies import get_agent
+from ...utils.upload_storage import upload_bytes, patient_rel_path
 from ..models import (
     PatientCreate, PatientResponse, PatientDetailResponse,
     RecordResponse, TextRecordCreate, HealthSummaryResponse,
@@ -29,9 +28,6 @@ config = load_config()
 
 router = APIRouter()
 
-# Ensure uploads directory exists
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 @router.post("/api/patients", response_model=PatientResponse)
 async def create_patient(patient: PatientCreate, db: AsyncSession = Depends(get_db)):
@@ -173,18 +169,17 @@ async def list_patient_records(patient_id: int, db: AsyncSession = Depends(get_d
             content_display = r.content # Keep full content for text records
             file_type = "text"
         elif r.record_type in ["image", "pdf"]:
-            filename = os.path.basename(r.content)
-            file_url = f"http://localhost:8000/uploads/{filename}"
-            
+            file_url = r.content  # content stores the Supabase URL
+
             # Extract title from summary if available
             if r.summary and "Title: " in r.summary:
                 try:
                     title_part = r.summary.split("Title: ")[1].split(" |")[0]
                     title = title_part.strip()
                 except IndexError:
-                    title = filename
+                    title = r.record_type
             else:
-                title = filename
+                title = r.record_type
             content_display = None # No content for file records
             file_type = r.record_type
             
@@ -238,32 +233,28 @@ async def upload_record(
     file_type: str = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
-    """Upload a file record (Image/PDF)."""
-    # Generate unique filename
+    """Upload a file record (Image/PDF) to Supabase Storage."""
     file_ext = os.path.splitext(file.filename)[1]
     filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = UPLOAD_DIR / filename
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # Determine record type
-    record_type = "pdf" if file.content_type == "application/pdf" else "image"
-    
-    # Store metadata in summary for now since we lack fields
-    # Format: "Title: {title} | Type: {file_type} | Desc: {description}"
+    content_type = file.content_type or "application/octet-stream"
+    record_type = "pdf" if content_type == "application/pdf" else "image"
+
+    data = await file.read()
+    rel_path = patient_rel_path(patient_id, filename)
+    file_url = upload_bytes(rel_path, data, content_type)
+
     metadata_summary = f"Title: {title} | Type: {file_type} | Desc: {description or ''}"
-    
+
     new_record = MedicalRecord(
         patient_id=patient_id,
         record_type=record_type,
-        content=str(file_path), # Store path in content
+        content=file_url,
         summary=metadata_summary
     )
     db.add(new_record)
     await db.commit()
     await db.refresh(new_record)
-    
+
     return RecordResponse(
         id=new_record.id,
         patient_id=new_record.patient_id,
@@ -271,7 +262,7 @@ async def upload_record(
         title=title,
         description=description,
         content=None,
-        file_url=f"http://localhost:8000/uploads/{filename}",
+        file_url=file_url,
         file_type=file_type,
         created_at=new_record.created_at.isoformat()
     )
@@ -351,18 +342,14 @@ async def upload_imaging_record(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    # Generate unique filename
     file_ext = os.path.splitext(file.filename)[1]
     filename = f"{uuid.uuid4()}{file_ext}"
-    file_path = UPLOAD_DIR / filename
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # For now, we'll use the same URL for original and preview
-    # In a real app, we might generate a thumbnail for preview
-    file_url = f"http://localhost:8000/uploads/{filename}"
-    
+    content_type = file.content_type or "application/octet-stream"
+
+    data = await file.read()
+    rel_path = patient_rel_path(patient_id, filename)
+    file_url = upload_bytes(rel_path, data, content_type)
+
     new_imaging = Imaging(
         patient_id=patient_id,
         title=title,
@@ -441,13 +428,6 @@ async def delete_record(record_id: int, db: AsyncSession = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
     
-    # If it's a file, delete it
-    if record.record_type in ["image", "pdf"]:
-        try:
-            os.remove(record.content)
-        except OSError:
-            pass # File might not exist
-            
     await db.delete(record)
     await db.commit()
     return {"status": "ok", "message": "Record deleted"}
@@ -457,7 +437,7 @@ async def delete_record(record_id: int, db: AsyncSession = Depends(get_db)):
 async def delete_imaging_record(
     patient_id: int, imaging_id: int, db: AsyncSession = Depends(get_db)
 ):
-    """Delete an imaging record and remove local file if applicable."""
+    """Delete an imaging record (Supabase Storage objects are retained)."""
     result = await db.execute(
         select(Imaging)
         .where(Imaging.id == imaging_id)
@@ -466,18 +446,6 @@ async def delete_imaging_record(
     imaging = result.scalar_one_or_none()
     if not imaging:
         raise HTTPException(status_code=404, detail="Imaging record not found")
-
-    # Attempt to remove local file uploads
-    if imaging.original_url and imaging.original_url.startswith(
-        "http://localhost:8000/uploads/"
-    ):
-        filename = imaging.original_url.rsplit("/", 1)[-1]
-        file_path = UPLOAD_DIR / filename
-        if file_path.exists():
-            try:
-                file_path.unlink()
-            except OSError:
-                pass
 
     await db.delete(imaging)
     await db.commit()

@@ -5,7 +5,7 @@ export async function GET(
   { params }: { params: Promise<{ visitId: string }> }
 ) {
   const { visitId } = await params;
-  const backendUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000";
   const res = await fetch(
     `${backendUrl}/api/visits/${visitId}/track`,
     { cache: "no-store" }
