@@ -16,15 +16,16 @@ def _reload_base(monkeypatch, database_url: str, ssl: str):
     return importlib.import_module("src.models.base")
 
 
-def test_ssl_disabled_async_no_connect_args(monkeypatch):
-    """When DATABASE_SSL=false, async engine must have no ssl connect_args."""
+def test_ssl_disabled_async_connect_args(monkeypatch):
+    """When DATABASE_SSL=false, async args must have statement_cache_size=0 and a unique name func."""
     base = _reload_base(
         monkeypatch,
         "postgresql+asyncpg://postgres:postgres@localhost:5432/medinexus",
         "false",
     )
-    # _async_connect_args should be empty dict
-    assert base._async_connect_args == {}
+    assert base._async_connect_args["statement_cache_size"] == 0
+    assert callable(base._async_connect_args["prepared_statement_name_func"])
+    assert "ssl" not in base._async_connect_args
 
 
 def test_ssl_disabled_sync_no_connect_args(monkeypatch):
@@ -38,13 +39,15 @@ def test_ssl_disabled_sync_no_connect_args(monkeypatch):
 
 
 def test_ssl_enabled_async_connect_args(monkeypatch):
-    """When DATABASE_SSL=true, async engine must have ssl=True in connect_args."""
+    """When DATABASE_SSL=true, async args must include ssl=True, statement_cache_size=0, and name func."""
     base = _reload_base(
         monkeypatch,
         "postgresql+asyncpg://postgres:pass@db.abc.supabase.co:5432/postgres",
         "true",
     )
-    assert base._async_connect_args == {"ssl": True, "statement_cache_size": 0}
+    assert base._async_connect_args["ssl"] is True
+    assert base._async_connect_args["statement_cache_size"] == 0
+    assert callable(base._async_connect_args["prepared_statement_name_func"])
 
 
 def test_ssl_enabled_sync_connect_args(monkeypatch):

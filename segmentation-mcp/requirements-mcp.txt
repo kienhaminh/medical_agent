@@ -1,0 +1,7 @@
+mcp==1.12.4
+numpy
+nibabel
+pillow
+requests
+einops
+supabase

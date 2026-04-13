@@ -109,6 +109,90 @@ BRATS_001_IMAGING = [
     },
 ]
 
+# Supabase-hosted MRI samples — preview + volume URLs hosted in medical_images bucket.
+_SUPABASE_BASE = "https://wdrbsbeowafbfpnourfm.supabase.co/storage/v1/object/public/medical_images"
+
+SAMPLE_1_IMAGING = [
+    {
+        "title": "MRI Sample 1 — FLAIR",
+        "image_type": "flair",
+        "preview_url": f"{_SUPABASE_BASE}/sample_1/preview_flair.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_1_flair.nii.gz",
+    },
+    {
+        "title": "MRI Sample 1 — T1",
+        "image_type": "t1",
+        "preview_url": f"{_SUPABASE_BASE}/sample_1/preview_t1.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_1_t1.nii.gz",
+    },
+    {
+        "title": "MRI Sample 1 — T1CE",
+        "image_type": "t1ce",
+        "preview_url": f"{_SUPABASE_BASE}/sample_1/preview_t1ce.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_1_t1ce.nii.gz",
+    },
+    {
+        "title": "MRI Sample 1 — T2",
+        "image_type": "t2",
+        "preview_url": f"{_SUPABASE_BASE}/sample_1/preview_t2.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_1_t2.nii.gz",
+    },
+]
+
+SAMPLE_2_IMAGING = [
+    {
+        "title": "MRI Sample 2 — FLAIR",
+        "image_type": "flair",
+        "preview_url": f"{_SUPABASE_BASE}/sample_2/preview_flair.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_2_flair.nii.gz",
+    },
+    {
+        "title": "MRI Sample 2 — T1",
+        "image_type": "t1",
+        "preview_url": f"{_SUPABASE_BASE}/sample_2/preview_t1.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_2_t1.nii.gz",
+    },
+    {
+        "title": "MRI Sample 2 — T1CE",
+        "image_type": "t1ce",
+        "preview_url": f"{_SUPABASE_BASE}/sample_2/preview_t1ce.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_2_t1ce.nii.gz",
+    },
+    {
+        "title": "MRI Sample 2 — T2",
+        "image_type": "t2",
+        "preview_url": f"{_SUPABASE_BASE}/sample_2/preview_t2.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_2_t2.nii.gz",
+    },
+]
+
+SAMPLE_3_IMAGING = [
+    {
+        "title": "MRI Sample 3 — FLAIR",
+        "image_type": "flair",
+        "preview_url": f"{_SUPABASE_BASE}/sample_3/preview_flair.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_3_flair.nii.gz",
+    },
+    {
+        "title": "MRI Sample 3 — T1",
+        "image_type": "t1",
+        "preview_url": f"{_SUPABASE_BASE}/sample_3/preview_t1.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_3_t1.nii.gz",
+    },
+    {
+        "title": "MRI Sample 3 — T1CE",
+        "image_type": "t1ce",
+        "preview_url": f"{_SUPABASE_BASE}/sample_3/preview_t1ce.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_3_t1ce.nii.gz",
+    },
+    {
+        "title": "MRI Sample 3 — T2",
+        "image_type": "t2",
+        "preview_url": f"{_SUPABASE_BASE}/sample_3/preview_t2.jpg",
+        "original_url": f"{_SUPABASE_BASE}/sample_3_t2.nii.gz",
+    },
+]
+
 # BraTS20 Training 002 — 4 modalities; used for Ahmed Hassan (Alzheimer's/neurology).
 BRATS_002_IMAGING = [
     {
@@ -1347,7 +1431,6 @@ P: MRI brain epilepsy protocol, EEG, start levetiracetam 500mg BD, driving advic
             "chief_complaint": "Recurrent staring spells and right hand twitching — epilepsy follow-up",
             "urgency_level": "routine",
             "current_department": "neurology",
-            "assigned_doctor": "Dr. Sarah Chen",
             "clinical_notes": "Left MTS on imaging; seizures reduced on dual therapy. Discussed adherence and driving.",
             "confidence": 0.91,
         },
@@ -1412,7 +1495,28 @@ def _days_ago(n: int) -> datetime:
 
 
 async def _seed_imaging_for_patient(db: AsyncSession, patient_id: int, spec: dict) -> None:
-    """Copy BraTS sample files into uploads/patients/{id}/ and insert Imaging row."""
+    """Insert an Imaging row for a patient.
+
+    Supports two spec shapes:
+    - Supabase URLs (preferred): spec has "preview_url" and "original_url" as https:// links.
+      No local file copy is performed — URLs are stored directly.
+    - Local files (legacy BraTS): spec has "source_preview" / "source_volume" file paths.
+      Files are copied into uploads/patients/{id}/ and local public URLs are used.
+    """
+    # --- Supabase / direct URL path ---
+    if "preview_url" in spec and "original_url" in spec:
+        db.add(
+            Imaging(
+                patient_id=patient_id,
+                title=spec["title"],
+                image_type=spec["image_type"],
+                preview_url=spec["preview_url"],
+                original_url=spec["original_url"],
+            )
+        )
+        return
+
+    # --- Legacy local-file path ---
     src_p = REPO_ROOT / spec["source_preview"]
     src_v = REPO_ROOT / spec["source_volume"]
     if not src_p.is_file() or not src_v.is_file():
@@ -1519,10 +1623,16 @@ async def _seed_patient_data(db: AsyncSession, data: dict, visit_counter: list) 
         select(Imaging).where(Imaging.patient_id == patient.id)
     )
     for img in existing_imaging.scalars().all():
-        for url in (img.preview_url, img.original_url):
+        urls_to_delete = [img.preview_url, img.original_url]
+        # Also delete segmentation artifact files (predmask, overlay, 3D mask)
+        seg = img.segmentation_result or {}
+        for artifact in seg.get("artifacts", {}).values():
+            if isinstance(artifact, dict):
+                urls_to_delete.append(artifact.get("url") or artifact.get("path"))
+        for url in urls_to_delete:
             if not url:
                 continue
-            lp = local_path_from_public_url(url)
+            lp = local_path_from_public_url(url.split("?")[0])
             if lp and lp.is_file():
                 try:
                     lp.unlink()

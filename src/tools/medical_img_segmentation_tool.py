@@ -144,11 +144,6 @@ def segment_patient_image(patient_id: int, session_id: int | None = None) -> str
 
             if cached_payload is not None:
                 # Return cached result immediately — no background task needed.
-                _output_base = os.getenv("PUBLIC_UPLOAD_BASE_URL", "http://localhost:8000/uploads").rstrip("/")
-                for artifact in cached_payload.get("artifacts", {}).values():
-                    if isinstance(artifact, dict) and "path" in artifact:
-                        artifact["url"] = f"{_output_base}/{artifact['path'].rsplit('/', 1)[-1]}"
-
                 overlay_url = cached_payload.get("artifacts", {}).get("overlay_image", {}).get("url", "")
                 predmask_url = cached_payload.get("artifacts", {}).get("predmask_image", {}).get("url", "")
                 tumour_classes = cached_payload.get("prediction", {}).get("pred_classes_in_slice", [])

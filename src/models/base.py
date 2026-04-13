@@ -1,5 +1,6 @@
 """Database configuration and base classes."""
 import os
+import uuid
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
@@ -24,7 +25,18 @@ def _normalize_url(url: str, driver: str) -> str:
 ASYNC_DATABASE_URL = _normalize_url(DATABASE_URL, "asyncpg")
 SYNC_DATABASE_URL = _normalize_url(DATABASE_URL, "psycopg2")
 
-_async_connect_args = {"ssl": True, "statement_cache_size": 0} if _ssl_enabled else {}
+# pgbouncer (transaction pooling) compatibility:
+# - statement_cache_size=0: disable asyncpg's client-side prepared statement cache.
+# - prepared_statement_name_func: give every statement a unique UUID name so it
+#   never collides when pgbouncer reuses a server connection across sessions.
+#   (asyncpg 0.28+ uses a simple counter that can cause DuplicatePreparedStatementError)
+_async_connect_args: dict = {
+    "statement_cache_size": 0,
+    "prepared_statement_name_func": lambda: f"pstmt_{uuid.uuid4().hex}",
+}
+if _ssl_enabled:
+    _async_connect_args["ssl"] = True
+
 _sync_connect_args = {"sslmode": "require"} if _ssl_enabled else {}
 
 engine = create_async_engine(
