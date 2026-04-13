@@ -15,9 +15,14 @@ _ssl_enabled = os.getenv("DATABASE_SSL", "false").lower() == "true"
 
 def _normalize_url(url: str, driver: str) -> str:
     """Strip any existing driver suffix and apply the given one (asyncpg or psycopg2)."""
+    if not url:
+        return url
+    # Render (and Heroku) use postgres:// — normalize to postgresql://
+    base = url.replace("postgres://", "postgresql://", 1)
+    # Strip any existing driver suffix
     base = (
-        url.replace("postgresql+asyncpg://", "postgresql://")
-           .replace("postgresql+psycopg2://", "postgresql://")
+        base.replace("postgresql+asyncpg://", "postgresql://")
+            .replace("postgresql+psycopg2://", "postgresql://")
     )
     return base.replace("postgresql://", f"postgresql+{driver}://", 1)
 
