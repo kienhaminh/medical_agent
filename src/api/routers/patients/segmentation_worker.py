@@ -131,9 +131,9 @@ async def _run_segmentation_background(
             imaging_record.segmentation_status = "complete"
 
             if imaging_record.slice_index is None:
-                mcp_slice = segmentation_payload.get("input", {}).get("slice_index")
-                if mcp_slice is not None:
-                    imaging_record.slice_index = mcp_slice
+                result_slice = segmentation_payload.get("input", {}).get("slice_index")
+                if result_slice is not None:
+                    imaging_record.slice_index = result_slice
 
             await db.commit()
 
