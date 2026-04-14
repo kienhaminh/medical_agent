@@ -55,7 +55,6 @@ class Config:
     """Main configuration class."""
 
     # API Configuration
-    provider: str = "openai"
     kimi_api_key: str = ""
     openai_api_key: str = ""
     model: str = "gpt-4o"
@@ -79,17 +78,6 @@ class Config:
         Raises:
             ValueError: If configuration is invalid.
         """
-        if self.provider == "openai" and not self.openai_api_key:
-            raise ValueError(
-                "OPENAI_API_KEY is required for OpenAI provider. "
-                "Set it in .env file or OPENAI_API_KEY environment variable."
-            )
-        if self.provider == "kimi" and not self.kimi_api_key:
-            raise ValueError(
-                "KIMI_API_KEY is required for Kimi provider. "
-                "Set it in .env file or KIMI_API_KEY environment variable."
-            )
-
         if self.max_tokens <= 0:
             raise ValueError("max_tokens must be positive")
 
@@ -118,21 +106,12 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
             yaml_config = yaml.safe_load(f) or {}
 
     # Environment variables take precedence over YAML
-    provider = os.getenv("AI_PROVIDER", yaml_config.get("provider", "openai"))
-
     kimi_api_key = os.getenv("KIMI_API_KEY", os.getenv("MOONSHOT_API_KEY", ""))
     openai_api_key = os.getenv("OPENAI_API_KEY", "")
 
-    # Determine model: env var > yaml providers section > yaml model fallback
-    providers_cfg = yaml_config.get("providers", {})
-    provider_cfg = providers_cfg.get(provider, {})
-    provider_model = provider_cfg.get("model", yaml_config.get("model", "gpt-5.4-mini"))
-    model = os.getenv("MODEL", provider_model)
+    model = os.getenv("MODEL", yaml_config.get("model", "gpt-4o"))
     max_tokens = int(os.getenv("MAX_TOKENS", yaml_config.get("max_tokens", 4096)))
-    # Per-provider temperature takes precedence over global default
-    global_temperature = yaml_config.get("temperature", 0.3)
-    default_temperature = provider_cfg.get("temperature", global_temperature)
-    temperature = float(os.getenv("TEMPERATURE", default_temperature))
+    temperature = float(os.getenv("TEMPERATURE", yaml_config.get("temperature", 0.3)))
     redis_url = os.getenv("REDIS_URL", yaml_config.get("redis_url", "redis://localhost:6379/0"))
 
     cors_origins = yaml_config.get("cors_origins", ["http://localhost:3000"])
@@ -148,7 +127,6 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
     skills_cfg = yaml_config.get("skills", {})
 
     config = Config(
-        provider=provider,
         kimi_api_key=kimi_api_key,
         openai_api_key=openai_api_key,
         model=model,
