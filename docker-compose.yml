@@ -29,19 +29,15 @@ services:
       timeout: 5s
       retries: 5
 
-  segmentation-mcp:
+  segmentation:
     build:
       context: .
-      dockerfile: segmentation-mcp/Dockerfile.mcp
-    container_name: medical-agent-segmentation-mcp
+      dockerfile: segmentation-service/Dockerfile
+    container_name: medical-agent-segmentation
     ports:
       - "8010:8000"
     env_file:
       - .env
-    environment:
-      - MCP_TRANSPORT=streamable-http
-      - HOST=0.0.0.0
-      - PORT=8000
     restart: unless-stopped
 
 volumes:
