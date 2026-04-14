@@ -1,4 +1,4 @@
-"""Background worker for BraTS MRI segmentation.
+"""Background worker for MRI segmentation.
 
 Two execution paths:
   Path 1 (session_id=None, user_id provided): Manual UI trigger.
@@ -11,8 +11,10 @@ Two execution paths:
 
 import asyncio
 import logging
+import os
 import time
 
+import requests
 from sqlalchemy import select
 
 from src.models import AsyncSessionLocal, Patient
@@ -20,11 +22,7 @@ from src.models.imaging import Imaging
 from src.models.chat import ChatMessage
 from src.api.ws.connection_manager import manager
 from src.api.ws.events import WSEvent, WSEventType
-from src.tools.medical_img_segmentation_tool import (
-    _call_segmentation_mcp,
-    _rewrite_for_mcp,
-    _MODALITY_PARAM,
-)
+from src.tools.medical_img_segmentation_tool import _MODALITY_PARAM
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +33,7 @@ async def _run_segmentation_background(
     session_id: int | None = None,
     user_id: str | None = None,
 ) -> None:
-    """Run BraTS segmentation in the background and notify on completion."""
+    """Run MRI segmentation in the background and notify on completion."""
     try:
         # ── Step 1: Mark record as running ──────────────────────────────────
         async with AsyncSessionLocal() as db:
@@ -65,12 +63,12 @@ async def _run_segmentation_background(
             group_images = group_result.scalars().all()
 
             modality_urls = {
-                img.image_type: _rewrite_for_mcp(img.original_url)
+                img.image_type: img.original_url
                 for img in group_images
                 if img.image_type in _MODALITY_PARAM
             }
             if imaging_record.image_type in _MODALITY_PARAM:
-                modality_urls[imaging_record.image_type] = _rewrite_for_mcp(imaging_record.original_url)
+                modality_urls[imaging_record.image_type] = imaging_record.original_url
 
             slice_idx = imaging_record.slice_index if imaging_record.slice_index is not None else -1
 
@@ -78,13 +76,41 @@ async def _run_segmentation_background(
             patient_obj = patient_result.scalar_one_or_none()
             patient_name = patient_obj.name if patient_obj else f"Patient {patient_id}"
 
-        # ── Step 2: Run MCP (outside DB session) ─────────────────────────────
-        segmentation_payload = await _call_segmentation_mcp(
-            modality_urls=modality_urls,
-            patient_id=str(patient_id),
-            imaging_id=str(imaging_id),
-            slice_index=slice_idx,
+        # ── Step 2: Run segmentation service (outside DB session) ──────────
+        seg_url = os.getenv("SEGMENTATION_URL", "http://localhost:8010")
+        request_body: dict = {
+            "patient_id": str(patient_id),
+            "slice_index": slice_idx,
+            "fold": 3,
+            "alpha": 0.45,
+        }
+        for mod, param in _MODALITY_PARAM.items():
+            if mod in modality_urls:
+                request_body[param] = modality_urls[mod]
+
+        # Submit job — returns immediately with a job_id
+        submit_resp = await asyncio.to_thread(
+            lambda: requests.post(f"{seg_url}/segment", json=request_body, timeout=30)
         )
+        submit_resp.raise_for_status()
+        job_id = submit_resp.json()["job_id"]
+
+        # Poll until complete (10 s interval, 10 min max)
+        segmentation_payload: dict = {}
+        for _ in range(60):
+            await asyncio.sleep(10)
+            poll_resp = await asyncio.to_thread(
+                lambda: requests.get(f"{seg_url}/segment/{job_id}", timeout=30)
+            )
+            poll_resp.raise_for_status()
+            data = poll_resp.json()
+            if data["status"] == "complete":
+                segmentation_payload = data["result"]
+                break
+            if data["status"] == "error":
+                raise RuntimeError(f"Segmentation service error: {data['error']}")
+        else:
+            raise TimeoutError(f"Segmentation job {job_id} timed out after 10 minutes")
 
         # ── Step 3: Persist result ────────────────────────────────────────────
         ts = int(time.time())
@@ -175,7 +201,7 @@ async def _trigger_agent_report(
     modalities = segmentation_payload.get("input", {}).get("modalities_provided", [])
 
     trigger_content = (
-        f"[System] BraTS segmentation for {patient_name} (patient_id={patient_id}) completed.\n"
+        f"[System] MRI segmentation for {patient_name} (patient_id={patient_id}) completed.\n"
         f"Modalities used: {', '.join(modalities)}\n"
         f"Tumour classes detected in best slice: {tumour_classes}\n"
         f"Overlay image: {overlay_url}\n\n"
