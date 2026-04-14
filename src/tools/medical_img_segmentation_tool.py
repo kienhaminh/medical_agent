@@ -91,16 +91,32 @@ def segment_patient_image(patient_id: int, session_id: int | None = None) -> str
             # No cache — dispatch background task and return immediately.
             primary_imaging_id = imaging_records[0].id
 
-        # Schedule the background coroutine on the running event loop.
-        # The tool is called from within the async LangGraph agent, so a loop is always running.
-        loop = asyncio.get_running_loop()
-        loop.create_task(
-            _run_segmentation_background(
-                patient_id=patient_id,
-                imaging_id=primary_imaging_id,
-                session_id=session_id,
+        # Schedule the background coroutine. The tool may be called from an async
+        # LangGraph agent (running loop exists) or from a sync Celery worker (no loop).
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                _run_segmentation_background(
+                    patient_id=patient_id,
+                    imaging_id=primary_imaging_id,
+                    session_id=session_id,
+                )
             )
-        )
+        except RuntimeError:
+            # No running event loop — spin up a daemon thread with its own loop.
+            import threading
+
+            def _run_in_thread():
+                asyncio.run(
+                    _run_segmentation_background(
+                        patient_id=patient_id,
+                        imaging_id=primary_imaging_id,
+                        session_id=session_id,
+                    )
+                )
+
+            t = threading.Thread(target=_run_in_thread, daemon=True)
+            t.start()
 
         return json.dumps(
             {

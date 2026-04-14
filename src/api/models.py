@@ -46,6 +46,8 @@ class ImagingResponse(BaseModel):
     aligned_preview_url: Optional[str] = None
     # Total number of axial slices in the NIfTI volume (populated from header at load time)
     volume_depth: Optional[int] = None
+    # Supabase Storage URL patterns for pre-generated slices; replace {z} with slice index
+    slice_url_pattern: Optional[dict] = None
     created_at: str
 
 class ImageGroupResponse(BaseModel):

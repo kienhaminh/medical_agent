@@ -14,6 +14,7 @@ from pydantic import BaseModel, model_validator
 
 from ...models import ImagingResponse, ImageGroupResponse, ImageGroupCreate, ImagingCreate
 from src.api.routers.patients.segmentation_worker import _run_segmentation_background
+from src.utils.upload_storage import slice_url_pattern as _slice_url_pattern
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Patients"])
@@ -35,13 +36,21 @@ class SegmentAsyncRequest(BaseModel):
 
 
 def _imaging_to_response(i: Imaging) -> ImagingResponse:
-    """Convert Imaging ORM to ImagingResponse. volume_depth comes from segmentation result."""
+    """Convert Imaging ORM to ImagingResponse.
+
+    volume_depth is taken from the DB column (populated by generate_mri_slices.py)
+    with a fallback to segmentation_result.input.shape_zyx so existing rows keep working.
+    slice_url_pattern is computed deterministically whenever volume_depth is known.
+    """
     seg = i.segmentation_result
-    volume_depth: int | None = None
-    if seg and isinstance(seg.get("input", {}).get("shape_zyx"), list):
+    # Prefer stored volume_depth; fall back to segmentation result shape
+    volume_depth: int | None = i.volume_depth
+    if volume_depth is None and seg and isinstance(seg.get("input", {}).get("shape_zyx"), list):
         shape = seg["input"]["shape_zyx"]
         if shape:
             volume_depth = int(shape[0])
+    # Slice URL pattern is deterministic — compute it whenever depth is known
+    computed_slice_url_pattern = _slice_url_pattern(i.patient_id, i.id) if volume_depth else None
     return ImagingResponse(
         id=i.id,
         patient_id=i.patient_id,
@@ -54,6 +63,7 @@ def _imaging_to_response(i: Imaging) -> ImagingResponse:
         slice_index=i.slice_index,
         aligned_preview_url=None,
         volume_depth=volume_depth,
+        slice_url_pattern=computed_slice_url_pattern,
         created_at=i.created_at.isoformat(),
     )
 

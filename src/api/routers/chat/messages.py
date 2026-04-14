@@ -777,7 +777,7 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
             message_id=message.id,
             content_preview=content_preview,
             error=message.error_message,
-            result=message.content if message.status == "completed" else None
+            result=None
         )
 
     except HTTPException:

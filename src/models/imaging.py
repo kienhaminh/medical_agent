@@ -35,6 +35,8 @@ class Imaging(Base):
     # Axial slice index used for the segmentation overlay (-1 = not yet set / auto-select)
     slice_index: Mapped[Optional[int]] = mapped_column(nullable=True)
     segmentation_status: Mapped[str] = mapped_column(String(20), default="idle", server_default="idle")
+    # Total axial slices in the NIfTI volume — populated by generate_mri_slices.py
+    volume_depth: Mapped[Optional[int]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     patient: Mapped["Patient"] = relationship(back_populates="imaging")

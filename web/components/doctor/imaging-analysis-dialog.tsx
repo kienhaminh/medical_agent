@@ -180,29 +180,33 @@ export function ImagingAnalysisDialog({
   //   OVERLAY → plain MRI slice (background) + transparent mask PNG (foreground, full opacity)
   // Both MASK and OVERLAY composite client-side so the mask sits on top of the original slice.
 
-  // Supabase slice URL pattern — available from pre-generated slices (slices_ready) or after
-  // full segmentation (success). Fall back through all imaging records in the group.
-  const slicePattern = (
-    segResult?.slice_url_pattern ??
-    selectedImaging?.segmentation_result?.slice_url_pattern ??
-    group.find((img) => img.segmentation_result?.slice_url_pattern)?.segmentation_result?.slice_url_pattern ??
-    null
-  ) as { mri: string; mask: string } | null;
+  // MRI slice pattern — pre-generated at patients/{pid}/slices/{imaging_id}/mri_z{z}.jpg
+  // Available for every modality before segmentation runs (populated by generate_mri_slices.py).
+  const mriSlicePattern: string | null =
+    selectedImaging?.slice_url_pattern?.mri ??
+    group.find((img) => img.slice_url_pattern?.mri)?.slice_url_pattern?.mri ??
+    null;
 
-  // Local cache — prefetches all slices for the current modality as blob URLs.
-  const { resolve: resolveSlice, progress: cacheProgress } = useSliceCache(
-    slicePattern, volumeDepth, selectedImaging?.id ?? null, sliceZ
+  // Mask slice pattern — stored by the segmentation service at a UUID-based path.
+  // Only available after segmentation; the path differs from the MRI slices path.
+  const maskSlicePattern: string | null =
+    segResult?.slice_url_pattern?.mask ?? null;
+
+  // Prefetch and cache both MRI slices and mask slices as blob URLs for instant navigation.
+  // currentZ (sliceZ) drives the reactive window so slices near the current position
+  // are always being warmed ahead of the background fill.
+  const { resolve: resolveSlice, resolveMask, progress: cacheProgress } = useSliceCache(
+    mriSlicePattern, maskSlicePattern,
+    volumeDepth, selectedImaging?.id ?? null, sliceZ, sliceZ
   );
 
   // MRI base layer: cached blob URL → Supabase URL → static preview fallback.
-  const baseSliceUrl = slicePattern
-    ? (resolveSlice(sliceZ) ?? slicePattern.mri.replace("{z}", String(sliceZ)))
+  const baseSliceUrl = mriSlicePattern
+    ? (resolveSlice(sliceZ) ?? mriSlicePattern.replace("{z}", String(sliceZ)))
     : (selectedImaging.aligned_preview_url ?? selectedImaging.preview_url);
 
-  // Mask overlay: Supabase transparent PNG slice (only valid after segmentation).
-  const maskUrl = slicePattern
-    ? slicePattern.mask.replace("{z}", String(sliceZ))
-    : null;
+  // Mask overlay: cached blob URL (null until segmentation and prefetch complete).
+  const maskUrl = resolveMask(sliceZ);
 
   const imageUrl = viewMode === "preview"
     ? baseSliceUrl

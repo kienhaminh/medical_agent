@@ -100,16 +100,20 @@ def _upload_slice(client, storage_path: str, jpeg_bytes: bytes) -> None:
     )
 
 
-def _process_imaging(client, patient_id: int, imaging_id: int, original_url: str, tmp: Path) -> bool:
+def _process_imaging(client, patient_id: int, imaging_id: int, original_url: str, tmp: Path) -> int:
+    """Download NIfTI, extract slices, upload to Supabase.
+
+    Returns the number of slices uploaded (>0 = success), or 0 on failure.
+    """
     nii_path = tmp / f"p{patient_id}_img{imaging_id}.nii.gz"
     if not _download_nifti(original_url, nii_path):
-        return False
+        return 0
 
     try:
         slices = _generate_slices(nii_path)
     except Exception as exc:
         logger.error("  Slice extraction failed: %s", exc)
-        return False
+        return 0
     finally:
         nii_path.unlink(missing_ok=True)
 
@@ -119,7 +123,21 @@ def _process_imaging(client, patient_id: int, imaging_id: int, original_url: str
         _upload_slice(client, f"{prefix}/mri_z{z}.jpg", jpeg_bytes)
 
     logger.info("  Done — %d slices uploaded", len(slices))
-    return True
+    return len(slices)
+
+
+async def _update_volume_depth(imaging_id: int, depth: int) -> None:
+    """Write volume_depth back to the imaging row in the database."""
+    from sqlalchemy import update
+    from src.models.base import AsyncSessionLocal
+    from src.models.imaging import Imaging
+
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            update(Imaging).where(Imaging.id == imaging_id).values(volume_depth=depth)
+        )
+        await db.commit()
+    logger.info("  volume_depth=%d saved to imaging id=%d", depth, imaging_id)
 
 
 async def _fetch_imaging_records(filter_ids: list[int] | None) -> list[dict]:
@@ -170,7 +188,9 @@ def main() -> None:
                 "=== imaging_id=%d  patient_id=%d  %s ===",
                 rec["id"], rec["patient_id"], rec["title"],
             )
-            _process_imaging(client, rec["patient_id"], rec["id"], rec["original_url"], tmp)
+            depth = _process_imaging(client, rec["patient_id"], rec["id"], rec["original_url"], tmp)
+            if depth > 0:
+                asyncio.run(_update_volume_depth(rec["id"], depth))
 
     logger.info("All done.")
 

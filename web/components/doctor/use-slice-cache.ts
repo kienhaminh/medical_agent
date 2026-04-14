@@ -1,18 +1,21 @@
 "use client";
 
 /**
- * Prefetch and cache MRI slice JPEGs as blob URLs so the viewer is instant after initial load.
+ * Prefetch and cache MRI slice JPEGs and mask PNGs as blob URLs so the viewer
+ * is instant after initial load.
  *
- * Usage:
- *   const { resolve, progress } = useSliceCache(slicePattern, volumeDepth, selectedImagingId, initialZ);
- *   const src = resolve(sliceZ);  // blob URL if cached, Supabase URL otherwise
+ * Two-layer prefetch strategy for low-latency navigation:
  *
- * Fetch order — prioritised so visible slices are ready first:
- *   1. initialZ ± PRIORITY_WINDOW (the slices the user will see immediately)
- *   2. The rest of the volume in outward-expanding order from the centre
+ *  1. BACKGROUND FILL — runs once on open, fills the entire volume in order:
+ *       priority window (±PRIORITY_WINDOW around initialZ) → rest outward from centre
  *
- * All cached blob URLs live in a module-level Map for the tab lifetime — already-fetched
- * slices are never re-fetched, even after modality switches.
+ *  2. REACTIVE WINDOW — runs every time currentZ changes, immediately fires
+ *       fetches for ±REACTIVE_WINDOW slices around the current position.
+ *       This ensures the slices the user is looking at right now are always
+ *       warming, independent of where the background fill is up to.
+ *
+ * Both layers share the same module-level BLOB_CACHE keyed by URL, so a slice
+ * fetched by either layer is never re-fetched.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -20,39 +23,55 @@ import { useEffect, useRef, useState } from "react";
 // Module-level cache: Supabase URL → blob URL
 const BLOB_CACHE = new Map<string, string>();
 
-// Slices immediately around the open position (fetched before the rest of the volume)
-const PRIORITY_WINDOW = 15;
-// Max concurrent requests — stays well under browser limit; HTTP/2 multiplexes fine at this count
-const BATCH = 6;
+const PRIORITY_WINDOW = 20;   // slices either side of initialZ fetched first
+const REACTIVE_WINDOW = 10;   // slices either side of currentZ warmed on navigation
+const BATCH = 12;             // concurrent requests for background fill (HTTP/2 friendly)
 
 export interface SliceCacheProgress {
   loaded: number;
   total: number;
 }
 
+/** Fetch a single URL into BLOB_CACHE; no-op if already cached or request aborted. */
+async function fetchToCache(url: string, signal: AbortSignal): Promise<void> {
+  if (BLOB_CACHE.has(url)) return;
+  try {
+    const resp = await fetch(url, { signal });
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    BLOB_CACHE.set(url, URL.createObjectURL(blob));
+  } catch {
+    // Silence AbortError on unmount / pattern change
+  }
+}
+
 export function useSliceCache(
-  slicePattern: { mri: string; mask?: string } | null,
+  mriPattern: string | null,
+  maskPattern: string | null,
   volumeDepth: number,
   selectedImagingId: number | null,
   initialZ: number = 0,
+  currentZ: number = 0,
 ) {
   const [progress, setProgress] = useState<SliceCacheProgress | null>(null);
-  const fetchedKey = useRef<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const fillKeyRef  = useRef<string | null>(null);
+  const fillAbortRef = useRef<AbortController | null>(null);
+  const reactiveAbortRef = useRef<AbortController | null>(null);
 
+  // ── Layer 1: Background fill ──────────────────────────────────────────────
   useEffect(() => {
-    if (!slicePattern || volumeDepth < 1 || selectedImagingId == null) return;
+    if (!mriPattern || volumeDepth < 1 || selectedImagingId == null) return;
 
-    const key = `${selectedImagingId}|${slicePattern.mri}`;
-    if (fetchedKey.current === key) return;
+    const key = `${selectedImagingId}|${mriPattern}|${maskPattern ?? ""}`;
+    if (fillKeyRef.current === key) return;
 
-    abortRef.current?.abort();
+    fillAbortRef.current?.abort();
     const controller = new AbortController();
-    abortRef.current = controller;
-    fetchedKey.current = key;
+    fillAbortRef.current = controller;
+    fillKeyRef.current = key;
 
     const alreadyCached = Array.from({ length: volumeDepth }, (_, z) =>
-      BLOB_CACHE.has(slicePattern.mri.replace("{z}", String(z)))
+      BLOB_CACHE.has(mriPattern.replace("{z}", String(z)))
     ).filter(Boolean).length;
 
     if (alreadyCached === volumeDepth) {
@@ -63,15 +82,16 @@ export function useSliceCache(
     let loaded = alreadyCached;
     setProgress({ loaded, total: volumeDepth });
 
-    // Build fetch order: priority window first, then rest outward from centre
     const clamp = (v: number) => Math.max(0, Math.min(volumeDepth - 1, v));
+
+    // Priority window around the opening slice
     const prioritySet = new Set<number>();
     for (let d = 0; d <= PRIORITY_WINDOW; d++) {
       prioritySet.add(clamp(initialZ - d));
       prioritySet.add(clamp(initialZ + d));
     }
 
-    // Remaining indices expanding outward from the volume midpoint
+    // Remaining indices expanding outward from volume midpoint
     const mid = Math.floor(volumeDepth / 2);
     const rest: number[] = [];
     for (let d = 0; d < volumeDepth; d++) {
@@ -82,40 +102,63 @@ export function useSliceCache(
 
     const fetchOrder = [...Array.from(prioritySet), ...rest];
 
-    async function fetchOne(z: number) {
-      const url = slicePattern!.mri.replace("{z}", String(z));
-      if (BLOB_CACHE.has(url)) {
+    async function fetchSlice(z: number): Promise<void> {
+      const mriUrl = mriPattern!.replace("{z}", String(z));
+      const wasCached = BLOB_CACHE.has(mriUrl);
+      const fetches: Promise<void>[] = [fetchToCache(mriUrl, controller.signal)];
+      if (maskPattern) fetches.push(fetchToCache(maskPattern.replace("{z}", String(z)), controller.signal));
+      await Promise.all(fetches);
+      if (!wasCached && BLOB_CACHE.has(mriUrl)) {
         loaded++;
         setProgress({ loaded, total: volumeDepth });
-        return;
-      }
-      try {
-        const resp = await fetch(url, { signal: controller.signal });
-        if (!resp.ok) return;
-        const blob = await resp.blob();
-        BLOB_CACHE.set(url, URL.createObjectURL(blob));
-        loaded++;
-        setProgress({ loaded, total: volumeDepth });
-      } catch {
-        // Silence AbortError on modality switch or unmount
       }
     }
 
     (async () => {
       for (let i = 0; i < fetchOrder.length; i += BATCH) {
         if (controller.signal.aborted) break;
-        await Promise.all(fetchOrder.slice(i, i + BATCH).map(fetchOne));
+        await Promise.all(fetchOrder.slice(i, i + BATCH).map(fetchSlice));
       }
     })();
 
     return () => { controller.abort(); };
-  }, [slicePattern, volumeDepth, selectedImagingId, initialZ]);
+  }, [mriPattern, maskPattern, volumeDepth, selectedImagingId, initialZ]);
+
+  // ── Layer 2: Reactive window — warms slices around current position ───────
+  useEffect(() => {
+    if (!mriPattern || volumeDepth < 1) return;
+
+    reactiveAbortRef.current?.abort();
+    const controller = new AbortController();
+    reactiveAbortRef.current = controller;
+
+    const clamp = (v: number) => Math.max(0, Math.min(volumeDepth - 1, v));
+    const urgent = new Set<number>();
+    for (let d = 0; d <= REACTIVE_WINDOW; d++) {
+      urgent.add(clamp(currentZ - d));
+      urgent.add(clamp(currentZ + d));
+    }
+
+    // Fire all urgent fetches immediately — no batching, let HTTP/2 multiplex
+    urgent.forEach((z) => {
+      fetchToCache(mriPattern.replace("{z}", String(z)), controller.signal);
+      if (maskPattern) fetchToCache(maskPattern.replace("{z}", String(z)), controller.signal);
+    });
+
+    return () => { controller.abort(); };
+  }, [currentZ, mriPattern, maskPattern, volumeDepth]);
 
   function resolve(z: number): string | null {
-    if (!slicePattern) return null;
-    const url = slicePattern.mri.replace("{z}", String(z));
+    if (!mriPattern) return null;
+    const url = mriPattern.replace("{z}", String(z));
     return BLOB_CACHE.get(url) ?? url;
   }
 
-  return { resolve, progress };
+  function resolveMask(z: number): string | null {
+    if (!maskPattern) return null;
+    const url = maskPattern.replace("{z}", String(z));
+    return BLOB_CACHE.get(url) ?? url;
+  }
+
+  return { resolve, resolveMask, progress };
 }

@@ -120,6 +120,8 @@ export interface Imaging {
   slice_index?: number | null;
   aligned_preview_url?: string | null;
   volume_depth?: number | null;
+  /** Pre-generated slice URL patterns (populated once slices are uploaded). Replace {z} with index. */
+  slice_url_pattern?: { mri: string; mask: string } | null;
   created_at: string;
 }
 

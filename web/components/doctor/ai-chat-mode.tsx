@@ -111,7 +111,7 @@ export function AiChatMode({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Messages */}
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!w-full [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
         <div className="p-4 space-y-4">
           {/* Empty state */}
           {isEmpty && (
