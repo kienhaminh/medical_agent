@@ -3,11 +3,6 @@
 import asyncio
 import json
 import os
-from typing import Any
-from urllib.parse import urlparse
-
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
 
 from src.tools.registry import ToolRegistry
 
@@ -18,76 +13,6 @@ _MODALITY_PARAM = {
     "t1ce": "t1ce_url",
     "t2": "t2_url",
 }
-
-
-def _mcp_url() -> str:
-    """Resolve MCP endpoint from environment."""
-    # Docker compose maps segmentation MCP service to localhost:8010.
-    return os.getenv("SEGMENTATION_MCP_URL", "http://localhost:8010/mcp")
-
-
-def _rewrite_for_mcp(url: str) -> str:
-    """Rewrite an image URL so the MCP container can fetch it.
-
-    When MCP runs in Docker, the host FastAPI server is reachable via
-    MCP_IMAGE_BASE_URL (e.g. http://host.docker.internal:8000) rather
-    than localhost:8000.
-    """
-    mcp_image_base = os.getenv("MCP_IMAGE_BASE_URL", "").rstrip("/")
-    if not mcp_image_base:
-        return url
-    parsed = urlparse(url)
-    host_base = f"{parsed.scheme}://{parsed.netloc}"
-    return url.replace(host_base, mcp_image_base, 1)
-
-
-async def _call_segmentation_mcp(
-    modality_urls: dict[str, str],
-    patient_id: str = "remote",
-    imaging_id: str = "0",
-    slice_index: int = -1,
-    fold: int = 3,
-    alpha: float = 0.45,
-) -> dict[str, Any]:
-    """Call the MCP segmentation tool with per-modality URLs.
-
-    Args:
-        modality_urls: Mapping of modality name → URL (only provided modalities).
-                       E.g. {"flair": "http://...", "t1": "http://..."}
-    """
-    arguments: dict[str, Any] = {
-        "patient_id": patient_id,
-        "imaging_id": imaging_id,
-        "slice_index": slice_index,
-        "fold": fold,
-        "alpha": alpha,
-    }
-    for mod, param in _MODALITY_PARAM.items():
-        if mod in modality_urls:
-            arguments[param] = modality_urls[mod]
-
-    url = _mcp_url()
-    # Segmentation on CPU can take several minutes; raise timeouts accordingly.
-    async with streamablehttp_client(url, timeout=600, sse_read_timeout=600) as (read_stream, write_stream, _):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            tool_result = await session.call_tool("segment_brats_from_link", arguments=arguments)
-
-            # Prefer structured payload if server provides it.
-            if getattr(tool_result, "structuredContent", None):
-                return tool_result.structuredContent
-
-            # Fallback: parse first text content as JSON.
-            if getattr(tool_result, "content", None):
-                for content in tool_result.content:
-                    text = getattr(content, "text", None)
-                    if text:
-                        try:
-                            return json.loads(text)
-                        except Exception:
-                            return {"status": "unknown", "raw_text": text}
-
-            return {"status": "unknown", "raw_result": str(tool_result)}
 
 
 def segment_patient_image(patient_id: int, session_id: int | None = None) -> str:
@@ -181,7 +106,7 @@ def segment_patient_image(patient_id: int, session_id: int | None = None) -> str
             {
                 "status": "queued",
                 "message": (
-                    f"BraTS segmentation has been started in the background for patient {patient_id}. "
+                    f"MRI segmentation has been started in the background for patient {patient_id}. "
                     "This typically takes 3–5 minutes. "
                     + (
                         "I will post the clinical interpretation directly in this conversation when it is ready."
@@ -195,11 +120,7 @@ def segment_patient_image(patient_id: int, session_id: int | None = None) -> str
 
     except Exception as exc:
         return json.dumps(
-            {
-                "status": "error",
-                "error": str(exc),
-                "mcp_url": _mcp_url(),
-            },
+            {"status": "error", "error": str(exc)},
             ensure_ascii=True,
         )
 
