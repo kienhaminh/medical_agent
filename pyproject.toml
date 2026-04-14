@@ -26,7 +26,6 @@ langchain-core = "^0.3.0"
 langchain-openai = "^0.2.0"
 langgraph = "^0.2.0"
 langchain-postgres = "^0.0.12"
-mcp = "^1.0.0"
 psycopg2-binary = "^2.9.0"
 # Auth dependencies
 PyJWT = "^2.10.0"
