@@ -7,7 +7,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # All deps (fastapi, torch, numpy, etc.) are installed via requirements.txt.
 # Import server normally; heavy inference is mocked inside individual tests.
-import server
 from server import app, _jobs, JobState, _run_inference
 from fastapi.testclient import TestClient
 

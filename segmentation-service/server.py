@@ -21,6 +21,7 @@ class JobState:
 
 
 _jobs: dict[str, JobState] = {}
+_background_tasks: set[asyncio.Task] = set()
 
 
 class SegmentRequest(BaseModel):
@@ -54,7 +55,9 @@ async def submit_segment(body: SegmentRequest):
         fold=body.fold,
         alpha=body.alpha,
     )
-    asyncio.create_task(asyncio.to_thread(_run_inference, job_id, params))
+    task = asyncio.create_task(asyncio.to_thread(_run_inference, job_id, params))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return {"job_id": job_id, "status": "queued"}
 
 
