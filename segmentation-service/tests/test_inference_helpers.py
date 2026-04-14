@@ -20,9 +20,10 @@ def test_standardize_nonzeros_zero_array():
 def test_standardize_nonzeros_normalizes_nonzero_voxels():
     arr = np.array([0.0, 0.0, 2.0, 4.0, 6.0], dtype=np.float32)
     result = _standardize_nonzeros(arr)
-    nz = result[result != 0]
-    assert abs(float(nz.mean())) < 1e-5
-    assert abs(float(nz.std()) - 1.0) < 0.1
+    # Use original nonzero mask — one result value may be 0.0 (when input == nz.mean())
+    original_nz = result[arr != 0]
+    assert abs(float(original_nz.mean())) < 1e-5
+    assert abs(float(original_nz.std()) - 1.0) < 0.1
 
 
 def test_normalize_slice_u8_zero_slice():

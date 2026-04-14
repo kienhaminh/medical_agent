@@ -61,24 +61,10 @@ def _load_nifti_zyx(path: Path) -> np.ndarray:
 
 
 def _standardize_nonzeros(image: np.ndarray) -> np.ndarray:
-    """Z-score normalise only non-zero voxels; leave zero voxels at zero.
-
-    A tiny epsilon (1e-7) is added to standardised values that evaluate to
-    exactly 0.0 so that originally-nonzero voxels remain distinguishable
-    from background zeros after normalisation.
-    """
-    arr = image.astype(np.float32, copy=False)
-    nz_mask = arr != 0
-    nz = arr[nz_mask]
+    nz = image[image != 0]
     if nz.size == 0:
-        return arr
-    standardized = (nz - nz.mean()) / (nz.std() + 1e-8)
-    # Prevent originally-nonzero voxels from collapsing to 0.0 (e.g. when the
-    # voxel value equals the nonzero mean exactly).
-    standardized = np.where(standardized == 0.0, np.float32(1e-7), standardized)
-    result = np.zeros_like(arr)
-    result[nz_mask] = standardized
-    return result
+        return image.astype(np.float32, copy=False)
+    return (image - nz.mean()) / (nz.std() + 1e-8)
 
 
 def _normalize_slice_u8(slice_yx: np.ndarray, p_low: float = 1.0, p_high: float = 99.0) -> np.ndarray:
@@ -126,8 +112,14 @@ def _download_file(url: str, out_path: Path) -> None:
 def _load_attco_model(checkpoint_path: Path, device: torch.device):
     from models.AttCo_BraTS import AttCo
 
-    ckpt = torch.load(str(checkpoint_path), map_location="cpu", weights_only=False)
-    state = ckpt.state_dict() if hasattr(ckpt, "state_dict") else ckpt
+    ckpt_obj = torch.load(str(checkpoint_path), map_location="cpu", weights_only=False)
+    if hasattr(ckpt_obj, "state_dict"):
+        state = ckpt_obj.state_dict()
+    elif isinstance(ckpt_obj, dict):
+        state = ckpt_obj
+    else:
+        raise ValueError("Unsupported checkpoint object format")
+
     model = AttCo(inChannel=2, outChannel=4, baseChannel=16)
     model.load_state_dict(state, strict=True)
     model.to(device)
