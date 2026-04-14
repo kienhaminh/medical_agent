@@ -137,7 +137,12 @@ def segment_brats(params: SegmentParams) -> dict[str, Any]:
     }
     provided = {mod: url for mod, url in url_map.items() if url}
 
+    if not provided:
+        raise ValueError("At least one of flair_url, t1_url, t1ce_url, t2_url must be provided.")
+
     supabase = _supabase_client()
+    # In the Docker container the Dockerfile copies segmentation-mcp/checkpoint/BraTS2020
+    # into the WORKDIR, so Path(__file__).parent / "checkpoint" resolves correctly.
     ckpt_dir = Path(__file__).parent / "checkpoint" / "BraTS2020" / "JointFusionNet3D_v11"
     ckpt_candidates = sorted(ckpt_dir.glob(f"Fold_{params.fold}_bs_4_*.pt"))
     if not ckpt_candidates:
