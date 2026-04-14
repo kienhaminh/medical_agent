@@ -111,7 +111,7 @@ export function eventDescription(type: WSEventType, payload: Record<string, unkn
     case "lab.critical":
       return `${payload.result_notes}`;
     case "imaging.segmentation":
-      return "BraTS MRI segmentation finished. Open the imaging viewer to see results.";
+      return "MRI segmentation finished. Open the imaging viewer to see results.";
     default:
       return "";
   }

@@ -92,6 +92,7 @@ export default function DoctorPage() {
         {/* Zone B: Clinical Workspace */}
         <ClinicalWorkspace
           patient={workspace.selectedPatient}
+          patientLoading={workspace.patientLoading}
           selectedVisit={workspace.selectedVisit}
           visitBrief={workspace.visitBrief}
           briefLoading={workspace.briefLoading}

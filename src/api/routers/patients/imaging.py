@@ -8,11 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from src.models import get_db, Patient, Imaging, ImageGroup
-from src.tools.medical_img_segmentation_tool import (
-    _call_segmentation_mcp,
-    _rewrite_for_mcp,
-    _MODALITY_PARAM,
-)
+from src.tools.medical_img_segmentation_tool import _MODALITY_PARAM
 from src.utils.upload_storage import upload_bytes, public_url_for_rel, patient_rel_path
 from pydantic import BaseModel, model_validator
 
@@ -241,74 +237,6 @@ async def list_image_groups(patient_id: int, db: AsyncSession = Depends(get_db))
 
 
 @router.post(
-    "/api/patients/{patient_id}/imaging/{imaging_id}/segment",
-    response_model=ImagingResponse,
-)
-async def segment_imaging(
-    patient_id: int,
-    imaging_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    """Run BraTS segmentation synchronously via MCP and persist result."""
-    result = await db.execute(
-        select(Imaging)
-        .where(Imaging.id == imaging_id)
-        .where(Imaging.patient_id == patient_id)
-    )
-    imaging_record = result.scalar_one_or_none()
-    if not imaging_record:
-        raise HTTPException(status_code=404, detail="Imaging record not found")
-
-    if imaging_record.image_type not in _MODALITY_PARAM:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Image type '{imaging_record.image_type}' not supported for segmentation",
-        )
-
-    slice_idx = imaging_record.slice_index if imaging_record.slice_index is not None else -1
-
-    if imaging_record.group_id is not None:
-        group_result = await db.execute(
-            select(Imaging)
-            .where(Imaging.group_id == imaging_record.group_id)
-            .where(Imaging.patient_id == patient_id)
-        )
-    else:
-        group_result = await db.execute(
-            select(Imaging).where(Imaging.patient_id == patient_id)
-        )
-    group_images = group_result.scalars().all()
-
-    modality_urls = {
-        img.image_type: _rewrite_for_mcp(img.original_url)
-        for img in group_images
-        if img.image_type in _MODALITY_PARAM
-    }
-    modality_urls[imaging_record.image_type] = _rewrite_for_mcp(imaging_record.original_url)
-
-    try:
-        segmentation_payload = await _call_segmentation_mcp(
-            modality_urls=modality_urls,
-            patient_id=str(patient_id),
-            imaging_id=str(imaging_id),
-            slice_index=slice_idx,
-        )
-    except Exception as exc:
-        logger.exception("Segmentation MCP call failed for imaging %d", imaging_id)
-        raise HTTPException(status_code=502, detail=f"Segmentation service error: {exc}")
-
-    imaging_record.segmentation_result = segmentation_payload
-    if imaging_record.slice_index is None:
-        mcp_slice = segmentation_payload.get("input", {}).get("slice_index")
-        if mcp_slice is not None:
-            imaging_record.slice_index = mcp_slice
-
-    await db.commit()
-    await db.refresh(imaging_record)
-    return _imaging_to_response(imaging_record)
-
-
-@router.post(
     "/api/patients/{patient_id}/imaging/{imaging_id}/segment-async",
     status_code=202,
 )
@@ -318,7 +246,7 @@ async def segment_imaging_async(
     body: SegmentAsyncRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Start BraTS segmentation as a background task and return immediately."""
+    """Start MRI segmentation as a background task and return immediately."""
     result = await db.execute(
         select(Imaging)
         .where(Imaging.id == imaging_id)

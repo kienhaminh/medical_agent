@@ -107,7 +107,7 @@ def _download_file(url: str, out_path: Path) -> None:
 
 
 def _load_attco_model(checkpoint_path: Path, device: torch.device):
-    from models.AttCo_BraTS import AttCo
+    from models.AttCo_MRI import AttCo
 
     ckpt_obj = torch.load(str(checkpoint_path), map_location="cpu", weights_only=False)
     if hasattr(ckpt_obj, "state_dict"):
@@ -137,7 +137,7 @@ def segment_brats_from_link(
     alpha: float = 0.45,
 ) -> dict[str, Any]:
     """
-    Segment BraTS MRI volume from per-modality NIfTI URLs.
+    Segment MRI volume from per-modality NIfTI URLs.
 
     Pass one or more modality URLs (flair_url, t1_url, t1ce_url, t2_url).
     At least one must be provided. Missing modalities are zero-filled so the
@@ -159,7 +159,7 @@ def segment_brats_from_link(
     supabase = _supabase_client()
 
     repo_root = Path(__file__).resolve().parents[1]
-    ckpt_dir = repo_root / "segmentation-mcp" / "checkpoint" / "BraTS2020" / "JointFusionNet3D_v11"
+    ckpt_dir = repo_root / "segmentation-mcp" / "checkpoint" / "MRI2020" / "JointFusionNet3D_v11"
     ckpt_candidates = sorted(ckpt_dir.glob(f"Fold_{fold}_bs_4_*.pt"))
     if not ckpt_candidates:
         raise FileNotFoundError(f"No checkpoint found for fold={fold} under {ckpt_dir}")
@@ -284,7 +284,7 @@ def segment_brats_from_link(
                 overlay[m] = (1.0 - alpha) * overlay[m] + alpha * color
 
         modalities_used = list(provided.keys())
-        prefix = f"BraTS20_Training_{patient_id}_{'_'.join(modalities_used)}_z{slice_z}"
+        prefix = f"MRI_{patient_id}_{'_'.join(modalities_used)}_z{slice_z}"
 
         # Write artifacts to temp dir, then upload to Supabase.
         predmask_path = td_path / f"{prefix}_predmask.png"
@@ -318,7 +318,7 @@ def segment_brats_from_link(
                 "slice_index": slice_z,
             },
             "model": {
-                "architecture": "AttCo_BraTS",
+                "architecture": "AttCo",
                 "checkpoint": str(checkpoint_path),
                 "device": str(device),
                 "num_classes": 4,

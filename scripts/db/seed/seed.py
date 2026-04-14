@@ -11,9 +11,7 @@ Also upserts the `doctor` demo user (neurology) so login matches neurology queue
 """
 import asyncio
 import logging
-import shutil
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,85 +27,9 @@ from src.models.chat import ChatSession
 from src.models.imaging import Imaging
 from src.models.user import User
 from src.utils.auth import hash_password
-from src.utils.upload_storage import local_path_from_public_url, public_url_for_rel, upload_root
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Repo root: scripts/db/seed/seed.py -> parents[3] == medical_agent/
-REPO_ROOT = Path(__file__).resolve().parents[3]
-
-# Default BraTS template (4 modalities) used for every seeded patient.
-DEFAULT_BRATS_IMAGING = [
-    {
-        "title": "BraTS20 Training 369 — T1 (sample)",
-        "image_type": "t1",
-        "source_preview": "uploads/patients/369/brats369_t1_preview.jpg",
-        "source_volume": "uploads/patients/369/brats369_t1.nii.gz",
-        "preview_filename": "brats369_t1_preview.jpg",
-        "volume_filename": "brats369_t1.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 369 — T1CE (sample)",
-        "image_type": "t1ce",
-        "source_preview": "uploads/patients/369/brats369_t1ce_preview.jpg",
-        "source_volume": "uploads/patients/369/brats369_t1ce.nii.gz",
-        "preview_filename": "brats369_t1ce_preview.jpg",
-        "volume_filename": "brats369_t1ce.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 369 — T2 (sample)",
-        "image_type": "t2",
-        "source_preview": "uploads/patients/369/brats369_t2_preview.jpg",
-        "source_volume": "uploads/patients/369/brats369_t2.nii.gz",
-        "preview_filename": "brats369_t2_preview.jpg",
-        "volume_filename": "brats369_t2.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 369 — FLAIR (sample)",
-        "image_type": "flair",
-        "source_preview": "uploads/patients/369/brats369_flair_preview.jpg",
-        "source_volume": "uploads/patients/369/brats369_flair.nii.gz",
-        "preview_filename": "brats369_flair_preview.jpg",
-        "volume_filename": "brats369_flair.nii.gz",
-    },
-]
-
-# BraTS20 Training 001 — 3 modalities (t1, t1ce, t2); used for Marcus Lindstrom (epilepsy/MTS).
-BRATS_001_IMAGING = [
-    {
-        "title": "BraTS20 Training 001 — T1",
-        "image_type": "t1",
-        "source_preview": "uploads/patients/001/brats001_t1_preview.jpg",
-        "source_volume": "uploads/patients/001/brats001_t1.nii.gz",
-        "preview_filename": "brats001_t1_preview.jpg",
-        "volume_filename": "brats001_t1.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 001 — T1CE",
-        "image_type": "t1ce",
-        "source_preview": "uploads/patients/001/brats001_t1ce_preview.jpg",
-        "source_volume": "uploads/patients/001/brats001_t1ce.nii.gz",
-        "preview_filename": "brats001_t1ce_preview.jpg",
-        "volume_filename": "brats001_t1ce.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 001 — T2",
-        "image_type": "t2",
-        "source_preview": "uploads/patients/001/brats001_t2_preview.jpg",
-        "source_volume": "uploads/patients/001/brats001_t2.nii.gz",
-        "preview_filename": "brats001_t2_preview.jpg",
-        "volume_filename": "brats001_t2.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 001 — FLAIR",
-        "image_type": "flair",
-        "source_preview": "uploads/patients/001/brats001_flair_preview.jpg",
-        "source_volume": "uploads/patients/001/brats001_flair.nii.gz",
-        "preview_filename": "brats001_flair_preview.jpg",
-        "volume_filename": "brats001_flair.nii.gz",
-    },
-]
 
 # Supabase-hosted MRI samples — preview + volume URLs hosted in medical_images bucket.
 _SUPABASE_BASE = "https://wdrbsbeowafbfpnourfm.supabase.co/storage/v1/object/public/medical_images"
@@ -190,42 +112,6 @@ SAMPLE_3_IMAGING = [
         "image_type": "t2",
         "preview_url": f"{_SUPABASE_BASE}/sample_3/preview_t2.jpg",
         "original_url": f"{_SUPABASE_BASE}/sample_3_t2.nii.gz",
-    },
-]
-
-# BraTS20 Training 002 — 4 modalities; used for Ahmed Hassan (Alzheimer's/neurology).
-BRATS_002_IMAGING = [
-    {
-        "title": "BraTS20 Training 002 — T1",
-        "image_type": "t1",
-        "source_preview": "uploads/patients/002/brats002_t1_preview.jpg",
-        "source_volume": "uploads/patients/002/brats002_t1.nii.gz",
-        "preview_filename": "brats002_t1_preview.jpg",
-        "volume_filename": "brats002_t1.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 002 — T1CE",
-        "image_type": "t1ce",
-        "source_preview": "uploads/patients/002/brats002_t1ce_preview.jpg",
-        "source_volume": "uploads/patients/002/brats002_t1ce.nii.gz",
-        "preview_filename": "brats002_t1ce_preview.jpg",
-        "volume_filename": "brats002_t1ce.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 002 — T2",
-        "image_type": "t2",
-        "source_preview": "uploads/patients/002/brats002_t2_preview.jpg",
-        "source_volume": "uploads/patients/002/brats002_t2.nii.gz",
-        "preview_filename": "brats002_t2_preview.jpg",
-        "volume_filename": "brats002_t2.nii.gz",
-    },
-    {
-        "title": "BraTS20 Training 002 — FLAIR",
-        "image_type": "flair",
-        "source_preview": "uploads/patients/002/brats002_flair_preview.jpg",
-        "source_volume": "uploads/patients/002/brats002_flair.nii.gz",
-        "preview_filename": "brats002_flair_preview.jpg",
-        "volume_filename": "brats002_flair.nii.gz",
     },
 ]
 
@@ -362,7 +248,7 @@ P: Optimise lifestyle weight 2kg target. Repeat ambulatory BP if clinic-office d
             "routing_suggestion": [{"department": "cardiology", "confidence": 0.88}],
             "confidence": 0.88,
         },
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": SAMPLE_3_IMAGING,
     },
     {
         "name": "Eleanor Price",
@@ -485,7 +371,7 @@ P: Five-day prednisolone reducing course; spacer technique review; written actio
             "confidence": 0.91,
         },
         # In department — sample MRI set for doctor portal
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": SAMPLE_3_IMAGING,
     },
     {
         "name": "Harold Washington",
@@ -549,7 +435,7 @@ P: Oral antibiotics + steroid; oxygen as needed; early supported discharge after
             "clinical_notes": "AECOPD with infective trigger. IV furosemide started. On NIV. Monitoring ABG.",
             "confidence": 0.93,
         },
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": SAMPLE_3_IMAGING,
     },
     {
         "name": "James Okafor",
@@ -744,7 +630,7 @@ P: Continue sacubitril/valsartan, beta-blocker, MRA; daily weights and fluid res
             "clinical_notes": "Acute decompensated HFrEF. IV furosemide infusion. Strict fluid restriction. Awaiting MitraClip referral.",
             "confidence": 0.97,
         },
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": SAMPLE_3_IMAGING,
     },
     {
         "name": "Maria Santos",
@@ -958,7 +844,7 @@ P: Continue febuxostat; maintain colchicine prophylaxis during urate shifts; pri
             "clinical_notes": "Acute gout flare under Internal Medicine. Analgesia and acute colchicine course. Sample MRI set linked for imaging tab demo.",
             "confidence": 0.87,
         },
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": SAMPLE_3_IMAGING,
     },
     {
         "name": "Fatima Al-Rashid",
@@ -1142,7 +1028,7 @@ P: Risk factor modification; continue antianginal regimen; rapid-access chest pa
             "clinical_notes": "NSTEMI workup. Troponin trending. Angiography scheduled within 72h.",
             "confidence": 0.98,
         },
-        "imaging": DEFAULT_BRATS_IMAGING,
+        "imaging": SAMPLE_3_IMAGING,
     },
     {
         "name": "Lily Nakamura",
@@ -1355,7 +1241,7 @@ P: Baseline acetylcholinesterase inhibitor discussed for future progression; car
             "clinical_notes": "Moderate AD with BPSD. MRI reviewed — no surgical lesion. Safety and caregiver support plan in progress.",
             "confidence": 0.94,
         },
-        "imaging": BRATS_002_IMAGING,
+        "imaging": SAMPLE_2_IMAGING,
     },
     {
         "name": "Marcus Lindstrom",
@@ -1434,7 +1320,7 @@ P: MRI brain epilepsy protocol, EEG, start levetiracetam 500mg BD, driving advic
             "clinical_notes": "Left MTS on imaging; seizures reduced on dual therapy. Discussed adherence and driving.",
             "confidence": 0.91,
         },
-        "imaging": BRATS_001_IMAGING,
+        "imaging": SAMPLE_1_IMAGING,
     },
     {
         "name": "Nina Volkova",
@@ -1495,50 +1381,14 @@ def _days_ago(n: int) -> datetime:
 
 
 async def _seed_imaging_for_patient(db: AsyncSession, patient_id: int, spec: dict) -> None:
-    """Insert an Imaging row for a patient.
-
-    Supports two spec shapes:
-    - Supabase URLs (preferred): spec has "preview_url" and "original_url" as https:// links.
-      No local file copy is performed — URLs are stored directly.
-    - Local files (legacy BraTS): spec has "source_preview" / "source_volume" file paths.
-      Files are copied into uploads/patients/{id}/ and local public URLs are used.
-    """
-    # --- Supabase / direct URL path ---
-    if "preview_url" in spec and "original_url" in spec:
-        db.add(
-            Imaging(
-                patient_id=patient_id,
-                title=spec["title"],
-                image_type=spec["image_type"],
-                preview_url=spec["preview_url"],
-                original_url=spec["original_url"],
-            )
-        )
-        return
-
-    # --- Legacy local-file path ---
-    src_p = REPO_ROOT / spec["source_preview"]
-    src_v = REPO_ROOT / spec["source_volume"]
-    if not src_p.is_file() or not src_v.is_file():
-        logger.warning(
-            "Imaging seed skipped — missing file(s): exists preview=%s volume=%s",
-            src_p.is_file(),
-            src_v.is_file(),
-        )
-        return
-    p_name = spec.get("preview_filename", "preview.jpg")
-    v_name = spec.get("volume_filename", "volume.nii.gz")
-    dest_dir = upload_root() / "patients" / str(patient_id)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src_p, dest_dir / p_name)
-    shutil.copy2(src_v, dest_dir / v_name)
+    """Insert an Imaging row for a patient using Supabase-hosted URLs."""
     db.add(
         Imaging(
             patient_id=patient_id,
             title=spec["title"],
             image_type=spec["image_type"],
-            preview_url=public_url_for_rel(f"patients/{patient_id}/{p_name}"),
-            original_url=public_url_for_rel(f"patients/{patient_id}/{v_name}"),
+            preview_url=spec["preview_url"],
+            original_url=spec["original_url"],
         )
     )
 
@@ -1618,26 +1468,11 @@ async def _seed_patient_data(db: AsyncSession, data: dict, visit_counter: list) 
         for row in existing.scalars().all():
             await db.delete(row)
 
-    # Imaging — remove DB rows and local files under uploads/
+    # Imaging — remove DB rows
     existing_imaging = await db.execute(
         select(Imaging).where(Imaging.patient_id == patient.id)
     )
     for img in existing_imaging.scalars().all():
-        urls_to_delete = [img.preview_url, img.original_url]
-        # Also delete segmentation artifact files (predmask, overlay, 3D mask)
-        seg = img.segmentation_result or {}
-        for artifact in seg.get("artifacts", {}).values():
-            if isinstance(artifact, dict):
-                urls_to_delete.append(artifact.get("url") or artifact.get("path"))
-        for url in urls_to_delete:
-            if not url:
-                continue
-            lp = local_path_from_public_url(url.split("?")[0])
-            if lp and lp.is_file():
-                try:
-                    lp.unlink()
-                except OSError:
-                    pass
         await db.delete(img)
 
     # Allergies

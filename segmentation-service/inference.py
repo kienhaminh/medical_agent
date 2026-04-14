@@ -1,4 +1,4 @@
-"""BraTS MRI segmentation inference logic."""
+"""MRI segmentation inference logic."""
 import json
 import os
 import tempfile
@@ -50,7 +50,7 @@ def _upload_to_supabase(client, local_path: Path, storage_path: str) -> str:
     with open(local_path, "rb") as f:
         data = f.read()
     client.storage.from_(_SUPABASE_BUCKET).upload(
-        storage_path, data, {"content-type": content_type, "upsert": True}
+        storage_path, data, {"content-type": content_type, "upsert": "true"}
     )
     return client.storage.from_(_SUPABASE_BUCKET).get_public_url(storage_path)
 
@@ -110,7 +110,7 @@ def _download_file(url: str, out_path: Path) -> None:
 
 
 def _load_attco_model(checkpoint_path: Path, device: torch.device):
-    from models.AttCo_BraTS import AttCo
+    from models.AttCo_MRI import AttCo
 
     ckpt_obj = torch.load(str(checkpoint_path), map_location="cpu", weights_only=False)
     if hasattr(ckpt_obj, "state_dict"):
@@ -127,8 +127,8 @@ def _load_attco_model(checkpoint_path: Path, device: torch.device):
     return model
 
 
-def segment_brats(params: SegmentParams) -> dict[str, Any]:
-    """Run BraTS segmentation and upload artifacts to Supabase. Returns result dict."""
+def segment_mri(params: SegmentParams) -> dict[str, Any]:
+    """Run MRI segmentation and upload artifacts to Supabase. Returns result dict."""
     url_map = {
         "flair": params.flair_url,
         "t1": params.t1_url,
@@ -141,9 +141,9 @@ def segment_brats(params: SegmentParams) -> dict[str, Any]:
         raise ValueError("At least one of flair_url, t1_url, t1ce_url, t2_url must be provided.")
 
     supabase = _supabase_client()
-    # In the Docker container the Dockerfile copies segmentation-mcp/checkpoint/BraTS2020
+    # In the Docker container the Dockerfile copies segmentation-mcp/checkpoint/MRI2020
     # into the WORKDIR, so Path(__file__).parent / "checkpoint" resolves correctly.
-    ckpt_dir = Path(__file__).parent / "checkpoint" / "BraTS2020" / "JointFusionNet3D_v11"
+    ckpt_dir = Path(__file__).parent / "checkpoint" / "MRI2020" / "JointFusionNet3D_v11"
     ckpt_candidates = sorted(ckpt_dir.glob(f"Fold_{params.fold}_bs_4_*.pt"))
     if not ckpt_candidates:
         raise FileNotFoundError(f"No checkpoint for fold={params.fold} under {ckpt_dir}")
@@ -261,7 +261,7 @@ def segment_brats(params: SegmentParams) -> dict[str, Any]:
                 overlay_arr[m] = (1.0 - params.alpha) * overlay_arr[m] + params.alpha * color
 
         modalities_used = list(provided.keys())
-        prefix = f"BraTS20_{params.patient_id}_{'_'.join(modalities_used)}_z{slice_z}"
+        prefix = f"MRI_{params.patient_id}_{'_'.join(modalities_used)}_z{slice_z}"
         patient_prefix = f"patients/{params.patient_id}"
 
         predmask_path = td_path / f"{prefix}_predmask.png"
@@ -298,7 +298,7 @@ def segment_brats(params: SegmentParams) -> dict[str, Any]:
                 "slice_index": slice_z,
             },
             "model": {
-                "architecture": "AttCo_BraTS",
+                "architecture": "AttCo",
                 "checkpoint": str(checkpoint_path),
                 "device": str(device),
                 "num_classes": 4,

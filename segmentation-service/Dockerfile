@@ -17,7 +17,7 @@ COPY segmentation-service/inference.py .
 
 # Reuse models and checkpoints from segmentation-mcp — no duplication
 COPY segmentation-mcp/models/ models/
-COPY segmentation-mcp/checkpoint/BraTS2020 checkpoint/BraTS2020
+COPY segmentation-mcp/checkpoint/MRI2020 checkpoint/MRI2020
 
 # Supabase Storage — must be supplied at runtime
 ENV SUPABASE_URL=

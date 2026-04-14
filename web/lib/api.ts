@@ -329,6 +329,12 @@ export async function deleteRecord(recordId: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete record");
 }
 
+export async function getPatientImaging(patientId: number): Promise<Imaging[]> {
+  const res = await fetch(`${API_BASE_URL}/patients/${patientId}/imaging`);
+  if (!res.ok) throw new Error("Failed to fetch imaging records");
+  return res.json();
+}
+
 export async function deleteImagingRecord(
   patientId: number,
   imagingId: number

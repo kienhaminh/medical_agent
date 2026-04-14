@@ -5,9 +5,10 @@ import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Imaging } from "@/lib/api";
 import { runSegmentationAsync } from "@/lib/api";
+import { useSliceCache } from "./use-slice-cache";
 
 interface ImagingAnalysisDialogProps {
-  /** All imaging records in the study group (typically 4 BraTS modalities). */
+  /** All imaging records in the study group (typically 4 MRI modalities). */
   imagingGroup: Imaging[];
   patientId: number;
   onClose: () => void;
@@ -15,7 +16,7 @@ interface ImagingAnalysisDialogProps {
   userId?: string;
 }
 
-// BraTS segmentation class colors — medical imaging standard, not UI theme colors
+// Segmentation class colors — medical imaging standard, not UI theme colors
 const LEGEND = [
   { label: "Tumor Core (TC)", color: "bg-red-500" },
   { label: "Edema (ED)", color: "bg-green-500" },
@@ -77,8 +78,8 @@ export function ImagingAnalysisDialog({
       ? segmentedImaging.segmentation_result
       : null;
 
-  // Volume depth: prefer the NIfTI header value from the selected imaging record
-  // (available immediately from the API); fall back to segmentation result if present.
+  // Volume depth: from the API (derived from segmentation_result.input.shape_zyx),
+  // or directly from a full segmentation result.
   const volumeDepth: number =
     selectedImaging?.volume_depth ??
     segResult?.input?.shape_zyx?.[0] ??
@@ -179,12 +180,23 @@ export function ImagingAnalysisDialog({
   //   OVERLAY → plain MRI slice (background) + transparent mask PNG (foreground, full opacity)
   // Both MASK and OVERLAY composite client-side so the mask sits on top of the original slice.
 
-  // Supabase slice URL pattern — stored in segmentation_result.slice_url_pattern after MCP run.
-  const slicePattern = segResult?.slice_url_pattern ?? null;
+  // Supabase slice URL pattern — available from pre-generated slices (slices_ready) or after
+  // full segmentation (success). Fall back through all imaging records in the group.
+  const slicePattern = (
+    segResult?.slice_url_pattern ??
+    selectedImaging?.segmentation_result?.slice_url_pattern ??
+    group.find((img) => img.segmentation_result?.slice_url_pattern)?.segmentation_result?.slice_url_pattern ??
+    null
+  ) as { mri: string; mask: string } | null;
 
-  // MRI base layer: Supabase pre-generated slice when available, else static preview fallback.
+  // Local cache — prefetches all slices for the current modality as blob URLs.
+  const { resolve: resolveSlice, progress: cacheProgress } = useSliceCache(
+    slicePattern, volumeDepth, selectedImaging?.id ?? null, sliceZ
+  );
+
+  // MRI base layer: cached blob URL → Supabase URL → static preview fallback.
   const baseSliceUrl = slicePattern
-    ? slicePattern.mri.replace("{z}", String(sliceZ))
+    ? (resolveSlice(sliceZ) ?? slicePattern.mri.replace("{z}", String(sliceZ)))
     : (selectedImaging.aligned_preview_url ?? selectedImaging.preview_url);
 
   // Mask overlay: Supabase transparent PNG slice (only valid after segmentation).
@@ -204,27 +216,20 @@ export function ImagingAnalysisDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="BraTS MRI Study Viewer"
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: "#09090f", fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace" }}
+      aria-label="MRI Study Viewer"
+      className="fixed inset-0 z-50 flex flex-col bg-[#09090f] [font-family:'JetBrains_Mono','Fira_Code',ui-monospace,monospace]"
     >
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div
-        className="flex items-center justify-between px-5 py-3 shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "#0d0d17" }}
-      >
+      <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-white/[0.08] bg-[#0d0d17]">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-bold tracking-[0.25em] uppercase" style={{ color: "rgba(255,255,255,0.25)" }}>
-            BraTS MRI Study
+          <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-white/25">
+            MRI Study
           </span>
-          <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>
+          <span className="text-sm font-medium text-white/75">
             {selectedImaging.title}
           </span>
           {segResult && (
-            <span
-              className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full"
-              style={{ border: "1px solid rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.08)", color: "#6ee7b7" }}
-            >
+            <span className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-400/40 bg-emerald-400/[0.08] text-emerald-300">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
               SEGMENTED
             </span>
@@ -233,19 +238,27 @@ export function ImagingAnalysisDialog({
         <button
           type="button"
           onClick={onClose}
-          className="p-1 transition-opacity opacity-30 hover:opacity-80"
-          style={{ color: "white" }}
+          className="p-1 transition-opacity opacity-30 hover:opacity-80 text-white"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
+      {/* ── Slice prefetch progress bar ─────────────────────────── */}
+      {cacheProgress && cacheProgress.loaded < cacheProgress.total && (
+        <div className="shrink-0 h-0.5 w-full bg-white/5">
+          <div
+            className="h-full transition-all duration-100 bg-blue-400/60"
+            style={{ width: `${Math.round((cacheProgress.loaded / cacheProgress.total) * 100)}%` }}
+          />
+        </div>
+      )}
+
       {/* ── Main image area ─────────────────────────────────────── */}
       <div
         ref={imageAreaRef}
-        className="flex-1 min-h-0 relative overflow-hidden select-none"
-        style={{ background: "#050508", cursor: isDragging ? "grabbing" : "grab" }}
+        className={`flex-1 min-h-0 relative overflow-hidden select-none bg-[#050508] ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           setIsDragging(true);
@@ -315,8 +328,7 @@ export function ImagingAnalysisDialog({
             onClick={() =>
               setView((v) => ({ ...v, zoom: Math.max(MIN_ZOOM, v.zoom / ZOOM_STEP) }))
             }
-            className="p-1.5 rounded transition-opacity opacity-40 hover:opacity-80"
-            style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.6)", color: "white" }}
+            className="p-1.5 rounded transition-opacity opacity-40 hover:opacity-80 border border-white/[0.12] bg-black/60 text-white"
             aria-label="Zoom out"
           >
             <ZoomOut className="h-3.5 w-3.5" />
@@ -324,12 +336,11 @@ export function ImagingAnalysisDialog({
           <button
             type="button"
             onClick={() => setView(RESET_VIEW)}
-            className="px-2 py-1 text-[11px] font-bold rounded transition-all"
-            style={{
-              border: isDefaultView ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(96,165,250,0.4)",
-              background: isDefaultView ? "rgba(0,0,0,0.6)" : "rgba(96,165,250,0.1)",
-              color: isDefaultView ? "rgba(255,255,255,0.4)" : "#93c5fd",
-            }}
+            className={`px-2 py-1 text-[11px] font-bold rounded transition-all border ${
+              isDefaultView
+                ? "border-white/[0.12] bg-black/60 text-white/40"
+                : "border-blue-400/40 bg-blue-400/10 text-[#93c5fd]"
+            }`}
             aria-label="Reset zoom"
           >
             {Math.round(view.zoom * 100)}%
@@ -339,8 +350,7 @@ export function ImagingAnalysisDialog({
             onClick={() =>
               setView((v) => ({ ...v, zoom: Math.min(MAX_ZOOM, v.zoom * ZOOM_STEP) }))
             }
-            className="p-1.5 rounded transition-opacity opacity-40 hover:opacity-80"
-            style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.6)", color: "white" }}
+            className="p-1.5 rounded transition-opacity opacity-40 hover:opacity-80 border border-white/[0.12] bg-black/60 text-white"
             aria-label="Zoom in"
           >
             <ZoomIn className="h-3.5 w-3.5" />
@@ -350,8 +360,7 @@ export function ImagingAnalysisDialog({
         {/* Slice navigation — bottom-center; visible as soon as NIfTI depth is known */}
         {!running && volumeDepth > 1 && (
           <div
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded"
-            style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded bg-black/60 border border-white/10"
             onMouseDown={(e) => e.stopPropagation()}
             onMouseMove={(e) => e.stopPropagation()}
           >
@@ -359,24 +368,19 @@ export function ImagingAnalysisDialog({
               type="button"
               onClick={() => setSliceZ((z) => Math.max(0, z - 1))}
               disabled={sliceZ === 0}
-              className="p-1.5 transition-opacity disabled:opacity-20 hover:opacity-80"
-              style={{ color: "white" }}
+              className="p-1.5 transition-opacity disabled:opacity-20 hover:opacity-80 text-white"
               aria-label="Previous slice"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span
-              className="text-[11px] tabular-nums px-1"
-              style={{ color: "rgba(255,255,255,0.5)", minWidth: "6ch", textAlign: "center" }}
-            >
+            <span className="text-[11px] tabular-nums px-1 text-white/50 min-w-[6ch] text-center">
               {sliceZ + 1} / {volumeDepth}
             </span>
             <button
               type="button"
               onClick={() => setSliceZ((z) => Math.min(volumeDepth - 1, z + 1))}
               disabled={sliceZ === volumeDepth - 1}
-              className="p-1.5 transition-opacity disabled:opacity-20 hover:opacity-80"
-              style={{ color: "white" }}
+              className="p-1.5 transition-opacity disabled:opacity-20 hover:opacity-80 text-white"
               aria-label="Next slice"
             >
               <ChevronRight className="h-4 w-4" />
@@ -387,29 +391,24 @@ export function ImagingAnalysisDialog({
         {/* Preview / Mask / Overlay toggle — bottom-right */}
         {segResult && !running && (
           <div className="absolute bottom-4 right-4 flex items-center gap-0.5">
-            <div
-              className="flex rounded overflow-hidden"
-              style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.6)" }}
-            >
+            <div className="flex rounded overflow-hidden border border-white/10 bg-black/60">
               {(["preview", "mask", "overlay"] as const).map((mode, i) => {
                 const active = viewMode === mode;
                 const label = mode.toUpperCase();
-                const activeStyle =
+                const activeClass =
                   mode === "overlay"
-                    ? { background: "rgba(96,165,250,0.15)", color: "#93c5fd" }
+                    ? "bg-blue-400/[0.15] text-[#93c5fd]"
                     : mode === "mask"
-                      ? { background: "rgba(52,211,153,0.12)", color: "#6ee7b7" }
-                      : { background: "rgba(255,255,255,0.1)", color: "white" };
+                      ? "bg-emerald-400/[0.12] text-[#6ee7b7]"
+                      : "bg-white/10 text-white";
                 return (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setViewMode(mode)}
-                    className="px-3 py-1.5 text-[10px] font-bold tracking-wider transition-colors"
-                    style={{
-                      ...(active ? activeStyle : { background: "transparent", color: "rgba(255,255,255,0.3)" }),
-                      ...(i > 0 ? { borderLeft: "1px solid rgba(255,255,255,0.08)" } : {}),
-                    }}
+                    className={`px-3 py-1.5 text-[10px] font-bold tracking-wider transition-colors ${
+                      active ? activeClass : "bg-transparent text-white/30"
+                    } ${i > 0 ? "border-l border-white/[0.08]" : ""}`}
                   >
                     {label}
                   </button>
@@ -421,15 +420,9 @@ export function ImagingAnalysisDialog({
       </div>
 
       {/* ── Modality strip ──────────────────────────────────────── */}
-      <div
-        className="shrink-0 px-4 py-3"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "#0c0c15" }}
-      >
+      <div className="shrink-0 px-4 py-3 border-t border-white/[0.07] bg-[#0c0c15]">
         <div className="flex items-center gap-3">
-          <span
-            className="text-[9px] font-bold tracking-[0.25em] uppercase shrink-0"
-            style={{ color: "rgba(255,255,255,0.18)" }}
-          >
+          <span className="text-[9px] font-bold tracking-[0.25em] uppercase shrink-0 text-white/[0.18]">
             Modalities
           </span>
           <div className="flex gap-2 flex-1 min-w-0">
@@ -444,23 +437,18 @@ export function ImagingAnalysisDialog({
                   key={img.id}
                   type="button"
                   onClick={() => setSelectedId(img.id)}
-                  className={`relative flex-1 min-w-0 rounded overflow-hidden border-2 transition-all ${
+                  className={`relative flex-1 min-w-0 max-w-[140px] rounded overflow-hidden border-2 transition-all ${
                     isSelected ? `${borderColor} opacity-100` : "border-white/10 opacity-40 hover:opacity-70"
                   }`}
-                  style={{ maxWidth: 140 }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.preview_url}
                     alt={img.image_type}
                     draggable={false}
-                    className="w-full object-contain bg-black"
-                    style={{ height: 64 }}
+                    className="w-full h-16 object-contain bg-black"
                   />
-                  <div
-                    className="px-1.5 py-1"
-                    style={{ background: "rgba(0,0,0,0.7)" }}
-                  >
+                  <div className="px-1.5 py-1 bg-black/70">
                     <span
                       className={`text-[9px] font-bold uppercase tracking-wider ${
                         isSelected ? textColor : "text-white/40"
@@ -477,18 +465,15 @@ export function ImagingAnalysisDialog({
       </div>
 
       {/* ── Bottom bar ─────────────────────────────────────────── */}
-      <div
-        className="shrink-0 flex items-center justify-between px-5 py-2.5 gap-4"
-        style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "#09090f" }}
-      >
-        {/* BraTS legend */}
+      <div className="shrink-0 flex items-center justify-between px-5 py-2.5 gap-4 border-t border-white/[0.07] bg-[#09090f]">
+        {/* Segmentation legend */}
         <div
           className={`flex items-center gap-5 flex-wrap transition-opacity ${
             segResult ? "opacity-100" : "opacity-25"
           }`}
         >
           {LEGEND.map(({ label, color }) => (
-            <div key={label} className="flex items-center gap-1.5 text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <div key={label} className="flex items-center gap-1.5 text-[10px] text-white/55">
               <span className={`w-2 h-2 rounded-sm shrink-0 ${color}`} />
               {label}
             </div>
@@ -501,16 +486,13 @@ export function ImagingAnalysisDialog({
             <span className="text-[11px] text-red-400">{error}</span>
           )}
           {segResult && (
-            <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.22)" }}>
+            <span className="text-[10px] font-mono text-white/[0.22]">
               {segResult.model?.architecture ?? ""}
             </span>
           )}
 
           {queued ? (
-            <span
-              className="text-[11px] font-mono px-3 py-1.5 rounded"
-              style={{ border: "1px solid rgba(96,165,250,0.3)", color: "rgba(96,165,250,0.7)" }}
-            >
+            <span className="text-[11px] font-mono px-3 py-1.5 rounded border border-blue-400/30 text-blue-400/70">
               Running in background — you&apos;ll be notified when done
             </span>
           ) : segResult ? (
@@ -518,8 +500,7 @@ export function ImagingAnalysisDialog({
               type="button"
               onClick={handleRunSegmentation}
               disabled={running}
-              className="px-3 py-1.5 text-[10px] font-bold tracking-wider rounded uppercase transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ border: "1px solid rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.45)" }}
+              className="px-3 py-1.5 text-[10px] font-bold tracking-wider rounded uppercase transition-opacity disabled:opacity-30 disabled:cursor-not-allowed border border-white/[0.18] text-white/45"
             >
               ↺ Re-run
             </button>
@@ -528,11 +509,10 @@ export function ImagingAnalysisDialog({
               type="button"
               onClick={handleRunSegmentation}
               disabled={running || !primaryForSeg}
-              className="flex items-center gap-2 px-4 py-2 text-[11px] font-bold tracking-wider rounded uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{ background: "#2563eb", color: "white" }}
+              className="flex items-center gap-2 px-4 py-2 text-[11px] font-bold tracking-wider rounded uppercase transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-blue-600 text-white"
             >
               <Layers className="h-3.5 w-3.5" />
-              {running ? "Starting…" : "Run BraTS Segmentation"}
+              {running ? "Starting…" : "Run Segmentation"}
             </button>
           )}
         </div>

@@ -71,7 +71,7 @@ def test_run_inference_sets_complete_on_success():
     _jobs[job_id] = JobState()
     fake_params = object()
 
-    with patch("server.segment_brats", return_value={"status": "success"}) as mock_seg:
+    with patch("server.segment_mri", return_value={"status": "success"}) as mock_seg:
         _run_inference(job_id, fake_params)
         mock_seg.assert_called_once_with(fake_params)
 
@@ -85,7 +85,7 @@ def test_run_inference_sets_error_on_exception():
     _jobs[job_id] = JobState()
     fake_params = object()
 
-    with patch("server.segment_brats", side_effect=RuntimeError("model failed")):
+    with patch("server.segment_mri", side_effect=RuntimeError("model failed")):
         _run_inference(job_id, fake_params)
 
     assert _jobs[job_id].status == "error"

@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { User, ExternalLink, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PatientDetail, VisitListItem, Imaging, ImageGroup } from "@/lib/api";
+import { getPatientImaging } from "@/lib/api";
 import { ImagingAnalysisDialog } from "@/components/doctor/imaging-analysis-dialog";
 import { PreVisitBriefCard } from "@/components/doctor/pre-visit-brief-card";
 
 interface PatientCardPanelProps {
   patient: PatientDetail | null;
+  patientLoading?: boolean;
   selectedVisit: VisitListItem | null;
   visitBrief: string;
   briefLoading: boolean;
@@ -38,10 +40,18 @@ const URGENCY_BADGE: Record<string, string> = {
   routine: "bg-green-100 text-green-700",
 };
 
-export function PatientCardPanel({ patient, selectedVisit, visitBrief, briefLoading, chatSessionId, userId }: PatientCardPanelProps) {
+export function PatientCardPanel({ patient, patientLoading, selectedVisit, visitBrief, briefLoading, chatSessionId, userId }: PatientCardPanelProps) {
   const [tab, setTab] = useState<Tab>("overview");
 
   if (!patient) {
+    if (patientLoading) {
+      return (
+        <div className="p-6 text-center text-muted-foreground">
+          <div className="h-8 w-8 mx-auto mb-2 animate-spin rounded-full border-2 border-muted border-t-primary" />
+          <p className="text-sm">Loading patient...</p>
+        </div>
+      );
+    }
     return (
       <div className="p-6 text-center text-muted-foreground">
         <User className="h-8 w-8 mx-auto mb-2 opacity-40" />
@@ -284,8 +294,13 @@ function ImagingTab({
   chatSessionId?: number | null;
   userId?: string;
 }) {
-  const imaging = initialImaging ?? [];
+  const [imaging, setImaging] = useState<Imaging[]>(initialImaging ?? []);
   const [dialogGroup, setDialogGroup] = useState<Imaging[] | null>(null);
+
+  // Fetch fresh imaging data on mount to pick up any completed segmentations
+  useEffect(() => {
+    getPatientImaging(patientId).then(setImaging).catch(() => {});
+  }, [patientId]);
 
   if (!imaging.length) {
     return <p className="text-xs text-muted-foreground">No imaging on file.</p>;
@@ -382,7 +397,11 @@ function ImagingTab({
         <ImagingAnalysisDialog
           imagingGroup={dialogGroup}
           patientId={patientId}
-          onClose={() => setDialogGroup(null)}
+          onClose={() => {
+            setDialogGroup(null);
+            // Refresh imaging data so the tab reflects any completed segmentation
+            getPatientImaging(patientId).then(setImaging).catch(() => {});
+          }}
           sessionId={chatSessionId}
           userId={userId}
         />

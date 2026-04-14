@@ -1,4 +1,4 @@
-"""BraTS segmentation HTTP service — FastAPI entry point."""
+"""MRI segmentation HTTP service — FastAPI entry point."""
 import asyncio
 import logging
 import uuid
@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, model_validator
 
-from inference import SegmentParams, segment_brats
+from inference import SegmentParams, segment_mri
 
 logger = logging.getLogger(__name__)
-app = FastAPI(title="BraTS Segmentation Service")
+app = FastAPI(title="MRI Segmentation Service")
 
 
 @dataclass
@@ -39,6 +39,11 @@ class SegmentRequest(BaseModel):
         if not any([self.flair_url, self.t1_url, self.t1ce_url, self.t2_url]):
             raise ValueError("At least one modality URL must be provided")
         return self
+
+
+@app.get("/")
+async def health():
+    return {"status": "ok", "service": "MRI Segmentation Service"}
 
 
 @app.post("/segment", status_code=202)
@@ -79,7 +84,7 @@ def _run_inference(job_id: str, params: SegmentParams) -> None:
     job = _jobs[job_id]
     try:
         job.status = "running"
-        job.result = segment_brats(params)
+        job.result = segment_mri(params)
         job.status = "complete"
     except Exception as exc:
         logger.exception("Inference failed for job %s", job_id)

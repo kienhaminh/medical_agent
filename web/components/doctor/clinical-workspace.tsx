@@ -19,6 +19,7 @@ const STORAGE_KEY = "medinexus_panel_state";
 interface ClinicalWorkspaceProps {
   // Patient
   patient: PatientDetail | null;
+  patientLoading?: boolean;
   selectedVisit: VisitListItem | null;
 
   // Pre-visit brief
@@ -98,6 +99,7 @@ export function ClinicalWorkspace(props: ClinicalWorkspaceProps) {
         >
           <PatientCardPanel
             patient={props.patient}
+            patientLoading={props.patientLoading}
             selectedVisit={props.selectedVisit ?? null}
             visitBrief={props.visitBrief}
             briefLoading={props.briefLoading}
