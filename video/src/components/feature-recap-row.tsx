@@ -1,13 +1,8 @@
 import { spring, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import { Stethoscope, LayoutDashboard, Brain, BarChart2 } from "lucide-react";
+import { type LucideIcon, Stethoscope, LayoutDashboard, Brain, BarChart2 } from "lucide-react";
 import { fonts, colors } from "../styles/theme";
 
-const RECAP_ICONS: React.FC<{ size?: number; color?: string; strokeWidth?: number }>[] = [
-  Stethoscope,
-  LayoutDashboard,
-  Brain,
-  BarChart2,
-];
+const RECAP_ICONS: LucideIcon[] = [Stethoscope, LayoutDashboard, Brain, BarChart2];
 
 interface RecapItem {
   readonly label: string;
