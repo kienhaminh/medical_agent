@@ -72,7 +72,7 @@ Transition: `fadeToWhite` f155–179.
 Dark-to-light gradient bg. Particles converge → logo forms (f0–70). Typewriter tagline "One AI Agent. The Entire Hospital Workflow." enters f85. Four feature icons (stethoscope/routing/brain/scan) spring-scale-up at f140 with 12-frame stagger.
 
 ### Scene 3 — Smart Intake (frames 390–839)
-Light bg. iPhone-framed chat interface pans down. Three messages (assistant/user/assistant) typewrite in sequence. Intake form slides up at f180 with 3 fields auto-filling. Submit button at f310, triage result card (green border, "Cardiology — Urgent") bounces in at f340.
+Light bg. All content is rendered inside an `IphoneFrame` (existing `components/iphone-frame.tsx`) to emphasize the patient-facing mobile experience. The phone viewport pans downward (cameraBehavior: panDown) as content grows. Three messages (assistant/user/assistant) typewrite in sequence. Intake form slides up at f180 with 3 fields auto-filling. Submit button at f310, triage result card (green border, "Cardiology — Urgent") bounces in at f340.
 
 ### Scene 4 — Doctor Workspace (frames 840–1349)
 Desktop floating screen. Three sequential beats with camera pan focus:
