@@ -130,7 +130,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               flex: 1,
               opacity: colOpacity,
               transform: `translateY(${colY}px)`,
-              background: "#f1f3f5",
+              background: colors.muted,
               borderRadius: radius.xl,
               padding: "12px 10px",
               display: "flex",
