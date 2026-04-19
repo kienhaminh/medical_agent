@@ -323,24 +323,45 @@ export function useIntakeChat() {
 
         if (parsed.form_request && typeof parsed.form_request === "object") {
           const formRequest = parsed.form_request as ActiveForm;
+          const formMsg =
+            formRequest.message ||
+            formRequest.title ||
+            formRequest.question ||
+            "";
+
+          // Always show the form's greeting as a chat bubble.
+          // After a form submission the pending slot (pendingAssistantIdRef) is
+          // the right target; for the very first form use currentAssistantId
+          // (only if no text was already streamed into it).
+          if (formMsg) {
+            if (pendingAssistantIdRef.current) {
+              // Subsequent form: put greeting into the pending slot
+              const pendId = pendingAssistantIdRef.current;
+              pendingAssistantIdRef.current = null;
+              currentAssistantId = pendId;
+              accumulated = formMsg;
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === pendId ? { ...msg, content: formMsg } : msg,
+                ),
+              );
+            } else if (!accumulated) {
+              // First form and agent sent no text yet
+              accumulated = formMsg;
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === currentAssistantId
+                    ? { ...msg, content: formMsg }
+                    : msg,
+                ),
+              );
+            }
+            // If accumulated already has text the agent streamed naturally, leave it.
+          }
+
           setActiveForm(formRequest);
           setActivity(null);
           setIsLoading(false);
-          if (!accumulated) {
-            const formMsg =
-              formRequest.message ||
-              formRequest.title ||
-              formRequest.question ||
-              "Please fill out the form below.";
-            accumulated = formMsg;
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === currentAssistantId
-                  ? { ...msg, content: formMsg }
-                  : msg,
-              ),
-            );
-          }
           needsNewMessage = true;
         }
 

@@ -187,6 +187,14 @@ export default function PatientIntakePage() {
                 );
               }
 
+              // Skip empty assistant messages that have no content to show:
+              // - non-last messages (orphaned tool-call placeholders)
+              // - last message but not loading (pending slot after form shown)
+              if (msg.role === "assistant" && !msg.content) {
+                const isLast = msg.id === messages[messages.length - 1]?.id;
+                if (!isLast || !isLoading) return null;
+              }
+
               return (
               <div
                 key={msg.id}
@@ -210,7 +218,7 @@ export default function PatientIntakePage() {
                           msg.id === messages[messages.length - 1]?.id
                         }
                       />
-                    ) : (
+                    ) : msg.id === messages[messages.length - 1]?.id && isLoading ? (
                       <div className="flex items-center gap-2">
                         <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         {activity && (
@@ -219,7 +227,7 @@ export default function PatientIntakePage() {
                           </span>
                         )}
                       </div>
-                    )
+                    ) : null
                   ) : (
                     msg.content
                   )}

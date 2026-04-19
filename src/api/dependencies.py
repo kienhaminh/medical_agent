@@ -14,7 +14,8 @@ from ..llm.kimi import KimiProvider
 from ..llm.openai_provider import OpenAIProvider
 from ..config.settings import load_config
 from ..tools.registry import ToolRegistry
-from ..prompt.intake import INTAKE_SYSTEM_PROMPT
+from ..prompt.intake import build_intake_prompt
+from ..prompt.system import build_system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,10 @@ _kimi_provider = KimiProvider(
 logger.info("Kimi provider initialized (model=%s)", _KIMI_MODEL)
 
 # Doctor support agent — full tool set, deep reasoning via kimi-k2.5
-_agent: LangGraphAgent = LangGraphAgent(llm_with_tools=_kimi_provider.llm)
+_agent: LangGraphAgent = LangGraphAgent(
+    llm_with_tools=_kimi_provider.llm,
+    system_prompt=build_system_prompt(config.language),
+)
 logger.info("Doctor agent initialized (Kimi %s)", _KIMI_MODEL)
 
 # Tools needed by the intake agent — restrict to this set for faster tool
@@ -61,7 +65,7 @@ _INTAKE_TOOLS = ["ask_user_input", "create_visit", "complete_triage", "set_itine
 # Intake agent — fast GPT model with restricted tool set for low latency
 _intake_agent: LangGraphAgent = LangGraphAgent(
     llm_with_tools=_openai_provider.llm,
-    system_prompt=INTAKE_SYSTEM_PROMPT,
+    system_prompt=build_intake_prompt(config.language),
     allowed_tools=_INTAKE_TOOLS,
 )
 logger.info("Intake agent initialized (OpenAI %s)", _OPENAI_MODEL)

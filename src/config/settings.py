@@ -62,6 +62,9 @@ class Config:
     temperature: float = 0.3
     redis_url: str = "redis://localhost:6379/0"
 
+    # Language Configuration
+    language: str = "en"
+
     # CORS Configuration
     cors_origins: list[str] = field(default_factory=lambda: ["http://localhost:3000"])
 
@@ -113,6 +116,7 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
     max_tokens = int(os.getenv("MAX_TOKENS", yaml_config.get("max_tokens", 4096)))
     temperature = float(os.getenv("TEMPERATURE", yaml_config.get("temperature", 0.3)))
     redis_url = os.getenv("REDIS_URL", yaml_config.get("redis_url", "redis://localhost:6379/0"))
+    language = os.getenv("LANGUAGE", yaml_config.get("language", "en"))
 
     cors_origins = yaml_config.get("cors_origins", ["http://localhost:3000"])
     cors_origins_env = os.getenv("CORS_ORIGINS")
@@ -133,6 +137,7 @@ def _load_config_impl(config_file: Optional[Path] = None) -> Config:
         max_tokens=max_tokens,
         temperature=temperature,
         redis_url=redis_url,
+        language=language,
         cors_origins=cors_origins,
         context=ContextConfig(
             max_messages=context_cfg.get("max_messages", 50),

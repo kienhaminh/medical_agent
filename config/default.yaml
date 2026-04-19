@@ -2,6 +2,7 @@
 
 max_tokens: 4096
 temperature: 0.3
+language: en   # "en" = follow user's language, "ko" = always Korean
 
 # Redis Configuration
 redis_url: redis://localhost:6379/0
